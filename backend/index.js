@@ -34,8 +34,8 @@ let usersByID = new Map();
 let usersID = 0;
 // сокеты
 const io = require('socket.io')(https, {
-    'pingInterval': 10000,
-    'pingTimeout': 1000
+    'pingInterval': 2000,
+    'pingTimeout': 2000
 });
 // обрабатываем подключение нового юзера
 io.on('connection', (socket) => {
@@ -46,26 +46,35 @@ io.on('connection', (socket) => {
     socket.mediaReady = false;
     socket.emit('userConnected', usersID);
     console.log(`${usersID++}: ${socket.id} user connected`);
-    if (usersBySocket.size > 1) {
-        // перебираем всех пользователей, кроме нового
-        for (const anotherUserSocket of usersBySocket.keys()) {
-            if (anotherUserSocket != socket) {
-                // сообщаем новому пользователю и пользователю anotherUser,
-                // что им необходимо создать p2p подключение (PeerConnection)
-                const socketID = usersBySocket.get(socket);
-                const anotherUserSocketID = usersBySocket.get(anotherUserSocket);
-                socket.emit('newUser', anotherUserSocketID, true);
-                anotherUserSocket.emit('newUser', socketID, false);
-                // сообщаем новому пользователю, что он должен создать приглашение
-                // для юзера userSocket, (но нет смысла кидать приглашение пользователю,
-                // который не делится никакими медиапотоками)
-                if (anotherUserSocket.mediaReady) {
-                    console.log(`запросили приглашение от ${socketID} для ${anotherUserSocketID}`);
-                    socket.emit('newOffer', anotherUserSocketID);
+
+    socket.on('mediaReady', () => {
+        console.log(usersBySocket.get(socket), "ready");
+        socket.mediaReady = true;
+    });
+
+    socket.on('afterConnect', () => {
+        if (usersBySocket.size > 1) {
+            // перебираем всех пользователей, кроме нового
+            for (const anotherUserSocket of usersBySocket.keys()) {
+                if (anotherUserSocket != socket) {
+                    // сообщаем новому пользователю и пользователю anotherUser,
+                    // что им необходимо создать p2p подключение (PeerConnection)
+                    const socketID = usersBySocket.get(socket);
+                    const anotherUserSocketID = usersBySocket.get(anotherUserSocket);
+                    socket.emit('newUser', anotherUserSocketID, true);
+                    anotherUserSocket.emit('newUser', socketID, false);
+                    // сообщаем новому пользователю, что он должен создать приглашение
+                    // для юзера userSocket, (но нет смысла кидать приглашение пользователю,
+                    // который не делится никакими медиапотоками)
+                    if (socket.mediaReady || anotherUserSocket.mediaReady) {
+                        console.log(`запросили приглашение от ${socketID} для ${anotherUserSocketID}`);
+                        socket.emit('newOffer', anotherUserSocketID);
+                    }
                 }
             }
         }
-    }
+    });
+
     // если получили приглашение от юзера socket для юзера remoteUserID
     socket.on('newOffer', (offer, remoteUserID) => {
         const socketID = usersBySocket.get(socket);
@@ -88,9 +97,7 @@ io.on('connection', (socket) => {
             anotherUserSocket.emit('receiveAnswer', answer, socketID);
         }
     });
-    socket.on('mediaReady', () => {
-        socket.mediaReady = true;
-    });
+
     socket.on('disconnect', () => {
         const userID = usersBySocket.get(socket);
         console.log(`${userID}: user disconnected`);
@@ -98,6 +105,7 @@ io.on('connection', (socket) => {
         usersByID.delete(userID);
         io.emit('userDisconnected', userID);
     });
+
 });
 
 // для ввода в консоль сервера
@@ -113,6 +121,10 @@ const rl = readline.createInterface({
 
 rl.on('line', (input_str) => {
     console.log(input_str);
+    if (usersByID.has(Number(input_str)))
+    {
+        usersByID.get(Number(input_str)).disconnect(true);
+    }
 });
 rl.on('SIGINT', () => {
     process.exit();

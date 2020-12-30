@@ -27,6 +27,7 @@ export default class UI {
         this.chatOptions = document.querySelector("#chatOptions");
         this.mutePolicy = true;
         // конструктор, т.е функции ниже вызываются при создания объекта UI
+        console.debug("UI ctor");
         this.prepareButtons();
         this.prepareCloseButtonsForModalsWindows();
         this.prepareLocalVideo();
@@ -61,8 +62,7 @@ export default class UI {
     }
     enableSounds() {
         for (const video of this.allVideos.values()) {
-            if (video != this.localVideo)
-            {
+            if (video != this.localVideo) {
                 video.muted = false;
             }
         }
@@ -92,14 +92,17 @@ export default class UI {
         newChatOption.innerText = `собеседник ${remoteChatID}`;
         this.chatOptions.appendChild(newChatOption);
     }
+    // удалить видео собеседника (и опцию для чата/файлов тоже)
     removeVideo(remoteVideoID) {
         this.allVideos.delete(remoteVideoID);
         let video = document.querySelector(`#remoteVideo${remoteVideoID}`);
         if (video != null) {
             video.parentElement.remove();
             let chatOption = document.querySelector(`option[value='${remoteVideoID}']`);
-            console.log(chatOption);
-            chatOption.remove();
+            if (chatOption != null) {
+                chatOption.remove();
+            }
+
         }
     }
     resizeVideos() {

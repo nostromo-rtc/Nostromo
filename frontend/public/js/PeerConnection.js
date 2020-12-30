@@ -23,96 +23,12 @@ export default class PeerConnection {
         this.dcCreated = false;
         this.dc = new DataChannel(this.UI, this);
         // конструктор
+        console.debug("PeerConnection ctor");
         this.createRTCPeerConnection();
     }
-    // добавить медиапоток в подключение
-    async addNewMediaStream(stream, trackKind) {
-        this.localStream = stream;
-        let newTrack = this.localStream.getAudioTracks()[0];
-        if (trackKind == 'video') {
-            newTrack = this.localStream.getVideoTracks()[0];
-        }
-        this.pc.addTrack(newTrack, this.localStream);
-        if (this.isOffer) {
-            if (this.pc.iceConnectionState != 'connected') {
-                console.log("maybe BUG");
-                this.pc.close();
-                this.pc = undefined;
-                this.createRTCPeerConnection();
-            }
-            await this.createOffer();
-        }
-        console.log("добавлена новая медиадорожка");
-        console.log(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
-    }
-    // обновить медиапоток в подключении
-    async updateMediaStream(stream, trackKind) {
-        this.localStream = stream;
-        let newTrack = this.localStream.getAudioTracks()[0];
-        if (trackKind == 'video') {
-            newTrack = this.localStream.getVideoTracks()[0];
-        }
-        let sender = this.pc.getSenders()[0];
-        for (sender of this.pc.getSenders()) {
-            if (sender != undefined && sender.track != null &&
-                sender.track.kind == trackKind) {
-                await sender.replaceTrack(newTrack);
-            }
-        }
-        console.log("обновлен медиапоток");
-        console.log(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
-    }
-    // события WebRTC
-    onICEStateChange(event) {
-        const connectionState = this.pc.iceConnectionState;
-        console.log("ice connection state:", connectionState);
-        if (connectionState == "connected") {
-            this.UI.addChatOption(this.socketSettings.remoteUserID);
-            this.UI.afterConnectSection.hidden = false;
-        } else if (connectionState == "failed") {
-            // если соединение с заданными SDP-объектами не удалось, то удаляем его и создаем новое
-            console.log("maybe BUG2");
-            this.pc = undefined;
-            this.createRTCPeerConnection();
-        }
-        //"have-remote-pranswer"
-    }
-    onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
-    {
-        console.log("ice gathering state: ", this.pc.iceGatheringState);
-        if (this.pc.iceGatheringState == "complete") {
-            if (this.firstConnect) {
-                console.log("Sending SDP to web-server", this.isOffer);
-                this.firstConnect = false;
-                let emitEvent = 'newOffer';
-                if (!this.isOffer) emitEvent = 'newAnswer';
-                this.socketSettings.socket.emit(emitEvent, this.pc.localDescription, this.socketSettings.remoteUserID);
-            }
-        }
-    }
-    // установка описаний (SDP-объектов)
-    async pc_setLocalDescription(desc) {
-        // -- устанавливаем приглашение/ответ от нас как описание локальной стороны -- //
-        try {
-            await this.pc.setLocalDescription(desc);
-            console.log("setLocalDescription complete!");
-        } catch (error) {
-            console.log("Failed to set session description:", error);
-        }
-    }
-
-    async pc_setRemoteDescription(desc) {
-        // -- устанавливаем приглашение/ответ от нас как описание удаленной стороны -- //
-        try {
-            await this.pc.setRemoteDescription(desc);
-            console.log("setRemoteDescription complete!");
-        } catch (error) {
-            console.log("Failed to set session description:", error);
-        }
-    }
-
     // создание p2p соединения
     async createRTCPeerConnection() {
+        console.info("Создаем RTCPeerConnection");
         this.pc = new RTCPeerConnection(this.configuration); // -- создаем RTCPeerConnection -- //
         this.pc.addEventListener('iceconnectionstatechange', event => this.onICEStateChange(event));
         this.pc.addEventListener('icegatheringstatechange', event => this.onICEGatheringStateChange(event));
@@ -134,6 +50,93 @@ export default class PeerConnection {
             this.localStream.getTracks().forEach((track) => this.pc.addTrack(track, this.localStream));
         }
     }
+
+    // добавить медиапоток в подключение
+    async addNewMediaStream(stream, trackKind) {
+        this.localStream = stream;
+        let newTrack = this.localStream.getAudioTracks()[0];
+        if (trackKind == 'video') {
+            newTrack = this.localStream.getVideoTracks()[0];
+        }
+        this.pc.addTrack(newTrack, this.localStream);
+        console.info("Добавлена новая медиадорожка");
+        console.debug(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
+        if (this.isOffer) {
+            if (this.pc.iceConnectionState != 'connected' && this.pc.iceConnectionState != 'new') {
+                console.error("maybe BUG, handle it");
+                this.pc.close();
+                this.pc = undefined;
+                this.createRTCPeerConnection();
+            }
+            await this.createOffer();
+        }
+    }
+    // обновить медиапоток в подключении
+    async updateMediaStream(stream, trackKind) {
+        this.localStream = stream;
+        let newTrack = this.localStream.getAudioTracks()[0];
+        if (trackKind == 'video') {
+            newTrack = this.localStream.getVideoTracks()[0];
+        }
+        let sender = this.pc.getSenders()[0];
+        for (sender of this.pc.getSenders()) {
+            if (sender != undefined && sender.track != null &&
+                sender.track.kind == trackKind) {
+                await sender.replaceTrack(newTrack);
+            }
+        }
+        console.info("Обновлен существующий медиапоток");
+        console.debug(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
+    }
+
+    // события WebRTC
+    onICEStateChange(event) {
+        const connectionState = this.pc.iceConnectionState;
+        console.info("ICE Connection state:", connectionState);
+        if (connectionState == "connected") {
+            this.UI.addChatOption(this.socketSettings.remoteUserID);
+            this.UI.afterConnectSection.hidden = false;
+        } else if (connectionState == "failed") {
+            // если соединение с заданными SDP-объектами не удалось, то удаляем его и создаем новое
+            console.error("maybe BUG2, handle it");
+            this.pc.close();
+        }
+        //"have-remote-pranswer"
+    }
+    onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
+    {
+        console.info("ICE Gathering state: ", this.pc.iceGatheringState);
+        if (this.pc.iceGatheringState == "complete") {
+            if (this.firstConnect) {
+                console.info("Sending first SDP to web-server (when ice candidates are ready)");
+                this.firstConnect = false;
+                let emitEvent = 'newOffer';
+                if (!this.isOffer) emitEvent = 'newAnswer';
+                this.socketSettings.socket.emit(emitEvent, this.pc.localDescription, this.socketSettings.remoteUserID);
+            }
+        }
+    }
+    // установка описаний (SDP-объектов)
+    async pc_setLocalDescription(desc) {
+        // -- устанавливаем приглашение/ответ от нас как описание локальной стороны -- //
+        try {
+            await this.pc.setLocalDescription(desc);
+            console.info("setLocalDescription complete!");
+        } catch (error) {
+            console.error("Failed to set session description:", error);
+        }
+    }
+
+    async pc_setRemoteDescription(desc) {
+        // -- устанавливаем приглашение/ответ от нас как описание удаленной стороны -- //
+        try {
+            await this.pc.setRemoteDescription(desc);
+            console.info("setRemoteDescription complete!");
+        } catch (error) {
+            console.error("Failed to set session description:", error);
+        }
+    }
+
     // создаем канал для текстовых сообщений и файлов
     createDataChannel() {
         const dataChannelParams = {
@@ -153,10 +156,10 @@ export default class PeerConnection {
         // мы создали приглашение без ICE кандидатов
         // отправим приглашение тогда, когда ICE кандидаты будут добавлены
         // см. функцию onICEGatheringStateChange
-        console.log("> createOffer_success()");
+        console.info("> createOffer_success()");
         await this.pc_setLocalDescription(offer);
         if (!this.firstConnect) {
-            console.log("Sending offer SDP to web-server", this.isOffer);
+            console.info("Sending offer SDP to web-server");
             await this.socketSettings.socket.emit('newOffer', this.pc.localDescription, this.socketSettings.remoteUserID);
         }
 
@@ -170,21 +173,21 @@ export default class PeerConnection {
             let offer = await this.pc.createOffer();
             await this.createOffer_success(offer);
         } catch (error) {
-            console.log("Failed to create session description (offer):", error);
+            console.error("Failed to create session description (offer):", error);
         }
     }
     // получить приглашение и создать ответ
     async createAnswer_success(answer) // -- ответ на приглашение удалось сформировать -- //
     {
-        console.log("> createAnswer_success()");
+        console.info("> createAnswer_success()");
         await this.pc_setLocalDescription(answer);
         if (!this.firstConnect) {
-            console.log("Sending answer to web-server", this.isOffer);
+            console.info("Sending answer to web-server");
             await this.socketSettings.socket.emit('newAnswer', this.pc.localDescription, this.socketSettings.remoteUserID);
         }
     }
     async receiveOffer(SDP) {
-        console.log("> receiveOffer()");
+        console.info("> receiveOffer()");
         if (!this.dcCreated) {
             this.pc.addEventListener('datachannel', event => this.RemoteDataChannel(event));
             this.dcCreated = true;
@@ -194,12 +197,12 @@ export default class PeerConnection {
             const answer = await this.pc.createAnswer();
             await this.createAnswer_success(answer);
         } catch (error) {
-            console.log("Failed to create session description (answer):", error);
+            console.error("Failed to create session description (answer):", error);
         }
     }
     // получить ответ
     async receiveAnswer(SDP) {
-        console.log("> receiveAnswer()");
+        console.info("> receiveAnswer()");
         await this.pc_setRemoteDescription(SDP);
     }
     // удаленный поток данных (текстовые сообщения и файлы)
@@ -216,7 +219,7 @@ export default class PeerConnection {
     }
     // удаленный медиапоток
     gotRemoteStream(e) {
-        console.log("got video", e);
+        console.debug("got remoteStream:", e);
         const remoteVideo = this.UI.allVideos.get(this.socketSettings.remoteUserID);
         remoteVideo.srcObject = e.streams[0];
     }

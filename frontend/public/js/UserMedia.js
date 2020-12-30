@@ -19,6 +19,7 @@ export default class UserMedia {
         };
         this.captureConstraints = new Map();
         // конструктор
+        console.debug("UserMedia ctor");
         this.UI.buttons.get('getUserMediaMic').addEventListener('click', () => this.getUserMedia_click("audio", this.streamConstraintsMic));
         this.UI.buttons.get('getUserMediaCam').addEventListener('click', () => this.getUserMedia_click("video", this.streamConstraintsCam));
         this.UI.buttons.get('getDisplayMedia').addEventListener('click', () => this.getDisplayMedia_click());
@@ -27,9 +28,9 @@ export default class UserMedia {
 
     getUserMedia_error(error) // -- в случае, если не удалось захватить потоки юзера -- //
     {
-        console.log("> getUserMedia_error():", error);
+        console.error("> getUserMedia_error():", error);
         if (error.name == "NotFoundError") {
-            console.log("Webcam or Mic not found.");
+            console.error("Webcam or Mic not found.");
         }
     }
     async getUserMedia_click(trackKind, streamConstraints) // -- получение видео (веб-камера) и аудио (микрофон) потоков -- //
@@ -52,7 +53,7 @@ export default class UserMedia {
             for (const track of mediaStream.getTracks()) {
                 this.stream.addTrack(track);
             }
-            console.log("getUserMedia success:", this.stream);
+            console.debug("getUserMedia success:", this.stream);
             this.UI.localVideo.srcObject = this.stream; // -- подключаем медиапоток к HTML-элементу <video> (localVideo) -- //
             // обновляем медиапоток в подключении
             if (presentMedia) {
@@ -84,8 +85,7 @@ export default class UserMedia {
             for (const track of mediaStream.getTracks()) {
                 this.stream.addTrack(track);
             }
-            console.log(this.stream.getTracks());
-            console.log("getDisplayMedia success:", this.stream);
+            console.debug("getDisplayMedia success:", this.stream);
             this.UI.localVideo.srcObject = this.stream; // Подключаем медиапоток к HTML-элементу <video>
             // обновляем медиапоток в подключении
             if (presentMedia) {
@@ -94,7 +94,7 @@ export default class UserMedia {
                 this.parent.addNewMediaStream('video');
             }
         } catch (error) {
-            console.log("> getDisplayMedia_error():", error);
+            console.error("> getDisplayMedia_error():", error);
         }
     }
     handleMediaInactive(tracks) {

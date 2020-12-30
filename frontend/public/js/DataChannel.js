@@ -13,6 +13,7 @@ export default class DataChannel {
         this.receivedSize = 0;
         this.fileSize = 0;
         // конструктор
+        console.debug("DataChannel ctor");
     }
 
     getTimestamp() {
@@ -42,12 +43,12 @@ export default class DataChannel {
     sendFile() {
         const file = this.UI.fileInput.files[0];
         if (file) {
+            console.log("Отправляем файл", file.name, file.size);
             this.file_dc.send(file.name); // отправляем имя+расширение файла
             this.file_dc.send(file.size); // отправляем размер файла
             const chunkSize = 16376;
             let offset = 0;
             let fileReader = new FileReader();
-            console.log(file.size);
             fileReader.addEventListener('load', e => {
                 this.file_dc.send(e.target.result);
                 offset += e.target.result.byteLength;
@@ -60,7 +61,7 @@ export default class DataChannel {
                 fileReader.readAsArrayBuffer(slice);
             };
             readSlice(0); // отправляем сам файл
-            console.log("отправлен файл");
+            console.log("Файл был отправлен");
         }
     }
 
@@ -71,7 +72,7 @@ export default class DataChannel {
             this.UI.receiveProgress.hidden = false;
         } else if (this.isFileOrFileDesc == 1) {
             this.fileSize = event.data;
-            console.log("размер: ", this.fileSize);
+            console.log("Размер принимаемого файла: ", this.fileSize);
             this.UI.receiveProgress.max = Number(this.fileSize);
             this.isFileOrFileDesc = 2;
         } else {
