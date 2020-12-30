@@ -13,7 +13,7 @@ export default class PeerConnection {
         this.localStream = _localStream;
         this.pc = null; // -- peer connection -- //
         this.isOffer = _isOffer; // мы приглашаем или принимаем ответ
-        this.connected = false;
+        this.firstConnect = true;
         // -- stun/turn сервера -- //
         this.configuration = {
             "iceServers": [{
@@ -34,13 +34,13 @@ export default class PeerConnection {
         }
         this.pc.addTrack(newTrack, this.localStream);
         if (this.isOffer) {
-            if (this.pc.iceConnectionState != 'connected')
-            {
+            if (this.pc.iceConnectionState != 'connected') {
+                console.log("maybe BUG");
                 this.pc.close();
                 this.pc = undefined;
                 this.createRTCPeerConnection();
             }
-            this.createOffer();
+            await this.createOffer();
         }
         console.log("добавлена новая медиадорожка");
         console.log(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
@@ -65,26 +65,28 @@ export default class PeerConnection {
     // события WebRTC
     onICEStateChange(event) {
         const connectionState = this.pc.iceConnectionState;
-        console.log("ICE connection state:", connectionState);
+        console.log("ice connection state:", connectionState);
         if (connectionState == "connected") {
-            this.connected = true;
             this.UI.addChatOption(this.socketSettings.remoteUserID);
             this.UI.afterConnectSection.hidden = false;
         } else if (connectionState == "failed") {
             // если соединение с заданными SDP-объектами не удалось, то удаляем его и создаем новое
+            console.log("maybe BUG2");
             this.pc = undefined;
             this.createRTCPeerConnection();
         }
+        //"have-remote-pranswer"
     }
-    async onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
+    onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
     {
+        console.log("ice gathering state: ", this.pc.iceGatheringState);
         if (this.pc.iceGatheringState == "complete") {
-            if (!this.connected)
-            {
+            if (this.firstConnect) {
                 console.log("Sending SDP to web-server", this.isOffer);
+                this.firstConnect = false;
                 let emitEvent = 'newOffer';
                 if (!this.isOffer) emitEvent = 'newAnswer';
-                await this.socketSettings.socket.emit(emitEvent, this.pc.localDescription, this.socketSettings.remoteUserID);
+                this.socketSettings.socket.emit(emitEvent, this.pc.localDescription, this.socketSettings.remoteUserID);
             }
         }
     }
@@ -153,7 +155,8 @@ export default class PeerConnection {
         // см. функцию onICEGatheringStateChange
         console.log("> createOffer_success()");
         await this.pc_setLocalDescription(offer);
-        if (this.connected == true) {
+        if (!this.firstConnect) {
+            console.log("Sending offer SDP to web-server", this.isOffer);
             await this.socketSettings.socket.emit('newOffer', this.pc.localDescription, this.socketSettings.remoteUserID);
         }
 
@@ -164,7 +167,7 @@ export default class PeerConnection {
             this.dcCreated = true;
         }
         try { // -- запрашиваем формирования приглашения -- //
-            const offer = await this.pc.createOffer();
+            let offer = await this.pc.createOffer();
             await this.createOffer_success(offer);
         } catch (error) {
             console.log("Failed to create session description (offer):", error);
@@ -175,7 +178,8 @@ export default class PeerConnection {
     {
         console.log("> createAnswer_success()");
         await this.pc_setLocalDescription(answer);
-        if (this.connected == true) {
+        if (!this.firstConnect) {
+            console.log("Sending answer to web-server", this.isOffer);
             await this.socketSettings.socket.emit('newAnswer', this.pc.localDescription, this.socketSettings.remoteUserID);
         }
     }

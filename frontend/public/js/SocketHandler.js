@@ -55,7 +55,6 @@ export default class SocketHandler {
                 const pc = this.pcContainer.get(remoteUserID);
                 console.log('receiveAnswer', this.localUserID, remoteUserID);
                 pc.receiveAnswer(SDP);
-                pc.connected = true;
             }
         });
         // другой пользователь отключился
