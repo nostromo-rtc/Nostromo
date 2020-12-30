@@ -103,7 +103,7 @@ export default class UI {
         }
     }
     resizeVideos() {
-        let w = (document.body.clientWidth - 250) / 2;
+        let w = (document.body.clientWidth - 300) / 2;
         if (this.allVideos != undefined && this.allVideos.size > 0) {
             for (const video of this.allVideos.values()) {
                 video.style.width = w + "px";
@@ -120,10 +120,10 @@ export default class UI {
         this.localVideo.autoplay = true;
         this.localVideo.muted = true;
         this.localVideo.poster = "/img/novideodata.jpg";
-        this.localVideolabel = document.createElement('span');
-        this.localVideolabel.innerText = "Я - ";
-        this.localVideolabel.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;')
-        localVideoContainer.appendChild(this.localVideolabel);
+        this.localVideoLabel = document.createElement('span');
+        this.localVideoLabel.innerText = "Я - ";
+        this.localVideoLabel.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;')
+        localVideoContainer.appendChild(this.localVideoLabel);
         localVideoContainer.appendChild(this.localVideo);
         document.querySelector("#videos").appendChild(localVideoContainer);
         this.allVideos.set(0, this.localVideo);

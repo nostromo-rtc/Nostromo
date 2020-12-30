@@ -18,7 +18,7 @@ export default class SocketHandler {
         // узнаем наш ID
         this.socket.on('userConnected', (userID) => {
             this.localUserID = userID;
-            this.UI.localVideolabel.append(`${this.localUserID}`);
+            this.UI.localVideoLabel.append(`${this.localUserID}`);
         });
         // новый пользователь (т.е другой)
         this.socket.on('newUser', (remoteUserID, AmIOffer) => {
