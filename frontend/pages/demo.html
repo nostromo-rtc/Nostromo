@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Учебно-демонстрационная программа по технологии "WebRTC"</title>
+    <meta charset="utf-8" />
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <link href="css/style.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="menu">
+        <div class="menubutton"><a href="/theory">Теория</a></div>
+        <div class="menubutton"><a href="/">Демо</a></div>
+    </div>
+
+    <div class="header">
+        <div>Демонстрация</div>
+    </div>
+
+    <div id="modalWindow_intro" class="modalDialog" display="block">
+        <div>
+            <button class="close"><a>X</a></button>
+            <h2>[Инструкция]</h2>
+            <p>Нажмите на кнопку "Захватить микрофон и веб-камеру" для захвата звука микрофона и изображения с веб-камеры соответственно. Если веб-камеры нет, будет захвачен только микрофон.</p>
+            <p>Или нажмите на кнопку "Демонстрация экрана компьютера" и выберите необходимое окно / весь экран.</p>
+        </div>
+    </div>
+
+    <div id="modalWindow_UserMedia" class="modalDialog">
+        <div>
+            <button class="close"><a>X</a></button>
+            <h2>[Инструкция]</h2>
+            <h3>&gt; 1 этап - Захват медиапотоков</h3>
+            <p>Выше вы должны были увидеть всплывающее окно - предложение браузера захватить медиапоток (микрофон, веб-камеру или экран компьютера).</p>
+            <p>После захвата, вы должны увидеть локальное видеоизображение на заднем фоне в левой части экрана.</p>
+            <p>После этого нажмите кнопку "Создать приглашение" или "Принять приглашение" для начала 2-ого этапа - создание подключения.</p>
+            <hr>
+            <h3>Псевдокод алгоритма</h3>
+            <p>
+                <textarea style="width: 850px; height: 200px; resize: none; font-family: Courier New;" readonly>
+  let stream; // переменная для прямого видео/аудио потока
+  let streamConstraints = { "audio": true, "video": true }; // параметры стрима
+  try {
+      stream = await navigator.mediaDevices.getUserMedia(streamConstraints);
+      localVideo.srcObject = stream;	// localVideo — html-объект видео
+  } catch(error) {
+      ...
+      // действия в случае ошибки //
+  }
+                </textarea>
+            </p>
+        </div>
+    </div>
+
+    <div class="main">
+        <button id="btn_getUserMediaMic">Захватить микрофон</button>
+        <button id="btn_getUserMediaCam">Захватить веб-камеру</button>
+        <button id="btn_getDisplayMedia">Демонстрация экрана компьютера</button>
+        <button id="btn_enableSounds" style="font-weight: bold; background-color: lightgreen;">Включить звуки собеседников</button>
+        <select id="captureSettings">
+            <option disabled selected value="default">Выберите разрешение</option>
+            <option value="360p">640x360</option>
+            <option value="720p">1280x720</option>
+            <option value="1080p">1920x1080</option>
+        </select>
+        <br>
+        <div id="videos"></div>
+        <br>
+        <section id="afterConnectSection" hidden>
+            <section>
+                <textarea id="chat" readonly style="width: 944px; height: 200px; font-size:14pt; line-height:1.8;"></textarea>
+                <br>
+                <select id="chatOptions">
+                    <option disabled selected value="default">Выберите собеседника..</option>
+                </select>
+                <input type="text" id="messageText" placeholder="Введите ваше сообщение">
+                <button id="btn_sendMessage" accesskey="enter" autofocus>Отправить</button>
+            </section>
+            <section>
+                <form id="fileInfo">
+                    <input type="file" id="fileInput" name="files" />
+                </form>
+                <button id="btn_sendFile">Отправить файл</button>
+                <a id="download"></a>
+                <progress id="receiveProgress" hidden></progress>
+            </section>
+        </section>
+
+    </div>
+</body>
+
+</html>
