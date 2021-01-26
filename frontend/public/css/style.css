@@ -1,3 +1,7 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
 /* оформление для меню */
 .menu {
     height: 100%;
@@ -12,7 +16,7 @@
 
 .menu a {
     padding: 18px 8px 18px 16px;
-	border-right:8px solid #d4d4d4;
+    border-right: 8px solid #d4d4d4;
     text-decoration: none;
     font-size: 28px;
     color: #d4d4d4;
@@ -20,25 +24,30 @@
 }
 
 .menubutton {
-    border-bottom:1px solid black;
+    border-bottom: 1px solid black;
 }
 
 .menu a:hover {
     color: #00BFFF;
-	border-right:8px solid #00BFFF;
+    border-right: 8px solid #00BFFF;
 }
+
 /* оформление для главной части страницы */
 .main {
-    margin-left: 140px; /* отступ от меню */
-    margin-top: 36px; /* отступ от заголовка */
-    font-size: 28px;
+    margin-left: 140px;
+    /* отступ от меню */
+    margin-top: 36px;
+    /* отступ от заголовка */
+    font-size: 20px;
     padding: 0px 10px;
 }
+
 /* оформление для видео */
 video {
     width: 948px;
     border: 1px solid grey;
 }
+
 /* оформление для заголовка */
 .header {
     position: absolute;
@@ -47,7 +56,7 @@ video {
     width: 100%;
     height: 32px;
     background-color: #4a4848;
-    border-bottom:4px solid #d4d4d4;
+    border-bottom: 4px solid #d4d4d4;
 }
 
 .header div {
@@ -55,6 +64,7 @@ video {
     font-size: 24px;
     color: #d4d4d4;
 }
+
 /* для модального окна */
 .modalDialog {
     position: fixed;
@@ -82,8 +92,7 @@ video {
     margin-bottom: -15px;
 }
 
-#modalOkno_intro
-{
+#modalOkno_intro {
     display: block;
 }
 
@@ -91,8 +100,8 @@ video {
     width: 850px;
     position: relative;
     max-height: 750px;
-	top: 50%;
-	left: 50%;
+    top: 50%;
+    left: 50%;
     transform: translate(-50%, -50%);
     text-align: justify;
     font-size: 22px;
@@ -104,15 +113,17 @@ video {
 
 .close {
     background: #606061;
-	color: #FFFFFF;
-	line-height: 25px;
-	position: absolute;
-	right: -12px;
-	top: -10px;
-	width: 27px;
-	font-weight: bold;
-	border-radius: 12px;
-	box-shadow: 1px 1px 3px #000;
+    color: #FFFFFF;
+    line-height: 25px;
+    position: absolute;
+    right: -12px;
+    top: -10px;
+    width: 27px;
+    font-weight: bold;
+    border-radius: 12px;
+    box-shadow: 1px 1px 3px #000;
 }
 
-.close:hover {background: #00d9ff;}
+.close:hover {
+    background: #00d9ff;
+}

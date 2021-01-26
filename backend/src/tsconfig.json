@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es2017",
+        "checkJs": true,
+        "outDir": "../",
+        "allowJs": true,
+        "experimentalDecorators": true,
+        "strictFunctionTypes": true,
+        "sourceMap": false
+    },
+    "include": ["*.ts"],
+    "exclude": ["../node_modules/*"],
+    "compileOnSave": true
+}

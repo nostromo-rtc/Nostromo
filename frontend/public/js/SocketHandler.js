@@ -8,47 +8,56 @@ export default class SocketHandler {
     constructor(_UI) {
         // поля
         this.UI = _UI;
-        this.localUserID = 0;
         this.socket = io.connect();
         this.userMedia = new UserMedia(this.UI, this);
         /** @type {Map<number, PeerConnection>} */
         // контейнер с p2p-соединениями с другими пользователями
         this.pcContainer = new Map();
+
         // конструктор (тут работаем с сокетами)
         console.debug("SocketHandler ctor");
+        this.UI.buttons.get('setNewUsername').addEventListener('click', () => {
+            this.UI.setNewUsername();
+            this.socket.emit('newUsername', this.UI.usernameInput.value);
+        });
         this.socket.on('connect', () => {
             console.info("Создано подключение веб-сокета");
-            // сразу при подключении сообщаем, имеются ли у нас уже захвачены потоки
-            // такое бывает при обрыве соединения и его восстановлении через какое-то время (без обновления вкладки)
-            // сокет обновляется на новый, но медиапоток остался хранится на вкладке
-            if (this.userMedia.stream.getTracks().length > 0) {
-                this.socket.emit('mediaReady');
-            }
-            this.socket.emit('afterConnect');
-        });
-        // узнаем наш ID
-        this.socket.on('userConnected', (userID) => {
-            this.localUserID = userID;
-            this.UI.localVideoLabel.innerText = `Я - ${this.localUserID}`;
-            console.info("Client ID:", this.localUserID);
+            console.info("Client ID:", this.socket.id);
+            // сообщаем имя
+            this.socket.emit('afterConnect', this.UI.usernameInput.value);
         });
         // новый пользователь (т.е другой)
-        this.socket.on('newUser', (remoteUserID, AmIOffer) => {
-            this.UI.addVideo(remoteUserID);
+        this.socket.on('newUser', ({
+            ID: remoteUserID,
+            name: name
+        }, AmIOffer) => {
+            this.UI.addVideo(remoteUserID, name);
             this.UI.resizeVideos();
             const socketSettings = {
                 remoteUserID: remoteUserID,
+                remoteUsername: name,
                 socket: this.socket
             }
             let PCInstance = new PeerConnection(this.UI, this.userMedia.stream, socketSettings, AmIOffer);
             // сохраняем подключение
             this.pcContainer.set(remoteUserID, PCInstance);
         });
+
+        // другой пользователь поменял имя
+        this.socket.on('newUsername', ({
+            ID: remoteUserID,
+            name: name
+        }) => {
+            this.pcContainer.get(remoteUserID).socketSettings.remoteUsername = name;
+            this.UI.updateVideoLabel(remoteUserID, name);
+            this.UI.updateChatOption(remoteUserID, name);
+        });
+
         // от нас запросили приглашение для remoteUserID
         this.socket.on('newOffer', (remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
                 const pc = this.pcContainer.get(remoteUserID);
-                console.info('SocketHandler > newOffer', this.localUserID, remoteUserID);
+                console.info('SocketHandler > newOffer', this.socket.id, remoteUserID);
                 pc.createOffer();
             }
         });
@@ -56,7 +65,7 @@ export default class SocketHandler {
         this.socket.on('receiveOffer', (SDP, remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
                 const pc = this.pcContainer.get(remoteUserID);
-                console.info('SocketHandler > receiveOffer', this.localUserID, remoteUserID);
+                console.info('SocketHandler > receiveOffer', this.socket.id, remoteUserID);
                 pc.isOffer = false;
                 pc.receiveOffer(SDP);
             }
@@ -65,7 +74,7 @@ export default class SocketHandler {
         this.socket.on('receiveAnswer', (SDP, remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
                 const pc = this.pcContainer.get(remoteUserID);
-                console.info('SocketHandler > receiveAnswer', this.localUserID, remoteUserID);
+                console.info('SocketHandler > receiveAnswer', this.socket.id, remoteUserID);
                 pc.receiveAnswer(SDP);
             }
         });
@@ -96,7 +105,7 @@ export default class SocketHandler {
         // обработка личных чатов
         this.UI.buttons.get('sendMessage').addEventListener('click', () => {
             if (this.UI.getChatOption() != "default") {
-                const receiverID = Number(this.UI.getChatOption());
+                const receiverID = this.UI.getChatOption();
                 if (this.pcContainer.has(receiverID)) {
                     let pc = this.pcContainer.get(receiverID);
                     pc.dc.sendMessage();
@@ -105,7 +114,7 @@ export default class SocketHandler {
         });
         this.UI.buttons.get('sendFile').addEventListener('click', () => {
             if (this.UI.getChatOption() != "default") {
-                const receiverID = Number(this.UI.getChatOption());
+                const receiverID = this.UI.getChatOption();
                 if (this.pcContainer.has(receiverID)) {
                     let pc = this.pcContainer.get(receiverID);
                     pc.dc.sendFile();
@@ -118,7 +127,6 @@ export default class SocketHandler {
     }
     // добавить медиапоток в подключение
     addNewMediaStream(trackKind) {
-        this.socket.emit('mediaReady');
         for (const pc of this.pcContainer.values()) {
             pc.isOffer = true;
             pc.addNewMediaStream(this.userMedia.stream, trackKind);

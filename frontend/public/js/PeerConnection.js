@@ -16,8 +16,11 @@ export default class PeerConnection {
         this.firstConnect = true;
         // -- stun/turn сервера -- //
         this.configuration = {
-            "iceServers": [{
-                "urls": "stun:stun.l.google.com:19302"
+            iceServers: [{
+                urls: [
+                    "stun:stun.services.mozilla.org",
+                    "stun:stun2.l.google.com:19305"
+                ]
             }]
         };
         this.dcCreated = false;
@@ -94,14 +97,13 @@ export default class PeerConnection {
         const connectionState = this.pc.iceConnectionState;
         console.info("ICE Connection state:", connectionState);
         if (connectionState == "connected") {
-            this.UI.addChatOption(this.socketSettings.remoteUserID);
+            this.UI.addChatOption(this.socketSettings.remoteUserID, this.socketSettings.remoteUsername);
             this.UI.afterConnectSection.hidden = false;
         } else if (connectionState == "failed") {
             // если соединение с заданными SDP-объектами не удалось, то удаляем его и создаем новое
             console.error("maybe BUG2, handle it");
             this.pc.close();
         }
-        //"have-remote-pranswer"
     }
     onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
     {

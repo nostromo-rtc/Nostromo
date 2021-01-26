@@ -35,7 +35,6 @@ export default class UserMedia {
     }
     async getUserMedia_click(trackKind, streamConstraints) // -- получение видео (веб-камера) и аудио (микрофон) потоков -- //
     {
-        this.UI.showModalWindow("UserMedia");
         try {
             let presentMedia = false;
             for (const oldTrack of this.stream.getTracks()) {
@@ -69,7 +68,6 @@ export default class UserMedia {
 
     async getDisplayMedia_click() // -- захват видео с экрана юзера -- //
     {
-        this.UI.showModalWindow("UserMedia");
         try {
             let presentMedia = false;
             for (const oldTrack of this.stream.getTracks()) {

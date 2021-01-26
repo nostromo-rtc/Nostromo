@@ -37,7 +37,7 @@ export default class DataChannel {
 
     receiveMessage(event) {
         let timestamp = this.getTimestamp();
-        this.UI.chat.innerHTML += "[" + timestamp + "] " + `(ЛС) Собеседник${this.parent.socketSettings.remoteUserID}: ` + event.data + "\n";
+        this.UI.chat.innerHTML += "[" + timestamp + "] " + `(ЛС) Собеседник ${this.parent.socketSettings.remoteUsername}: ` + event.data + "\n";
     }
 
     sendFile() {

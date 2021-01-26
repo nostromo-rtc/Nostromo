@@ -25,6 +25,7 @@ export default class UI {
         this.receiveProgress = document.getElementById('receiveProgress');
         this.captureSettings = document.querySelector("#captureSettings");
         this.chatOptions = document.querySelector("#chatOptions");
+        this.usernameInput = document.querySelector("#usernameInput");
         this.mutePolicy = true;
         // конструктор, т.е функции ниже вызываются при создания объекта UI
         console.debug("UI ctor");
@@ -33,6 +34,8 @@ export default class UI {
         this.prepareLocalVideo();
         window.addEventListener('resize', () => this.resizeVideos());
         this.buttons.get('enableSounds').addEventListener('click', () => this.enableSounds());
+        this.showUserName();
+
     }
     showModalWindow(modalWindowName) {
         document.getElementById(`modalWindow_${modalWindowName}`).style.display = "block"; // показываем модальное окно с инструкцией
@@ -44,6 +47,16 @@ export default class UI {
         this.buttons.set('sendMessage', document.getElementById('btn_sendMessage'));
         this.buttons.set('sendFile', document.getElementById('btn_sendFile'));
         this.buttons.set('enableSounds', document.getElementById('btn_enableSounds'));
+        this.buttons.set('setNewUsername', document.getElementById('btn_setNewUsername'));
+    }
+    setNewUsername() {
+        localStorage["username"] = this.usernameInput.value;
+        this.showUserName();
+    }
+    showUserName() {
+        if (localStorage["username"] == undefined) localStorage["username"] = "noname";
+        this.usernameInput.value = localStorage["username"];
+        this.localVideoLabel.innerText = localStorage["username"];
     }
     prepareCloseButtonsForModalsWindows() {
         // -- для модального окна, обрабатываем закрытие окон на кнопку "X" -- //
@@ -68,34 +81,44 @@ export default class UI {
         }
         this.mutePolicy = false;
     }
-    addVideo(remoteVideoID) {
+    addVideo(remoteVideoID, name) {
         let newVideoContainer = document.createElement('div');
         newVideoContainer.style.position = "relative";
         newVideoContainer.style.display = "inline-block";
         let newVideo = document.createElement('video');
-        newVideo.id = `remoteVideo${remoteVideoID}`;
+        newVideo.id = `remoteVideo-${remoteVideoID}`;
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
         newVideo.poster = "/img/novideodata.jpg";
         let label = document.createElement('span');
-        label.innerText = remoteVideoID;
-        label.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;')
+        label.innerText = name;
+        label.id = `remoteVideoLabel-${remoteVideoID}`
+        label.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;');
         newVideoContainer.appendChild(label);
         newVideoContainer.appendChild(newVideo);
         document.querySelector("#videos").appendChild(newVideoContainer);
         this.allVideos.set(remoteVideoID, newVideo);
         this.remoteVideo = newVideo;
     }
-    addChatOption(remoteChatID) {
+
+    updateVideoLabel(remoteVideoID, name) {
+        document.querySelector(`#remoteVideoLabel-${remoteVideoID}`).innerText = name;
+    }
+    updateChatOption(remoteUserID, name) {
+        let chatOption = document.querySelector(`option[value='${remoteUserID}']`);
+        chatOption.innerText = `собеседник ${name}`;
+    }
+
+    addChatOption(remoteUserID, remoteUsername) {
         let newChatOption = document.createElement('option');
-        newChatOption.value = remoteChatID;
-        newChatOption.innerText = `собеседник ${remoteChatID}`;
+        newChatOption.value = remoteUserID;
+        newChatOption.innerText = `собеседник ${remoteUsername}`;
         this.chatOptions.appendChild(newChatOption);
     }
     // удалить видео собеседника (и опцию для чата/файлов тоже)
     removeVideo(remoteVideoID) {
         this.allVideos.delete(remoteVideoID);
-        let video = document.querySelector(`#remoteVideo${remoteVideoID}`);
+        let video = document.querySelector(`#remoteVideo-${remoteVideoID}`);
         if (video != null) {
             video.parentElement.remove();
             let chatOption = document.querySelector(`option[value='${remoteVideoID}']`);
@@ -125,7 +148,7 @@ export default class UI {
         this.localVideo.poster = "/img/novideodata.jpg";
         this.localVideoLabel = document.createElement('span');
         this.localVideoLabel.innerText = "Я - ";
-        this.localVideoLabel.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;')
+        this.localVideoLabel.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;');
         localVideoContainer.appendChild(this.localVideoLabel);
         localVideoContainer.appendChild(this.localVideo);
         document.querySelector("#videos").appendChild(localVideoContainer);
