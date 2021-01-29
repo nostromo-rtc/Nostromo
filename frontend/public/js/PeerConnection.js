@@ -14,6 +14,7 @@ export default class PeerConnection {
         this.pc = null; // -- peer connection -- //
         this.isOffer = _isOffer; // мы приглашаем или принимаем ответ
         this.firstConnect = true;
+        this.needNewOffer = false; // необходимо пересоздать приглашение (например при добавлении нового медиапотока)
         // -- stun/turn сервера -- //
         this.configuration = {
             iceServers: [{
@@ -54,6 +55,12 @@ export default class PeerConnection {
         }
     }
 
+    resetConnection() {
+        this.pc.close();
+        this.firstConnect = true;
+        this.createRTCPeerConnection();
+    }
+
     // добавить медиапоток в подключение
     async addNewMediaStream(stream, trackKind) {
         this.localStream = stream;
@@ -65,13 +72,12 @@ export default class PeerConnection {
         console.info("Добавлена новая медиадорожка");
         console.debug(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
         if (this.isOffer) {
-            if (this.pc.iceConnectionState != 'connected' && this.pc.iceConnectionState != 'new') {
+            if (this.pc.iceConnectionState == 'connected') {
+                this.createOffer();
+            } else {
                 console.error("maybe BUG, handle it");
-                this.pc.close();
-                this.pc = undefined;
-                this.createRTCPeerConnection();
+                this.needNewOffer = true;
             }
-            await this.createOffer();
         }
     }
     // обновить медиапоток в подключении
@@ -99,10 +105,18 @@ export default class PeerConnection {
         if (connectionState == "connected") {
             this.UI.addChatOption(this.socketSettings.remoteUserID, this.socketSettings.remoteUsername);
             this.UI.afterConnectSection.hidden = false;
+            if (this.needNewOffer) {
+                this.needNewOffer = false;
+                this.createOffer();
+            }
         } else if (connectionState == "failed") {
             // если соединение с заданными SDP-объектами не удалось, то удаляем его и создаем новое
             console.error("maybe BUG2, handle it");
-            this.pc.close();
+            this.resetConnection();
+            this.UI.removeChatOption(this.socketSettings.remoteUserID);
+            if (this.isOffer) {
+                this.createOffer();
+            }
         }
     }
     onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
@@ -190,6 +204,9 @@ export default class PeerConnection {
     }
     async receiveOffer(SDP) {
         console.info("> receiveOffer()");
+        if (this.pc.iceConnectionState == "checking") {
+            this.resetConnection();
+        }
         if (!this.dcCreated) {
             this.pc.addEventListener('datachannel', event => this.RemoteDataChannel(event));
             this.dcCreated = true;

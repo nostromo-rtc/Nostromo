@@ -115,17 +115,19 @@ export default class UI {
         newChatOption.innerText = `собеседник ${remoteUsername}`;
         this.chatOptions.appendChild(newChatOption);
     }
+    removeChatOption(remoteUserID) {
+        let chatOption = document.querySelector(`option[value='${remoteUserID}']`);
+        if (chatOption) {
+            chatOption.remove();
+        }
+    }
     // удалить видео собеседника (и опцию для чата/файлов тоже)
     removeVideo(remoteVideoID) {
         this.allVideos.delete(remoteVideoID);
         let video = document.querySelector(`#remoteVideo-${remoteVideoID}`);
-        if (video != null) {
+        if (video) {
             video.parentElement.remove();
-            let chatOption = document.querySelector(`option[value='${remoteVideoID}']`);
-            if (chatOption != null) {
-                chatOption.remove();
-            }
-
+            this.removeChatOption(remoteVideoID);
         }
     }
     resizeVideos() {

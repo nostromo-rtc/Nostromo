@@ -8,7 +8,10 @@ export default class SocketHandler {
     constructor(_UI) {
         // поля
         this.UI = _UI;
-        this.socket = io.connect();
+        this.socket = io({
+            'transports': ['websocket'],
+            allowUpgrades: false
+        });
         this.userMedia = new UserMedia(this.UI, this);
         /** @type {Map<number, PeerConnection>} */
         // контейнер с p2p-соединениями с другими пользователями
@@ -25,6 +28,10 @@ export default class SocketHandler {
             console.info("Client ID:", this.socket.id);
             // сообщаем имя
             this.socket.emit('afterConnect', this.UI.usernameInput.value);
+        });
+
+        this.socket.on("connect_error", (err) => {
+            console.log(err.message); // not authorized
         });
         // новый пользователь (т.е другой)
         this.socket.on('newUser', ({
@@ -87,8 +94,6 @@ export default class SocketHandler {
                 let disconnectedPC = this.pcContainer.get(remoteUserID);
                 this.pcContainer.delete(remoteUserID);
                 disconnectedPC.pc.close();
-                disconnectedPC.pc = undefined;
-                disconnectedPC = undefined;
             }
         });
         this.socket.on('disconnect', () => {
@@ -99,7 +104,6 @@ export default class SocketHandler {
                 let pc = this.pcContainer.get(remoteUserID);
                 this.pcContainer.delete(remoteUserID);
                 pc.pc.close();
-                pc = undefined;
             }
         });
         // обработка личных чатов
