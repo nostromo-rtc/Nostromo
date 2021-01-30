@@ -5,7 +5,8 @@ import path = require('path');
 import fs = require('fs');
 import https = require('https');
 import SocketIO = require('socket.io');
-import { Socket } from 'socket.io';
+import { Handshake } from 'socket.io/dist/socket';
+import { ExtendedError } from 'socket.io/dist/namespace';
 
 const app = express();
 
@@ -21,31 +22,50 @@ server.listen(port, () => {
     console.log(`Server running on port: ${port}`);
 });
 
-app.use(session({
+// добавляю в сессию необходимые параметры
+declare module 'express-session' {
+    interface SessionData {
+        auth: boolean;
+        roomID: Array<number>;
+        isInRoom: boolean;
+    }
+}
+
+const sessionMiddleware = session({
     secret: 'developmentsecretkey',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: true }
-}));
+    cookie: {
+        secure: true
+    }
+});
+
+app.use(sessionMiddleware);
 
 // главная страница
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/pages', 'demo.html'));
+    res.sendFile(path.join(__dirname, '../frontend/pages', 'index.html'));
 });
 
 app.get('/rooms/:roomId', (req, res) => {
-    console.log(req.session);
     let roomID = req.params.roomId;
     let pass = req.query.p;
     if (roomID == "1" || roomID == "2") {
+        if (req.session.auth && req.session.roomID.includes(Number(roomID))) {
+            req.session.isInRoom = false;
+            return res.sendFile(path.join(__dirname, '../frontend/pages', 'room.html'));
+        }
         if (pass) {
             if (pass == "testik1") {
-                req.session.save;
-                return res.sendFile(path.join(__dirname, '../frontend/pages', 'demo.html'));
+                if (!req.session.auth) {
+                    req.session.auth = true;
+                    req.session.roomID = new Array<number>();
+                }
+                req.session.roomID.push(Number(roomID));
+                req.session.isInRoom = false;
+                return res.sendFile(path.join(__dirname, '../frontend/pages', 'room.html'));
             }
-            else {
-                return res.send("неправильный пароль");
-            }
+            return res.send("неправильный пароль");
         }
         return res.send("нужен пароль");
     }
@@ -69,18 +89,54 @@ app.use((req, res) => {
 
 // сокеты
 const io = new SocketIO.Server(server, {
-    'pingInterval': 2500,
-    'pingTimeout': 2500
+    transports: ['websocket'],
+    allowUpgrades: false,
+    pingInterval: 2000,
+    pingTimeout: 15000
 });
 
 type username_t = string;
 type socketID = string;
 let Users = new Map<socketID, username_t>();
 
+// расширяю класс Handshake, добавляя в него Express сессии
+declare module "socket.io/dist/socket" {
+    interface Handshake {
+        session?: session.Session & Partial<session.SessionData>;
+        sessionID?: string;
+    }
+}
+
+// перегружаю функцию RequestHandler у Express, чтобы он понимал handshake от SocketIO как реквест
+// это нужно для совместимости SocketIO с Express Middleware (express-session)
+declare module "express"
+{
+    interface RequestHandler {
+        (
+            req: Handshake,
+            res: {},
+            next: (err?: ExtendedError) => void,
+        ): void;
+    }
+}
+
+io.use((socket, next) => {
+    sessionMiddleware(socket.handshake, {}, next);
+});
+
+io.use((socket, next) => {
+    if (socket.handshake.session.auth) {
+        socket.handshake.session.isInRoom = true;
+        socket.handshake.session.save();
+        next();
+    } else {
+        next(new Error("unauthorized"));
+    }
+});
 // обрабатываем подключение нового юзера
-io.on('connection', (socket: Socket) => {
+io.on('connection', (socket: SocketIO.Socket) => {
+    console.log(socket.handshake.session.roomID);
     console.log(`${Users.size + 1}: ${socket.id} user connected`);
-    console.log(socket.request.headers);
     socket.on('afterConnect', (username: username_t) => {
         // перебираем всех пользователей, кроме нового
         for (const anotherUserID of Users.keys()) {
@@ -128,6 +184,8 @@ io.on('connection', (socket: Socket) => {
     socket.on('disconnect', (reason) => {
         console.log(`${socket.id}: user disconnected`, reason);
         Users.delete(socket.id);
+        socket.handshake.session.isInRoom = false;
+        socket.handshake.session.save();
         io.emit('userDisconnected', socket.id);
     });
 });

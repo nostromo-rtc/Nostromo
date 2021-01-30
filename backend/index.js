@@ -1,7 +1,5 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
+Object.defineProperty(exports, "__esModule", { value: true });
 // подключаем нужные модули (библиотеки) и настраиваем веб-сервер
 const express = require("express");
 const session = require("express-session");
@@ -19,7 +17,6 @@ const port = 443;
 server.listen(port, () => {
     console.log(`Server running on port: ${port}`);
 });
-
 const sessionMiddleware = session({
     secret: 'developmentsecretkey',
     resave: false,
@@ -28,25 +25,30 @@ const sessionMiddleware = session({
         secure: true
     }
 });
-
 app.use(sessionMiddleware);
-
 // главная страница
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/pages', 'demo.html'));
+    res.sendFile(path.join(__dirname, '../frontend/pages', 'index.html'));
 });
 app.get('/rooms/:roomId', (req, res) => {
     let roomID = req.params.roomId;
     let pass = req.query.p;
     if (roomID == "1" || roomID == "2") {
+        if (req.session.auth && req.session.roomID.includes(Number(roomID))) {
+            req.session.isInRoom = false;
+            return res.sendFile(path.join(__dirname, '../frontend/pages', 'room.html'));
+        }
         if (pass) {
             if (pass == "testik1") {
-                req.session.roomID = roomID;
-                req.session.user = 1;
-                return res.sendFile(path.join(__dirname, '../frontend/pages', 'demo.html'));
-            } else {
-                return res.send("неправильный пароль");
+                if (!req.session.auth) {
+                    req.session.auth = true;
+                    req.session.roomID = new Array();
+                }
+                req.session.roomID.push(Number(roomID));
+                req.session.isInRoom = false;
+                return res.sendFile(path.join(__dirname, '../frontend/pages', 'room.html'));
             }
+            return res.send("неправильный пароль");
         }
         return res.send("нужен пароль");
     }
@@ -55,7 +57,8 @@ app.get('/rooms/:roomId', (req, res) => {
 app.get('/admin', (req, res) => {
     if (req.ip == "::ffff:127.0.0.1") {
         res.sendFile(path.join(__dirname, '../frontend/pages', 'admin.html'));
-    } else {
+    }
+    else {
         res.status(404).end('404 Error: page not found');
     }
 });
@@ -66,43 +69,37 @@ app.use((req, res) => {
 });
 // сокеты
 const io = new SocketIO.Server(server, {
-    'transports': ['websocket'],
-    'allowUpgrades': false,
-    'pingInterval': 2000,
-    'pingTimeout': 30000
+    transports: ['websocket'],
+    allowUpgrades: false,
+    pingInterval: 2000,
+    pingTimeout: 15000
 });
 let Users = new Map();
-
 io.use((socket, next) => {
-    sessionMiddleware(socket.request, {}, next);
+    sessionMiddleware(socket.handshake, {}, next);
 });
 io.use((socket, next) => {
-    if (socket.request.session.user == 1) {
-        socket.request.session.user++;
-        socket.request.session.save();
+    if (socket.handshake.session.auth) {
+        socket.handshake.session.isInRoom = true;
+        socket.handshake.session.save();
         next();
-    } else {
+    }
+    else {
         next(new Error("unauthorized"));
     }
 });
 // обрабатываем подключение нового юзера
 io.on('connection', (socket) => {
+    console.log(socket.handshake.session.roomID);
     console.log(`${Users.size + 1}: ${socket.id} user connected`);
-    console.log(socket.handshake.query.transport);
     socket.on('afterConnect', (username) => {
         // перебираем всех пользователей, кроме нового
         for (const anotherUserID of Users.keys()) {
             const offering = true;
             // сообщаем новому пользователю и пользователю anotherUser,
             // что им необходимо создать пустое p2p подключение (PeerConnection)
-            socket.emit('newUser', {
-                ID: anotherUserID,
-                name: Users.get(anotherUserID)
-            }, offering);
-            io.to(anotherUserID).emit('newUser', {
-                ID: socket.id,
-                name: username
-            }, !offering);
+            socket.emit('newUser', { ID: anotherUserID, name: Users.get(anotherUserID) }, offering);
+            io.to(anotherUserID).emit('newUser', { ID: socket.id, name: username }, !offering);
             // сообщаем новому пользователю, что он должен создать приглашение для юзера anotherUser
             console.log(`запросили приглашение от ${socket.id} для ${anotherUserID}`);
             socket.emit('newOffer', anotherUserID);
@@ -111,14 +108,10 @@ io.on('connection', (socket) => {
         Users.set(socket.id, username);
     });
     socket.on('newUsername', (username) => {
-        console.log(socket.handshake.query.transport);
         Users.set(socket.id, username);
         for (const anotherUserID of Users.keys()) {
             if (anotherUserID != socket.id) {
-                io.to(anotherUserID).emit('newUsername', {
-                    ID: socket.id,
-                    name: username
-                });
+                io.to(anotherUserID).emit('newUsername', { ID: socket.id, name: username });
             }
         }
     });
@@ -142,9 +135,8 @@ io.on('connection', (socket) => {
     socket.on('disconnect', (reason) => {
         console.log(`${socket.id}: user disconnected`, reason);
         Users.delete(socket.id);
-        socket.request.session.user--;
-        socket.request.session.save();
-        console.log(socket.handshake.query.transport);
+        socket.handshake.session.isInRoom = false;
+        socket.handshake.session.save();
         io.emit('userDisconnected', socket.id);
     });
 });
