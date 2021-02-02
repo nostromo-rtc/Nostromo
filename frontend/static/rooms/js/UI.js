@@ -110,7 +110,7 @@ export default class UI {
         newVideo.id = `remoteVideo-${remoteVideoID}`;
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
-        newVideo.poster = "/img/novideodata.jpg";
+        newVideo.poster = "./img/novideodata.jpg";
 
         let label = document.createElement('span');
         label.classList.add('videoLabel');
@@ -203,7 +203,7 @@ export default class UI {
         this.localVideo.id = `localVideo`;
         this.localVideo.autoplay = true;
         this.localVideo.muted = true;
-        this.localVideo.poster = "/img/novideodata.jpg";
+        this.localVideo.poster = "./img/novideodata.jpg";
         localVideoContainer.appendChild(this.localVideo);
 
         this.localVideoLabel = document.createElement('span');

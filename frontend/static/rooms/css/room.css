@@ -1,0 +1,68 @@
+/* стили для комнат */
+#inroomMenu {
+    display: flex;
+    justify-content: flex-start;
+}
+
+#videos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.main section
+{
+    margin: 5px;
+}
+/* чат */
+#chatSection {
+    display: flex;
+    flex-direction: column;
+}
+#chat {
+    height: 200px;
+    resize: vertical;
+    font-size:14pt;
+    line-height:1.8;
+}
+#messageText
+{
+    flex: 1 1 95%;
+    resize: vertical;
+}
+#btn_sendMessage
+{
+    flex-grow: 1;
+}
+
+.videoLabel {
+    position: absolute;
+    right: 0;
+    border-left: 1px solid black;
+    border-bottom: 1px solid black;
+    background-color: lightgrey;
+    padding: 5px;
+    font-size: 30px;
+    opacity: 85%;
+}
+
+.videoItem {
+    flex-grow: 1;
+    flex-shrink: 1;
+    position: relative;
+    display: inline-flex;
+    margin: 5px;
+    box-sizing: border-box;
+    border: 1px solid grey;
+}
+.videoContainer {
+    width: 100%;
+    padding-top: 56.25%;
+    position: relative;
+}
+/* оформление для видео */
+video {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+}

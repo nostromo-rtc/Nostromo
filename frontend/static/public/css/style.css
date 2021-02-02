@@ -1,0 +1,95 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.flex {
+    display: flex;
+}
+
+/* оформление для меню навигации */
+.nav {
+    height: 100%;
+    width: 140px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #4a4848;
+    overflow-x: hidden;
+}
+
+.nav a {
+    padding: 18px 8px 18px 16px;
+    border-right: 8px solid #d4d4d4;
+    text-decoration: none;
+    font-size: 28px;
+    color: #d4d4d4;
+    display: block;
+}
+
+.navbutton {
+    border-bottom: 1px solid black;
+}
+
+.nav a:hover {
+    color: #00BFFF;
+    border-right: 8px solid #00BFFF;
+}
+
+/* оформление для заголовка */
+.header {
+    position: fixed;
+    top: 0;
+    left: 140px;
+    width: 100%;
+    z-index: 1;
+    height: 32px;
+    background-color: #4a4848;
+    border-bottom: 4px solid #d4d4d4;
+}
+
+.header div {
+    margin-left: 10px;
+    font-size: 24px;
+    color: #d4d4d4;
+}
+
+/* оформление для главной части страницы */
+.main {
+    margin-left: 140px;
+    display: flex;
+    flex-direction: column;
+    /* отступ от меню */
+    margin-top: 36px;
+    /* отступ от заголовка */
+    font-size: 18px;
+    padding: 5px 5px;
+}
+
+#roomList {
+    display: flex;
+    flex-direction: column;
+    min-width: 500px;
+    margin: auto;
+    padding: 5px 5px;
+}
+
+.roomListItem {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 5px;
+    padding: 10px;
+    background-color: lightgrey;
+    color: black;
+    text-decoration: none;
+    border: 1px solid grey;
+}
+
+.roomListItem:hover
+{
+    background-color: lightcyan;
+}
+
+#auth {
+    margin: auto;
+}

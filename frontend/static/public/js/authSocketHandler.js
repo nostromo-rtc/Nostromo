@@ -26,7 +26,7 @@ export default class authSocketHandler {
         this.socket.on('result', (success) => {
             if (success) location.reload();
             else document.getElementById('result').innerText = "Неправильный пароль!";
-        })
+        });
         document.getElementById('join').addEventListener('click', () => {
             const pass = document.getElementById('pass').value;
             this.socket.emit('joinRoom', pass);

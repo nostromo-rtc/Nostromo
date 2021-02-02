@@ -5,6 +5,7 @@
     <title>Панель администратора</title>
     <meta charset="utf-8" />
     <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/admin/js/admin.js"></script>
     <link href="/css/style.css" rel="stylesheet">
 </head>
 
@@ -15,11 +16,17 @@
     </div>
 
     <div class="header">
-        <div>Панель администратора</div>
+        <div>Авторизация</div>
     </div>
 
     <div class="main">
-
+        <div id="auth">
+            <p id="result"></p>
+            <p>Вход в панель администратора</p>
+            <span>Пароль: </span><input id="pass" type="password" name="password">
+            <button id="join">Войти</button>
+        </div>
     </div>
 </body>
+
 </html>

@@ -2,28 +2,25 @@
 <html>
 
 <head>
-    <title>Главная</title>
+    <title>Панель администратора</title>
     <meta charset="utf-8" />
     <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/admin/js/admin.js"></script>
     <link href="/css/style.css" rel="stylesheet">
 </head>
 
 <body>
     <div class="nav">
         <div class="navbutton"><a href="/">Главная</a></div>
+        <div class="navbutton"><a href="/admin">Админ</a></div>
     </div>
 
     <div class="header">
-        <div>Главная страница</div>
+        <div>Панель администратора</div>
     </div>
 
     <div class="main">
-        <div id="roomList">
-            <span style="margin: auto">Комнаты</span>
-            <a href="/rooms/1" class="roomListItem">Главная</a>
-            <a href="/rooms/2" class="roomListItem">Второстепенная</a>
-        </div>
+
     </div>
 </body>
-
 </html>

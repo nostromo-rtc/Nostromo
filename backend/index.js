@@ -48,7 +48,7 @@ app.get('/rooms/:roomID', (req, res) => {
         // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
         req.session.isInRoom = false;
         req.session.activeRoomID = roomID;
-        return res.sendFile(path.join(__dirname, '../frontend/pages', 'room.html'));
+        return res.sendFile(path.join(__dirname, '../frontend/pages/room', 'room.html'));
     };
     // проверяем наличие запрашиваемой комнаты
     const roomID = req.params.roomID;
@@ -73,20 +73,40 @@ app.get('/rooms/:roomID', (req, res) => {
             return res.send("неправильный пароль");
         }
         req.session.activeRoomID = roomID;
-        return res.sendFile(path.join(__dirname, '../frontend/pages', 'roomAuth.html'));
+        return res.sendFile(path.join(__dirname, '../frontend/pages/room', 'roomAuth.html'));
     }
     return res.send("Error: такой комнаты нет");
 });
 app.get('/admin', (req, res) => {
     if (req.ip == "::ffff:127.0.0.1") {
-        res.sendFile(path.join(__dirname, '../frontend/pages', 'admin.html'));
+        if (!req.session.admin) {
+            req.session.admin = false;
+            res.sendFile(path.join(__dirname, '../frontend/pages/admin', 'adminAuth.html'));
+        }
+        else {
+            res.sendFile(path.join(__dirname, '../frontend/pages/admin', 'admin.html'));
+        }
     }
     else {
         res.status(404).end('404 Error: page not found');
     }
 });
-// открываем доступ к статике, т.е к папке public (css, js, картинки)
-app.use(express.static("../frontend/public/"));
+// открываем доступ к статике, т.е к css, js, картинки
+app.use('/admin', (req, res, next) => {
+    if (req.ip == "::ffff:127.0.0.1") {
+        express.static("../frontend/static/admin/")(req, res, next);
+    }
+    else
+        next();
+});
+app.use('/rooms', (req, res, next) => {
+    if (req.session.auth) {
+        express.static("../frontend/static/rooms/")(req, res, next);
+    }
+    else
+        next();
+});
+app.use('/', express.static("../frontend/static/public/"));
 app.use((req, res) => {
     res.status(404).end('404 error: page not found');
 });
@@ -96,10 +116,32 @@ const io = new SocketIO.Server(server, {
     pingInterval: 2000,
     pingTimeout: 15000
 });
+// [Авторизация в админку]
+io.of('/admin').use((socket, next) => {
+    sessionMiddleware(socket.handshake, {}, next);
+});
+io.of('/admin').use((socket, next) => {
+    // если с недоверенного ip, то не открываем вебсокет-соединение
+    if (socket.handshake.address == "::ffff:127.0.0.1") {
+        return next();
+    }
+    return next(new Error("unauthorized"));
+});
+io.of('/admin').on('connection', (socket) => {
+    socket.on('joinAdmin', (pass) => {
+        if (pass == "admin123") {
+            socket.handshake.session.admin = true;
+            socket.handshake.session.save();
+            socket.emit('result', true);
+        }
+        else
+            socket.emit('result', false);
+    });
+});
+// [Авторизация в комнату]
 io.of('/auth').use((socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
 });
-// [Авторизация в комнату]
 io.of('/auth').on('connection', (socket) => {
     if (socket.handshake.session.activeRoomID != undefined) {
         const roomID = socket.handshake.session.activeRoomID;
@@ -123,6 +165,7 @@ io.of('/auth').on('connection', (socket) => {
         }
     }
 });
+// [Комната]
 io.of('/room').use((socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
 });
@@ -131,7 +174,7 @@ io.of('/room').use((socket, next) => {
     if (socket.handshake.session.auth) {
         const activeRoomID = socket.handshake.session.activeRoomID;
         // если он авторизован в запрашиваемой комнате
-        if (socket.handshake.session.authRoomsID.includes(activeRoomID)) {
+        if (socket.handshake.session.authRoomsID.includes(activeRoomID) && socket.handshake.session.isInRoom == false) {
             socket.handshake.session.isInRoom = true;
             socket.handshake.session.save();
             return next();
