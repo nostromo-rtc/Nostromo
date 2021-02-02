@@ -11,7 +11,7 @@ export default class UI {
         /** @type {Map<string, HTMLElement | HTMLVideoElement>} */
         this.allVideos = new Map();
         // количество строк и столбцов в раскладке
-        this.videoRows = 1;
+        this.videoRows = 2;
         this.videoColumns = 2;
         /// чат
         /** @type {HTMLElement | HTMLTextAreaElement} */
@@ -33,10 +33,11 @@ export default class UI {
         this.prepareButtons();
         this.prepareCloseButtonsForModalsWindows();
         this.prepareLocalVideo();
+        this.prepare_messageText();
+        this.resizeVideos();
         window.addEventListener('resize', () => this.resizeVideos());
         this.buttons.get('enableSounds').addEventListener('click', () => this.enableSounds());
         this.showUserName();
-        document.getElementById("main").style.visibility = 'visible';
 
     }
     showModalWindow(modalWindowName) {
@@ -51,6 +52,16 @@ export default class UI {
         this.buttons.set('enableSounds', document.getElementById('btn_enableSounds'));
         this.buttons.set('setNewUsername', document.getElementById('btn_setNewUsername'));
     }
+    prepare_messageText() {
+        this.messageText.addEventListener('keydown', (e) => {
+            if (e.key == 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.buttons.get('sendMessage').click();
+                this.messageText.value = "";
+            };
+        });
+    }
+
     setNewUsername() {
         localStorage["username"] = this.usernameInput.value;
         this.showUserName();
@@ -87,20 +98,28 @@ export default class UI {
         this.mutePolicy = false;
     }
     addVideo(remoteVideoID, name) {
+        let newVideoItem = document.createElement('div');
+        newVideoItem.classList.add('videoItem');
+
         let newVideoContainer = document.createElement('div');
-        newVideoContainer.classList.add('videoItem');
+        newVideoContainer.classList.add('videoContainer');
+
+        newVideoItem.appendChild(newVideoContainer);
+
         let newVideo = document.createElement('video');
         newVideo.id = `remoteVideo-${remoteVideoID}`;
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
         newVideo.poster = "/img/novideodata.jpg";
+
         let label = document.createElement('span');
+        label.classList.add('videoLabel');
         label.innerText = name;
         label.id = `remoteVideoLabel-${remoteVideoID}`;
-        label.classList.add('videoLabel');
-        newVideoContainer.appendChild(label);
+        newVideoItem.appendChild(label);
+
         newVideoContainer.appendChild(newVideo);
-        document.querySelector("#videos").appendChild(newVideoContainer);
+        document.querySelector("#videos").appendChild(newVideoItem);
         this.allVideos.set(remoteVideoID, newVideo);
         // перестроим раскладку
         this.calculateLayout();
@@ -131,7 +150,7 @@ export default class UI {
     removeVideo(remoteVideoID) {
         if (this.allVideos.has(remoteVideoID)) {
             const video = this.allVideos.get(remoteVideoID);
-            video.parentElement.remove();
+            video.parentElement.parentElement.remove();
             this.allVideos.delete(remoteVideoID);
             this.removeChatOption(remoteVideoID);
             this.calculateLayout();
@@ -142,8 +161,12 @@ export default class UI {
     // в зависимости от количества собеседников
     calculateLayout() {
         const videoCount = this.allVideos.size;
-        // если количество собеседников превысило размеры сетки раскладки
-        if (videoCount > this.videoColumns * this.videoRows) {
+        // если только 1 видео на экране
+        if (videoCount == 1) {
+            this.videoRows = 2;
+            this.videoColumns = 2;
+            // если количество собеседников превысило размеры сетки раскладки
+        } else if (videoCount > this.videoColumns * this.videoRows) {
             // если количество столбцов не равно количеству строк, значит увеличиваем количество строк
             if (this.videoColumns != this.videoRows) ++this.videoRows;
             else ++this.videoColumns;
@@ -159,26 +182,35 @@ export default class UI {
         const nav_offset = 150;
         const offset = 30;
         const aspect_ratio = 16 / 9;
-        let h = ((document.documentElement.clientHeight - header_offset) / this.videoRows) - offset;
-        let w = ((document.documentElement.clientWidth - nav_offset) / this.videoColumns) - offset;
+        // max_h для регулирования размеров видео, чтобы оно вмещалось в videoRows (количество) строк
+        let max_h = ((document.documentElement.clientHeight - header_offset) / this.videoRows) - offset;
+        let flexBasis = ((document.documentElement.clientWidth - nav_offset) / this.videoColumns) - offset;
         for (const videoItem of document.getElementsByClassName('videoItem')) {
-            videoItem.style.maxWidth = h * aspect_ratio + "px";
-            videoItem.style.flexBasis = w + "px";
+            videoItem.style.maxWidth = max_h * aspect_ratio + "px";
+            videoItem.style.flexBasis = flexBasis + "px";
         }
     }
     prepareLocalVideo() {
+        let localVideoItem = document.createElement('div');
+        localVideoItem.classList.add('videoItem');
+
         let localVideoContainer = document.createElement('div');
-        localVideoContainer.classList.add('videoItem');
+        localVideoContainer.classList.add('videoContainer');
+
+        localVideoItem.appendChild(localVideoContainer);
+
         this.localVideo = document.createElement('video');
         this.localVideo.id = `localVideo`;
         this.localVideo.autoplay = true;
         this.localVideo.muted = true;
         this.localVideo.poster = "/img/novideodata.jpg";
+        localVideoContainer.appendChild(this.localVideo);
+
         this.localVideoLabel = document.createElement('span');
         this.localVideoLabel.classList.add('videoLabel');
-        localVideoContainer.appendChild(this.localVideoLabel);
-        localVideoContainer.appendChild(this.localVideo);
-        document.querySelector("#videos").appendChild(localVideoContainer);
+        localVideoItem.appendChild(this.localVideoLabel);
+
+        document.querySelector("#videos").appendChild(localVideoItem);
         this.allVideos.set('0', this.localVideo);
     }
 }

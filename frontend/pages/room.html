@@ -18,7 +18,7 @@
         <div>Комната - <span id="roomName"></span></div>
     </div>
 
-    <div id="main" class="main" style="visibility: hidden;">
+    <div class="main">
         <div id="usernameDiv">
             <span>Ваше имя:</span>
             <input type="text" id="usernameInput">
@@ -38,24 +38,28 @@
             <br>
         </div>
         <div id="videos"></div>
-        <br>
-            <section id="chatSection">
-                <textarea id="chat" readonly style="width: 944px; height: 200px; font-size:14pt; line-height:1.8;"></textarea>
-                <br>
+        <section id="chatSection">
+            <span>Чат:</span>
+            <textarea id="chat" readonly></textarea>
+            <p>Выбор собеседника:
                 <select id="chatOptions">
-                    <option disabled selected value="default">Выберите собеседника..</option>
+                    <option disabled selected value="default">не выбрано...</option>
                 </select>
-                <input type="text" id="messageText" placeholder="Введите ваше сообщение">
+            </p>
+            <div class="flex">
+                <textarea id="messageText" placeholder="Введите ваше сообщение"></textarea>
                 <button id="btn_sendMessage" accesskey="enter" autofocus>Отправить</button>
-            </section>
-            <section id="fileSection">
-                <form id="fileInfo">
-                    <input type="file" id="fileInput" name="files" />
-                </form>
-                <button id="btn_sendFile">Отправить файл</button>
-                <a id="download"></a>
-                <progress id="receiveProgress" hidden></progress>
-            </section>
+            </div>
+        </section>
+        <section id="fileSection">
+            <span>Отправка файлов:</span>
+            <form id="fileInfo">
+                <input type="file" id="fileInput" name="files" />
+            </form>
+            <button id="btn_sendFile">Отправить файл</button>
+            <a id="download"></a>
+            <progress id="receiveProgress" hidden></progress>
+        </section>
 
     </div>
 </body>

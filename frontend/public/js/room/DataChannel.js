@@ -27,17 +27,19 @@ export default class DataChannel {
     }
 
     sendMessage() {
-        if (this.UI.messageText.value) {
+        const message = this.UI.messageText.value.toString().trim();
+        if (message) {
             let timestamp = this.getTimestamp();
-            this.UI.chat.innerHTML += "[" + timestamp + "] " + "Я: " + this.UI.messageText.value + "\n";
-            this.message_dc.send(this.UI.messageText.value);
-            this.UI.messageText.value = "";
+            this.UI.chat.innerHTML += "[" + timestamp + "] " + "Я: " + message + "\n";
+            this.UI.chat.scrollTop = this.UI.chat.scrollHeight;
+            this.message_dc.send(message);
         }
     }
 
     receiveMessage(event) {
         let timestamp = this.getTimestamp();
         this.UI.chat.innerHTML += "[" + timestamp + "] " + `(ЛС) Собеседник ${this.parent.socketSettings.remoteUsername}: ` + event.data + "\n";
+        this.UI.chat.scrollTop = this.UI.chat.scrollHeight;
     }
 
     sendFile() {
