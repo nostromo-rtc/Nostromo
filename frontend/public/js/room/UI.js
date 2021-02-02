@@ -4,14 +4,15 @@ export default class UI {
         // поля
         /** @type {Map<string, HTMLElement | HTMLButtonElement>} */
         this.buttons = new Map(); // кнопки
+        this.roomName = document.getElementById('roomName');
         /** @type {HTMLElement | HTMLVideoElement} */
         this.localVideo; // локальное видео
         this.localVideoLabel;
-        /** @type {HTMLElement | HTMLVideoElement} */
-        this.remoteVideo; // видео собеседника
-        /** @type {Map<number, HTMLElement | HTMLVideoElement>} */
+        /** @type {Map<string, HTMLElement | HTMLVideoElement>} */
         this.allVideos = new Map();
-        this.afterConnectSection = document.getElementById('afterConnectSection'); // секция с чатом и выбором файла для передачи
+        // количество строк и столбцов в раскладке
+        this.videoRows = 1;
+        this.videoColumns = 2;
         /// чат
         /** @type {HTMLElement | HTMLTextAreaElement} */
         this.chat = document.getElementById('chat');
@@ -35,6 +36,7 @@ export default class UI {
         window.addEventListener('resize', () => this.resizeVideos());
         this.buttons.get('enableSounds').addEventListener('click', () => this.enableSounds());
         this.showUserName();
+        document.getElementById("main").style.visibility = 'visible';
 
     }
     showModalWindow(modalWindowName) {
@@ -67,6 +69,9 @@ export default class UI {
             });
         }
     }
+    setRoomName(roomName) {
+        this.roomName.innerText = roomName;
+    }
     getCaptureSettings() {
         return this.captureSettings.value;
     }
@@ -83,8 +88,7 @@ export default class UI {
     }
     addVideo(remoteVideoID, name) {
         let newVideoContainer = document.createElement('div');
-        newVideoContainer.style.position = "relative";
-        newVideoContainer.style.display = "inline-block";
+        newVideoContainer.classList.add('videoItem');
         let newVideo = document.createElement('video');
         newVideo.id = `remoteVideo-${remoteVideoID}`;
         newVideo.autoplay = true;
@@ -92,13 +96,15 @@ export default class UI {
         newVideo.poster = "/img/novideodata.jpg";
         let label = document.createElement('span');
         label.innerText = name;
-        label.id = `remoteVideoLabel-${remoteVideoID}`
-        label.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;');
+        label.id = `remoteVideoLabel-${remoteVideoID}`;
+        label.classList.add('videoLabel');
         newVideoContainer.appendChild(label);
         newVideoContainer.appendChild(newVideo);
         document.querySelector("#videos").appendChild(newVideoContainer);
         this.allVideos.set(remoteVideoID, newVideo);
-        this.remoteVideo = newVideo;
+        // перестроим раскладку
+        this.calculateLayout();
+        this.resizeVideos();
     }
 
     updateVideoLabel(remoteVideoID, name) {
@@ -123,38 +129,56 @@ export default class UI {
     }
     // удалить видео собеседника (и опцию для чата/файлов тоже)
     removeVideo(remoteVideoID) {
-        this.allVideos.delete(remoteVideoID);
-        let video = document.querySelector(`#remoteVideo-${remoteVideoID}`);
-        if (video) {
+        if (this.allVideos.has(remoteVideoID)) {
+            const video = this.allVideos.get(remoteVideoID);
             video.parentElement.remove();
+            this.allVideos.delete(remoteVideoID);
             this.removeChatOption(remoteVideoID);
+            this.calculateLayout();
+            this.resizeVideos();
         }
     }
+    // подсчитать количество столбцов и строк в раскладке
+    // в зависимости от количества собеседников
+    calculateLayout() {
+        const videoCount = this.allVideos.size;
+        // если количество собеседников превысило размеры сетки раскладки
+        if (videoCount > this.videoColumns * this.videoRows) {
+            // если количество столбцов не равно количеству строк, значит увеличиваем количество строк
+            if (this.videoColumns != this.videoRows) ++this.videoRows;
+            else ++this.videoColumns;
+        } // пересчитываем сетку и после выхода пользователей
+        else if (videoCount < this.videoColumns * this.videoRows) {
+            if (this.videoColumns == this.videoRows && (videoCount <= this.videoColumns * (this.videoRows - 1))) --this.videoRows;
+            else if (this.videoColumns != this.videoRows && (videoCount <= (this.videoColumns - 1) * this.videoRows)) --this.videoColumns;
+        }
+    }
+    // перестроить раскладку
     resizeVideos() {
-        let w = (document.body.clientWidth - 300) / 2;
-        if (this.allVideos != undefined && this.allVideos.size > 0) {
-            for (const video of this.allVideos.values()) {
-                video.style.width = w + "px";
-                video.style.height = w * 9 / 16 + "px";
-            }
+        const header_offset = 82.5;
+        const nav_offset = 150;
+        const offset = 30;
+        const aspect_ratio = 16 / 9;
+        let h = ((document.documentElement.clientHeight - header_offset) / this.videoRows) - offset;
+        let w = ((document.documentElement.clientWidth - nav_offset) / this.videoColumns) - offset;
+        for (const videoItem of document.getElementsByClassName('videoItem')) {
+            videoItem.style.maxWidth = h * aspect_ratio + "px";
+            videoItem.style.flexBasis = w + "px";
         }
     }
     prepareLocalVideo() {
         let localVideoContainer = document.createElement('div');
-        localVideoContainer.style.position = "relative";
-        localVideoContainer.style.display = "inline-block";
+        localVideoContainer.classList.add('videoItem');
         this.localVideo = document.createElement('video');
         this.localVideo.id = `localVideo`;
         this.localVideo.autoplay = true;
         this.localVideo.muted = true;
         this.localVideo.poster = "/img/novideodata.jpg";
         this.localVideoLabel = document.createElement('span');
-        this.localVideoLabel.innerText = "Я - ";
-        this.localVideoLabel.setAttribute('style', 'position: absolute; background-color: lightgrey; right: 0; padding: 5px; font-size: 35px; border: 1px solid black;');
+        this.localVideoLabel.classList.add('videoLabel');
         localVideoContainer.appendChild(this.localVideoLabel);
         localVideoContainer.appendChild(this.localVideo);
         document.querySelector("#videos").appendChild(localVideoContainer);
-        this.allVideos.set(0, this.localVideo);
-        this.resizeVideos();
+        this.allVideos.set('0', this.localVideo);
     }
 }

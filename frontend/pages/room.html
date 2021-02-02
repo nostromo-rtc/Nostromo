@@ -5,40 +5,41 @@
     <title>Видеоконференция "WebRTC"</title>
     <meta charset="utf-8" />
     <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="/js/main.js"></script>
+    <script type="module" src="/js/room/room.js"></script>
     <link href="/css/style.css" rel="stylesheet">
 </head>
 
 <body>
-    <div class="menu">
-        <div class="menubutton"><a href="/">Главная</a></div>
+    <div class="nav">
+        <div class="navbutton"><a href="/">Главная</a></div>
     </div>
 
     <div class="header">
-        <div>Комната - </div>
+        <div>Комната - <span id="roomName"></span></div>
     </div>
 
-    <div class="main">
+    <div id="main" class="main" style="visibility: hidden;">
         <div id="usernameDiv">
             <span>Ваше имя:</span>
             <input type="text" id="usernameInput">
             <button id="btn_setNewUsername">Сохранить имя</button>
         </div>
-        <button id="btn_getUserMediaMic">Захватить микрофон</button>
-        <button id="btn_getUserMediaCam">Захватить веб-камеру</button>
-        <button id="btn_getDisplayMedia">Демонстрация экрана компьютера</button>
-        <button id="btn_enableSounds" style="font-weight: bold; background-color: lightgreen;">Включить звуки собеседников</button>
-        <select id="captureSettings">
-            <option disabled selected value="default">Выберите разрешение</option>
-            <option value="360p">640x360</option>
-            <option value="720p">1280x720</option>
-            <option value="1080p">1920x1080</option>
-        </select>
-        <br>
+        <div id="inroomMenu">
+            <button id="btn_getUserMediaMic">Захватить микрофон</button>
+            <button id="btn_getUserMediaCam">Захватить веб-камеру</button>
+            <button id="btn_getDisplayMedia">Демонстрация экрана компьютера</button>
+            <button id="btn_enableSounds" style="font-weight: bold; background-color: lightgreen;">Включить звуки собеседников</button>
+            <select id="captureSettings">
+                <option disabled selected value="default">Выберите разрешение</option>
+                <option value="360p">640x360</option>
+                <option value="720p">1280x720</option>
+                <option value="1080p">1920x1080</option>
+            </select>
+            <br>
+        </div>
         <div id="videos"></div>
         <br>
-        <section id="afterConnectSection" hidden>
-            <section>
+            <section id="chatSection">
                 <textarea id="chat" readonly style="width: 944px; height: 200px; font-size:14pt; line-height:1.8;"></textarea>
                 <br>
                 <select id="chatOptions">
@@ -47,7 +48,7 @@
                 <input type="text" id="messageText" placeholder="Введите ваше сообщение">
                 <button id="btn_sendMessage" accesskey="enter" autofocus>Отправить</button>
             </section>
-            <section>
+            <section id="fileSection">
                 <form id="fileInfo">
                     <input type="file" id="fileInput" name="files" />
                 </form>
@@ -55,8 +56,8 @@
                 <a id="download"></a>
                 <progress id="receiveProgress" hidden></progress>
             </section>
-        </section>
 
     </div>
 </body>
+
 </html>

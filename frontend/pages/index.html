@@ -5,12 +5,12 @@
     <title>Панель администратора</title>
     <meta charset="utf-8" />
     <script src="/socket.io/socket.io.js"></script>
-    <link href="css/style.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
 </head>
 
 <body>
-    <div class="menu">
-        <div class="menubutton"><a href="/">Главная</a></div>
+    <div class="nav">
+        <div class="navbutton"><a href="/">Главная</a></div>
     </div>
 
     <div class="header">
@@ -18,7 +18,12 @@
     </div>
 
     <div class="main">
-
+        <div id="roomList">
+            <span style="margin: auto">Комнаты</span>
+            <a href="/rooms/1" class="roomListItem">Главная</a>
+            <a href="/rooms/2" class="roomListItem">Второстепенная</a>
+        </div>
     </div>
 </body>
+
 </html>

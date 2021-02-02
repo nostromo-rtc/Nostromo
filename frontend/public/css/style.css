@@ -1,20 +1,18 @@
 body {
     font-family: Arial, Helvetica, sans-serif;
 }
-
-/* оформление для меню */
-.menu {
+/* оформление для меню навигации */
+.nav {
     height: 100%;
     width: 140px;
     position: fixed;
-    z-index: 1;
     top: 0;
     left: 0;
     background-color: #4a4848;
     overflow-x: hidden;
 }
 
-.menu a {
+.nav a {
     padding: 18px 8px 18px 16px;
     border-right: 8px solid #d4d4d4;
     text-decoration: none;
@@ -23,46 +21,111 @@ body {
     display: block;
 }
 
-.menubutton {
+.navbutton {
     border-bottom: 1px solid black;
 }
 
-.menu a:hover {
+.nav a:hover {
     color: #00BFFF;
     border-right: 8px solid #00BFFF;
 }
 
-/* оформление для главной части страницы */
-.main {
-    margin-left: 140px;
-    /* отступ от меню */
-    margin-top: 36px;
-    /* отступ от заголовка */
-    font-size: 20px;
-    padding: 0px 10px;
-}
-
-/* оформление для видео */
-video {
-    width: 948px;
-    border: 1px solid grey;
-}
-
 /* оформление для заголовка */
 .header {
-    position: absolute;
+    position: fixed;
     top: 0;
-    left: 0;
+    left: 140px;
     width: 100%;
+    z-index: 1;
     height: 32px;
     background-color: #4a4848;
     border-bottom: 4px solid #d4d4d4;
 }
 
 .header div {
-    margin-left: 150px;
+    margin-left: 10px;
     font-size: 24px;
     color: #d4d4d4;
+}
+
+/* оформление для главной части страницы */
+.main {
+    margin-left: 140px;
+    display: flex;
+    flex-direction: column;
+    /* отступ от меню */
+    margin-top: 36px;
+    /* отступ от заголовка */
+    font-size: 20px;
+    padding: 5px 5px;
+}
+
+#roomList {
+    display: flex;
+    flex-direction: column;
+    min-width: 500px;
+    margin: auto;
+    padding: 5px 5px;
+}
+
+.roomListItem {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 5px;
+    padding: 10px;
+    background-color: lightgrey;
+    color: black;
+    text-decoration: none;
+    border: 1px solid grey;
+}
+
+.roomListItem:hover
+{
+    background-color: lightcyan;
+    border-right: 8px solid #00BFFF;
+}
+
+#auth {
+    margin: auto;
+}
+
+#inroomMenu {
+    display: flex;
+    justify-content: flex-start;
+}
+
+#videos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.videoLabel {
+    position: absolute;
+    background-color: lightgrey;
+    right: 0;
+    padding: 5px;
+    font-size: 30px;
+    border: 1px solid black;
+    opacity: 85%;
+}
+
+.videoItem {
+    flex-grow: 1;
+    flex-shrink: 1;
+    position: relative;
+    display: inline-flex;
+    margin: 5px;
+    box-sizing: border-box;
+}
+
+/* оформление для видео */
+video {
+    width: 100%;
+    height: auto;
+    border: 1px solid grey;
 }
 
 /* для модального окна */

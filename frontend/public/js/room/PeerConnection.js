@@ -104,7 +104,6 @@ export default class PeerConnection {
         console.info("ICE Connection state:", connectionState);
         if (connectionState == "connected") {
             this.UI.addChatOption(this.socketSettings.remoteUserID, this.socketSettings.remoteUsername);
-            this.UI.afterConnectSection.hidden = false;
             if (this.needNewOffer) {
                 this.needNewOffer = false;
                 this.createOffer();

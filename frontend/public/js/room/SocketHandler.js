@@ -8,9 +8,8 @@ export default class SocketHandler {
     constructor(_UI) {
         // поля
         this.UI = _UI;
-        this.socket = io({
-            'transports': ['websocket'],
-            allowUpgrades: false
+        this.socket = io('/room', {
+            'transports': ['websocket']
         });
         this.userMedia = new UserMedia(this.UI, this);
         /** @type {Map<number, PeerConnection>} */
@@ -30,21 +29,25 @@ export default class SocketHandler {
             this.socket.emit('afterConnect', this.UI.usernameInput.value);
         });
 
-        this.socket.on("connect_error", (err) => {
+        this.socket.on('connect_error', (err) => {
             console.log(err.message); // not authorized
         });
+
+        this.socket.on('roomName', (roomName) => {
+            this.UI.setRoomName(roomName);
+        });
+
         // новый пользователь (т.е другой)
         this.socket.on('newUser', ({
             ID: remoteUserID,
             name: name
         }, AmIOffer) => {
             this.UI.addVideo(remoteUserID, name);
-            this.UI.resizeVideos();
             const socketSettings = {
                 remoteUserID: remoteUserID,
                 remoteUsername: name,
                 socket: this.socket
-            }
+            };
             let PCInstance = new PeerConnection(this.UI, this.userMedia.stream, socketSettings, AmIOffer);
             // сохраняем подключение
             this.pcContainer.set(remoteUserID, PCInstance);
@@ -126,7 +129,7 @@ export default class SocketHandler {
             }
         });
         document.addEventListener('beforeunload', () => {
-            this.socket.close()
+            this.socket.close();
         });
     }
     // добавить медиапоток в подключение

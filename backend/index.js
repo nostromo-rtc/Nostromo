@@ -72,7 +72,8 @@ app.get('/rooms/:roomID', (req, res) => {
             }
             return res.send("неправильный пароль");
         }
-        return res.send("нужен пароль");
+        req.session.activeRoomID = roomID;
+        return res.sendFile(path.join(__dirname, '../frontend/pages', 'roomAuth.html'));
     }
     return res.send("Error: такой комнаты нет");
 });
@@ -92,30 +93,60 @@ app.use((req, res) => {
 // сокеты
 const io = new SocketIO.Server(server, {
     transports: ['websocket'],
-    allowUpgrades: false,
     pingInterval: 2000,
     pingTimeout: 15000
 });
-io.use((socket, next) => {
+io.of('/auth').use((socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
 });
-io.use((socket, next) => {
-    if (socket.handshake.session.auth) {
-        socket.handshake.session.isInRoom = true;
-        socket.handshake.session.save();
-        next();
-    }
-    else {
-        next(new Error("unauthorized"));
+// [Авторизация в комнату]
+io.of('/auth').on('connection', (socket) => {
+    if (socket.handshake.session.activeRoomID != undefined) {
+        const roomID = socket.handshake.session.activeRoomID;
+        if (rooms.has(roomID)) {
+            socket.emit('roomName', rooms.get(roomID).name);
+            socket.on('joinRoom', (pass) => {
+                if (pass == rooms.get(roomID).password) {
+                    // если у пользователя не было сессии
+                    if (!socket.handshake.session.auth) {
+                        socket.handshake.session.auth = true;
+                        socket.handshake.session.authRoomsID = new Array();
+                    }
+                    // запоминаем для этого пользователя авторизованную комнату
+                    socket.handshake.session.authRoomsID.push(roomID);
+                    socket.handshake.session.save();
+                    socket.emit('result', true);
+                }
+                else
+                    socket.emit('result', false);
+            });
+        }
     }
 });
-// обрабатываем подключение нового юзера
-io.on('connection', (socket) => {
-    console.log(`${io.of('/').sockets.size}: ${socket.id} user connected`);
+io.of('/room').use((socket, next) => {
+    sessionMiddleware(socket.handshake, {}, next);
+});
+io.of('/room').use((socket, next) => {
+    // у пользователя есть сессия
+    if (socket.handshake.session.auth) {
+        const activeRoomID = socket.handshake.session.activeRoomID;
+        // если он авторизован в запрашиваемой комнате
+        if (socket.handshake.session.authRoomsID.includes(activeRoomID)) {
+            socket.handshake.session.isInRoom = true;
+            socket.handshake.session.save();
+            return next();
+        }
+    }
+    return next(new Error("unauthorized"));
+});
+// [Комната] обрабатываем подключение нового юзера
+io.of('/room').on('connection', (socket) => {
+    console.log(`${io.of('/room').sockets.size}: ${socket.id} user connected`);
     const roomID = socket.handshake.session.activeRoomID;
     socket.join(roomID);
     /** ID всех сокетов в комнате roomID */
-    const roomUsersID = io.of('/').adapter.rooms.get(roomID);
+    const roomUsersID = io.of('/room').adapter.rooms.get(roomID);
+    socket.emit('roomName', rooms.get(roomID).name);
     socket.once('afterConnect', (username) => {
         // запоминаем имя в сессии
         socket.handshake.session.username = username;
@@ -123,11 +154,11 @@ io.on('connection', (socket) => {
         for (const anotherUser_ID of roomUsersID.values()) {
             if (anotherUser_ID != socket.id) {
                 const offering = true;
-                const anotherUser_name = io.of('/').sockets.get(anotherUser_ID).handshake.session.username;
+                const anotherUser_name = io.of('/room').sockets.get(anotherUser_ID).handshake.session.username;
                 // сообщаем новому пользователю и пользователю anotherUser,
                 // что им необходимо создать пустое p2p подключение (PeerConnection)
                 socket.emit('newUser', { ID: anotherUser_ID, name: anotherUser_name }, offering);
-                io.to(anotherUser_ID).emit('newUser', { ID: socket.id, name: username }, !offering);
+                io.of('/room').to(anotherUser_ID).emit('newUser', { ID: socket.id, name: username }, !offering);
                 // сообщаем новому пользователю, что он должен создать приглашение для юзера anotherUser
                 console.log(`запросили приглашение от ${socket.id} для ${anotherUser_ID}`);
                 socket.emit('newOffer', anotherUser_ID);
@@ -144,7 +175,7 @@ io.on('connection', (socket) => {
         // отправляем его другому пользователю
         if (roomUsersID.has(anotherUserID)) {
             console.log(`отправили приглашение от ${socket.id} для ${anotherUserID}`);
-            io.to(anotherUserID).emit('receiveOffer', offer, socket.id);
+            io.of('/room').to(anotherUserID).emit('receiveOffer', offer, socket.id);
         }
     });
     // если получили ответ от юзера socket для юзера anotherUserID
@@ -152,14 +183,14 @@ io.on('connection', (socket) => {
         console.log(`получили ответ от ${socket.id} для ${anotherUserID}`);
         if (roomUsersID.has(anotherUserID)) {
             console.log(`отправили ответ от ${socket.id} для ${anotherUserID}`);
-            io.to(anotherUserID).emit('receiveAnswer', answer, socket.id);
+            io.of('/room').to(anotherUserID).emit('receiveAnswer', answer, socket.id);
         }
     });
     socket.on('disconnect', (reason) => {
         console.log(`${socket.id}: user disconnected`, reason);
         socket.handshake.session.isInRoom = false;
         socket.handshake.session.save();
-        io.in(roomID).emit('userDisconnected', socket.id);
+        io.of('/room').in(roomID).emit('userDisconnected', socket.id);
     });
 });
 // для ввода в консоль сервера
