@@ -32,7 +32,7 @@ export default class PeerConnection {
     }
     // создание p2p соединения
     async createRTCPeerConnection() {
-        console.info("Создаем RTCPeerConnection");
+        console.info(`[${this.socketSettings.remoteUserID}]`,"Создаем RTCPeerConnection");
         this.pc = new RTCPeerConnection(this.configuration); // -- создаем RTCPeerConnection -- //
         this.pc.addEventListener('iceconnectionstatechange', event => this.onICEStateChange(event));
         this.pc.addEventListener('icegatheringstatechange', event => this.onICEGatheringStateChange(event));
@@ -69,13 +69,13 @@ export default class PeerConnection {
             newTrack = this.localStream.getVideoTracks()[0];
         }
         this.pc.addTrack(newTrack, this.localStream);
-        console.info("Добавлена новая медиадорожка");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "Добавлена новая медиадорожка");
         console.debug(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
         if (this.isOffer) {
             if (this.pc.iceConnectionState == 'connected') {
                 this.createOffer();
             } else {
-                console.error("maybe BUG, handle it");
+                console.error(`[${this.socketSettings.remoteUserID}]`, "maybe BUG, handle it");
                 this.needNewOffer = true;
             }
         }
@@ -94,23 +94,30 @@ export default class PeerConnection {
                 await sender.replaceTrack(newTrack);
             }
         }
-        console.info("Обновлен существующий медиапоток");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "Обновлен существующий медиапоток");
         console.debug(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
     }
 
     // события WebRTC
     onICEStateChange(event) {
         const connectionState = this.pc.iceConnectionState;
-        console.info("ICE Connection state:", connectionState);
+        console.info(`[${this.socketSettings.remoteUserID}]`, "ICE Connection state:", connectionState);
+        // собеседник подключился
         if (connectionState == "connected") {
             this.UI.addChatOption(this.socketSettings.remoteUserID, this.socketSettings.remoteUsername);
             if (this.needNewOffer) {
                 this.needNewOffer = false;
                 this.createOffer();
             }
-        } else if (connectionState == "failed") {
+        }
+        // собеседник временно отключился из-за плохой связи и это соединение должно скоро автоматически восстановиться
+        else if (connectionState == "disconnected") {
+            this.UI.removeChatOption(this.socketSettings.remoteUserID);
+        }
+        // webrtc соединение с собеседником полностью оборвалось
+        else if (connectionState == "failed") {
             // если соединение с заданными SDP-объектами не удалось, то удаляем его и создаем новое
-            console.error("maybe BUG2, handle it");
+            console.error(`[${this.socketSettings.remoteUserID}]`, "maybe BUG2, handle it");
             this.resetConnection();
             this.UI.removeChatOption(this.socketSettings.remoteUserID);
             if (this.isOffer) {
@@ -120,10 +127,10 @@ export default class PeerConnection {
     }
     onICEGatheringStateChange(event) // -- отслеживаем, когда был создан последний ICE-кандидат -- //
     {
-        console.info("ICE Gathering state: ", this.pc.iceGatheringState);
+        console.info(`[${this.socketSettings.remoteUserID}]`, "ICE Gathering state: ", this.pc.iceGatheringState);
         if (this.pc.iceGatheringState == "complete") {
             if (this.firstConnect) {
-                console.info("Sending first SDP to web-server (when ice candidates are ready)");
+                console.info(`[${this.socketSettings.remoteUserID}]`, "Sending first SDP to web-server (when ice candidates are ready)");
                 this.firstConnect = false;
                 let emitEvent = 'newOffer';
                 if (!this.isOffer) emitEvent = 'newAnswer';
@@ -136,9 +143,9 @@ export default class PeerConnection {
         // -- устанавливаем приглашение/ответ от нас как описание локальной стороны -- //
         try {
             await this.pc.setLocalDescription(desc);
-            console.info("setLocalDescription complete!");
+            console.info(`[${this.socketSettings.remoteUserID}]`, "setLocalDescription complete!");
         } catch (error) {
-            console.error("Failed to set session description:", error);
+            console.error(`[${this.socketSettings.remoteUserID}]`, "Failed to set session description:", error);
         }
     }
 
@@ -146,9 +153,9 @@ export default class PeerConnection {
         // -- устанавливаем приглашение/ответ от нас как описание удаленной стороны -- //
         try {
             await this.pc.setRemoteDescription(desc);
-            console.info("setRemoteDescription complete!");
+            console.info(`[${this.socketSettings.remoteUserID}]`, "setRemoteDescription complete!");
         } catch (error) {
-            console.error("Failed to set session description:", error);
+            console.error(`[${this.socketSettings.remoteUserID}]`, "Failed to set session description:", error);
         }
     }
 
@@ -171,10 +178,10 @@ export default class PeerConnection {
         // мы создали приглашение без ICE кандидатов
         // отправим приглашение тогда, когда ICE кандидаты будут добавлены
         // см. функцию onICEGatheringStateChange
-        console.info("> createOffer_success()");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "> createOffer_success()");
         await this.pc_setLocalDescription(offer);
         if (!this.firstConnect) {
-            console.info("Sending offer SDP to web-server");
+            console.info(`[${this.socketSettings.remoteUserID}]`, "Sending offer SDP to web-server");
             await this.socketSettings.socket.emit('newOffer', this.pc.localDescription, this.socketSettings.remoteUserID);
         }
 
@@ -188,21 +195,21 @@ export default class PeerConnection {
             let offer = await this.pc.createOffer();
             await this.createOffer_success(offer);
         } catch (error) {
-            console.error("Failed to create session description (offer):", error);
+            console.error(`[${this.socketSettings.remoteUserID}]`, "Failed to create session description (offer):", error);
         }
     }
     // получить приглашение и создать ответ
     async createAnswer_success(answer) // -- ответ на приглашение удалось сформировать -- //
     {
-        console.info("> createAnswer_success()");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "> createAnswer_success()");
         await this.pc_setLocalDescription(answer);
         if (!this.firstConnect) {
-            console.info("Sending answer to web-server");
+            console.info(`[${this.socketSettings.remoteUserID}]`, "Sending answer to web-server");
             await this.socketSettings.socket.emit('newAnswer', this.pc.localDescription, this.socketSettings.remoteUserID);
         }
     }
     async receiveOffer(SDP) {
-        console.info("> receiveOffer()");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "> receiveOffer()");
         if (this.pc.iceConnectionState == "checking") {
             this.resetConnection();
         }
@@ -215,12 +222,12 @@ export default class PeerConnection {
             const answer = await this.pc.createAnswer();
             await this.createAnswer_success(answer);
         } catch (error) {
-            console.error("Failed to create session description (answer):", error);
+            console.error(`[${this.socketSettings.remoteUserID}]`, "Failed to create session description (answer):", error);
         }
     }
     // получить ответ
     async receiveAnswer(SDP) {
-        console.info("> receiveAnswer()");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "> receiveAnswer()");
         await this.pc_setRemoteDescription(SDP);
     }
     // удаленный поток данных (текстовые сообщения и файлы)
@@ -237,7 +244,7 @@ export default class PeerConnection {
     }
     // удаленный медиапоток
     gotRemoteStream(e) {
-        console.debug("got remoteStream:", e);
+        console.debug(`[${this.socketSettings.remoteUserID}]`, "got remoteStream:", e);
         const remoteVideo = this.UI.allVideos.get(this.socketSettings.remoteUserID);
         remoteVideo.srcObject = e.streams[0];
     }

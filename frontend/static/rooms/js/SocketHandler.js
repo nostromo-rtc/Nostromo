@@ -67,7 +67,7 @@ export default class SocketHandler {
         this.socket.on('newOffer', (remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
                 const pc = this.pcContainer.get(remoteUserID);
-                console.info('SocketHandler > newOffer', this.socket.id, remoteUserID);
+                console.info('SocketHandler > newOffer for', `[${remoteUserID}]`);
                 pc.createOffer();
             }
         });
@@ -75,7 +75,7 @@ export default class SocketHandler {
         this.socket.on('receiveOffer', (SDP, remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
                 const pc = this.pcContainer.get(remoteUserID);
-                console.info('SocketHandler > receiveOffer', this.socket.id, remoteUserID);
+                console.info('SocketHandler > receiveOffer from', `[${remoteUserID}]`);
                 pc.isOffer = false;
                 pc.receiveOffer(SDP);
             }
@@ -84,14 +84,14 @@ export default class SocketHandler {
         this.socket.on('receiveAnswer', (SDP, remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
                 const pc = this.pcContainer.get(remoteUserID);
-                console.info('SocketHandler > receiveAnswer', this.socket.id, remoteUserID);
+                console.info('SocketHandler > receiveAnswer from', `[${remoteUserID}]`);
                 pc.receiveAnswer(SDP);
             }
         });
         // другой пользователь отключился
         this.socket.on('userDisconnected', (remoteUserID) => {
             if (this.pcContainer.has(remoteUserID)) {
-                console.info("SocketHandler > remoteUser disconnected:", remoteUserID);
+                console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserID}]`);
                 this.UI.removeVideo(remoteUserID);
                 // удаляем объект соединения
                 let disconnectedPC = this.pcContainer.get(remoteUserID);
@@ -100,7 +100,7 @@ export default class SocketHandler {
             }
         });
         this.socket.on('disconnect', () => {
-            console.warn("Данный клиент был отсоединен от веб-сервера");
+            console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
             for (const remoteUserID of this.pcContainer.keys()) {
                 this.UI.removeVideo(remoteUserID);
                 // удаляем объект соединения
