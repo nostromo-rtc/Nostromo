@@ -69,28 +69,61 @@ export default class UserMedia {
     async getDisplayMedia_click() // -- захват видео с экрана юзера -- //
     {
         try {
-            let presentMedia = false;
-            for (const oldTrack of this.stream.getTracks()) {
-                if (oldTrack.kind == "video") {
-                    presentMedia = true;
-                    oldTrack.stop();
-                    this.stream.removeTrack(oldTrack);
-                    this.UI.localVideo.srcObject = null;
+            let presentVideo = false;
+            // проверяем, было ли видео от нас до этого
+            if (this.stream.getVideoTracks().length == 1) {
+                presentVideo = true;
+                const oldTrack = this.stream.getVideoTracks()[0];
+                oldTrack.stop();
+                this.stream.removeTrack(oldTrack);
+                this.UI.localVideo.srcObject = null;
+            }
+            // захват экрана
+            let mediaStream = await navigator.mediaDevices.getDisplayMedia(this.captureConstraints.get(this.UI.getCaptureSettings()));
+            // добавляем видеодорожку
+            this.stream.addTrack(mediaStream.getVideoTracks()[0]);
+            // если захват экрана со звуком
+            if (mediaStream.getAudioTracks().length == 1) {
+                // если до этого от нас был звук
+                let presentAudio = false;
+                if (this.stream.getAudioTracks().length == 1) {
+                    presentAudio = true;
+                    const oldAudioTrack = this.stream.getAudioTracks()[0];
+                    oldAudioTrack.stop();
+                    this.stream.removeTrack(oldAudioTrack);
+                }
+                this.stream.addTrack(mediaStream.getAudioTracks()[0]);
+
+                if (!presentAudio && !presentVideo) {
+                    this.parent.addNewMediaStream('both');
+                }
+                else {
+                    if (presentAudio) {
+                        this.parent.updateMediaStream('audio');
+                    }
+                    else {
+                        this.parent.addNewMediaStream('audio');
+                    }
+
+                    if (presentVideo) {
+                        this.parent.updateMediaStream('video');
+                    } else {
+                        this.parent.addNewMediaStream('video');
+                    }
                 }
             }
-            let mediaStream = await navigator.mediaDevices.getDisplayMedia(this.captureConstraints.get(this.UI.getCaptureSettings()));
-            this.handleMediaInactive(mediaStream.getTracks());
-            for (const track of mediaStream.getTracks()) {
-                this.stream.addTrack(track);
+            // если захват экрана без звука
+            else {
+                // обновляем видеопоток в подключении
+                if (presentVideo) {
+                    this.parent.updateMediaStream('video');
+                } else {
+                    this.parent.addNewMediaStream('video');
+                }
             }
+            this.handleMediaInactive(this.stream.getTracks());
             console.debug("getDisplayMedia success:", this.stream);
             this.UI.localVideo.srcObject = this.stream; // Подключаем медиапоток к HTML-элементу <video>
-            // обновляем медиапоток в подключении
-            if (presentMedia) {
-                this.parent.updateMediaStream('video');
-            } else {
-                this.parent.addNewMediaStream('video');
-            }
         } catch (error) {
             console.error("> getDisplayMedia_error():", error);
         }

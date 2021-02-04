@@ -32,7 +32,7 @@ export default class PeerConnection {
     }
     // создание p2p соединения
     async createRTCPeerConnection() {
-        console.info(`[${this.socketSettings.remoteUserID}]`,"Создаем RTCPeerConnection");
+        console.info(`[${this.socketSettings.remoteUserID}]`, "Создаем RTCPeerConnection");
         this.pc = new RTCPeerConnection(this.configuration); // -- создаем RTCPeerConnection -- //
         this.pc.addEventListener('iceconnectionstatechange', event => this.onICEStateChange(event));
         this.pc.addEventListener('icegatheringstatechange', event => this.onICEGatheringStateChange(event));
@@ -64,11 +64,18 @@ export default class PeerConnection {
     // добавить медиапоток в подключение
     async addNewMediaStream(stream, trackKind) {
         this.localStream = stream;
-        let newTrack = this.localStream.getAudioTracks()[0];
+        const newVideoTrack = this.localStream.getVideoTracks()[0];
+        const newAudioTrack = this.localStream.getAudioTracks()[0];
         if (trackKind == 'video') {
-            newTrack = this.localStream.getVideoTracks()[0];
+            this.pc.addTrack(newVideoTrack, this.localStream);
         }
-        this.pc.addTrack(newTrack, this.localStream);
+        else if (trackKind == 'audio') {
+            this.pc.addTrack(newAudioTrack, this.localStream);
+        }
+        else {
+            this.pc.addTrack(newVideoTrack, this.localStream);
+            this.pc.addTrack(newAudioTrack, this.localStream);
+        }
         console.info(`[${this.socketSettings.remoteUserID}]`, "Добавлена новая медиадорожка");
         console.debug(this.pc.getSenders(), this.pc.getReceivers(), this.pc.getTransceivers());
         if (this.isOffer) {
