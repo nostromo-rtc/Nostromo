@@ -62,9 +62,9 @@ type roomInfo = {
  * @argument string - номер комнаты (которое идентично названию комнаты в socket.io)
  * @argument roomInfo - название и пароль комнаты
  */
+let roomsIdCount : number = 1;
 let rooms = new Map<string, roomInfo>();
-rooms.set('1', { name: "Главная", password: "testik1" });
-rooms.set('2', { name: "Второстепенная", password: "123" });
+rooms.set(String(roomsIdCount), { name: "Главная", password: "testik1" });
 
 app.get('/rooms/:roomID', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -170,11 +170,20 @@ declare module "express"
 
 type SocketId = string;
 
+// [Главная страница]
+io.of('/').on('connection', (socket: SocketIO.Socket) => {
+    let roomList: { id: string, name: string; }[] = [];
+    for (const room of rooms) {
+        roomList.push({ id: room[0], name: room[1].name });
+    }
+    socket.emit('roomList', roomList);
+});
+
 // [Авторизация в админку]
-io.of('/admin').use((socket, next) => {
+io.of('/admin').use((socket: SocketIO.Socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
 });
-io.of('/admin').use((socket, next) => {
+io.of('/admin').use((socket: SocketIO.Socket, next) => {
     // если с недоверенного ip, то не открываем вебсокет-соединение
     if (socket.handshake.address == "::ffff:127.0.0.1") {
         return next();
@@ -182,18 +191,34 @@ io.of('/admin').use((socket, next) => {
     return next(new Error("unauthorized"));
 });
 io.of('/admin').on('connection', (socket: SocketIO.Socket) => {
-    socket.on('joinAdmin', (pass) => {
-        if (pass == "admin123") {
-            socket.handshake.session.admin = true;
-            socket.handshake.session.save();
-            socket.emit('result', true);
+    if (!socket.handshake.session.admin) {
+        socket.on('joinAdmin', (pass) => {
+            if (pass == "admin123") {
+                socket.handshake.session.admin = true;
+                socket.handshake.session.save();
+                socket.emit('result', true);
+            }
+            else socket.emit('result', false);
+        });
+    } else {
+        let roomList: { id: string, name: string; }[] = [];
+        for (const room of rooms) {
+            roomList.push({ id: room[0], name: room[1].name });
         }
-        else socket.emit('result', false);
-    });
+        socket.emit('roomList', roomList, roomsIdCount);
+
+        socket.on('deleteRoom', (id: string) => {
+            rooms.delete(id);
+        });
+
+        socket.on('createRoom', (name: string, pass: string) => {
+            rooms.set(String(++roomsIdCount), {name: name, password: pass});
+        });
+    }
 });
 
 // [Авторизация в комнату]
-io.of('/auth').use((socket, next) => {
+io.of('/auth').use((socket: SocketIO.Socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
 });
 io.of('/auth').on('connection', (socket: SocketIO.Socket) => {
@@ -221,10 +246,11 @@ io.of('/auth').on('connection', (socket: SocketIO.Socket) => {
 });
 
 // [Комната]
-io.of('/room').use((socket, next) => {
+io.of('/room').use((socket: SocketIO.Socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
 });
-io.of('/room').use((socket, next) => {
+
+io.of('/room').use((socket: SocketIO.Socket, next) => {
     // у пользователя есть сессия
     if (socket.handshake.session.auth) {
         const activeRoomID = socket.handshake.session.activeRoomID;

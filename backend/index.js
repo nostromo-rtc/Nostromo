@@ -37,9 +37,9 @@ app.get('/', (req, res) => {
  * @argument string - номер комнаты (которое идентично названию комнаты в socket.io)
  * @argument roomInfo - название и пароль комнаты
  */
+let roomsIdCount = 1;
 let rooms = new Map();
-rooms.set('1', { name: "Главная", password: "testik1" });
-rooms.set('2', { name: "Второстепенная", password: "123" });
+rooms.set(String(roomsIdCount), { name: "Главная", password: "testik1" });
 app.get('/rooms/:roomID', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
@@ -116,6 +116,14 @@ const io = new SocketIO.Server(server, {
     pingInterval: 2000,
     pingTimeout: 15000
 });
+// [Главная страница]
+io.of('/').on('connection', (socket) => {
+    let roomList = [];
+    for (const room of rooms) {
+        roomList.push({ id: room[0], name: room[1].name });
+    }
+    socket.emit('roomList', roomList);
+});
 // [Авторизация в админку]
 io.of('/admin').use((socket, next) => {
     sessionMiddleware(socket.handshake, {}, next);
@@ -128,15 +136,30 @@ io.of('/admin').use((socket, next) => {
     return next(new Error("unauthorized"));
 });
 io.of('/admin').on('connection', (socket) => {
-    socket.on('joinAdmin', (pass) => {
-        if (pass == "admin123") {
-            socket.handshake.session.admin = true;
-            socket.handshake.session.save();
-            socket.emit('result', true);
+    if (!socket.handshake.session.admin) {
+        socket.on('joinAdmin', (pass) => {
+            if (pass == "admin123") {
+                socket.handshake.session.admin = true;
+                socket.handshake.session.save();
+                socket.emit('result', true);
+            }
+            else
+                socket.emit('result', false);
+        });
+    }
+    else {
+        let roomList = [];
+        for (const room of rooms) {
+            roomList.push({ id: room[0], name: room[1].name });
         }
-        else
-            socket.emit('result', false);
-    });
+        socket.emit('roomList', roomList, roomsIdCount);
+        socket.on('deleteRoom', (id) => {
+            rooms.delete(id);
+        });
+        socket.on('createRoom', (name, pass) => {
+            rooms.set(String(++roomsIdCount), { name: name, password: pass });
+        });
+    }
 });
 // [Авторизация в комнату]
 io.of('/auth').use((socket, next) => {

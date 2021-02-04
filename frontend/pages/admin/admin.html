@@ -7,6 +7,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script type="module" src="/admin/js/admin.js"></script>
     <link href="/css/style.css" rel="stylesheet">
+    <link href="/admin/css/admin.css" rel="stylesheet">
 </head>
 
 <body>
@@ -20,7 +21,27 @@
     </div>
 
     <div class="main">
-
+        <p style="margin: auto">Менеджер комнат</p>
+        <div id="adminPanel">
+            <div id="createRoomDiv">
+                <span style="margin: auto">Создание комнат</span>
+                <span>Название комнаты</span>
+                <input id="roomNameInput" type="text">
+                <span>Пароль комнаты</span>
+                <input id="roomPassInput" type="password" pattern="[0-9a-fA-F]{4,8}" autocomplete="new-password">
+                <button id="btn_createRoom">Создать комнату</button>
+                <input id="roomLink" type="text" readonly hidden>
+            </div>
+            <div id="removeRoomDiv">
+                <span style="margin: auto">Удаление комнат</span>
+                <span>Список комнат</span>
+                <select id="roomSelect">
+                    <option disabled selected value="default">не выбрано...</option>
+                </select>
+                <button id="btn_deleteRoom">Удалить комнату</button>
+            </div>
+        </div>
     </div>
 </body>
+
 </html>
