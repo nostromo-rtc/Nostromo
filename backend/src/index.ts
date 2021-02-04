@@ -1,59 +1,17 @@
 // подключаем нужные модули (библиотеки) и настраиваем веб-сервер
-import express = require('express');
-import session = require('express-session');
 import path = require('path');
 import fs = require('fs');
 import https = require('https');
-import SocketIO = require('socket.io');
-import { Handshake } from 'socket.io/dist/socket';
-import { ExtendedError } from 'socket.io/dist/namespace';
+// Express
+import { ExpressApp } from './ExpressApp';
+// сокеты
+import { SocketHandler } from './SocketHandler';
+// для ввода в консоль
+import readline = require('readline');
 
-const app = express();
-
-const httpsOptions = {
-    key: fs.readFileSync(path.join(__dirname, '/ssl', 'private.key'), 'utf8'),
-    cert: fs.readFileSync(path.join(__dirname, '/ssl', 'public.crt'), 'utf8')
-};
-
-const server = https.createServer(httpsOptions, app);
-const port = 443;
-
-server.listen(port, () => {
-    console.log(`Server running on port: ${port}`);
-});
-
-// добавляю в сессию необходимые параметры
-declare module 'express-session' {
-    interface SessionData {
-        auth: boolean;
-        username: string;
-        authRoomsID: Array<string>;
-        activeRoomID: string;
-        isInRoom: boolean;
-        admin: boolean;
-    }
-}
-
-const sessionMiddleware = session({
-    secret: 'developmentsecretkey',
-    name: 'sessionId',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        secure: true
-    }
-});
-
-app.use(sessionMiddleware);
-app.disable('x-powered-by');
-
-// главная страница
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/pages', 'index.html'));
-});
-
-type roomInfo = {
+// типы для комнат
+export type RoomId = string;
+export type RoomInfo = {
     name: string,
     password: string;
 };
@@ -62,272 +20,27 @@ type roomInfo = {
  * @argument string - номер комнаты (которое идентично названию комнаты в socket.io)
  * @argument roomInfo - название и пароль комнаты
  */
-let roomsIdCount : number = 1;
-let rooms = new Map<string, roomInfo>();
+let rooms = new Map<RoomId, RoomInfo>();
+let roomsIdCount: number = 1;
 rooms.set(String(roomsIdCount), { name: "Главная", password: "testik1" });
 
-app.get('/rooms/:roomID', (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
-    const joinInRoom = () => {
-        // сокет сделает данный параметр true,
-        // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
-        req.session.isInRoom = false;
-        req.session.activeRoomID = roomID;
-        return res.sendFile(path.join(__dirname, '../frontend/pages/room', 'room.html'));
-    };
-    // проверяем наличие запрашиваемой комнаты
-    const roomID = req.params.roomID;
-    if (rooms.has(roomID)) {
-        // если пользователь авторизован в этой комнате
-        if (req.session.auth && req.session.authRoomsID.includes(roomID)) {
-            return joinInRoom();
-        }
-        // если не авторизован, но есть пароль в query
-        const pass = req.query.p;
-        if (pass) {
-            if (pass == rooms.get(roomID).password) {
-                // если у пользователя не было сессии
-                if (!req.session.auth) {
-                    req.session.auth = true;
-                    req.session.authRoomsID = new Array<string>();
-                }
-                // запоминаем для этого пользователя авторизованную комнату
-                req.session.authRoomsID.push(roomID);
-                return joinInRoom();
-            }
-            return res.send("неправильный пароль");
-        }
-        req.session.activeRoomID = roomID;
-        return res.sendFile(path.join(__dirname, '../frontend/pages/room', 'roomAuth.html'));
-    }
-    return res.send("Error: такой комнаты нет");
+const Express = new ExpressApp(rooms);
+
+const httpsOptions = {
+    key: fs.readFileSync(path.join(__dirname, '/ssl', 'private.key'), 'utf8'),
+    cert: fs.readFileSync(path.join(__dirname, '/ssl', 'public.crt'), 'utf8')
+};
+
+const server: https.Server = https.createServer(httpsOptions, Express.app);
+const port = 443;
+
+server.listen(port, () => {
+    console.log(`Server running on port: ${port}`);
 });
 
-app.get('/admin', (req, res) => {
-    if (req.ip == "::ffff:127.0.0.1") {
-        if (!req.session.admin) {
-            req.session.admin = false;
-            res.sendFile(path.join(__dirname, '../frontend/pages/admin', 'adminAuth.html'));
-        }
-        else {
-            res.sendFile(path.join(__dirname, '../frontend/pages/admin', 'admin.html'));
-        }
-    }
-    else {
-        res.status(404).end('404 Error: page not found');
-    }
-});
-
-// открываем доступ к статике, т.е к css, js, картинки
-app.use('/admin', (req, res, next) => {
-    if (req.ip == "::ffff:127.0.0.1") {
-        express.static("../frontend/static/admin/")(req, res, next);
-    }
-    else next();
-});
-
-app.use('/rooms', (req, res, next) => {
-    if (req.session.auth) {
-        express.static("../frontend/static/rooms/")(req, res, next);
-    }
-    else next();
-});
-
-app.use('/', express.static("../frontend/static/public/"));
-
-app.use((req, res) => {
-    res.status(404).end('404 error: page not found');
-});
-
-// сокеты
-const io = new SocketIO.Server(server, {
-    transports: ['websocket'],
-    pingInterval: 2000,
-    pingTimeout: 15000
-});
-
-// расширяю класс Handshake, добавляя в него Express сессии
-declare module "socket.io/dist/socket" {
-    interface Handshake {
-        session?: session.Session & Partial<session.SessionData>;
-        sessionID?: string;
-    }
-}
-
-// перегружаю функцию RequestHandler у Express, чтобы он понимал handshake от SocketIO как реквест
-// это нужно для совместимости SocketIO с Express Middleware (express-session)
-declare module "express"
-{
-    interface RequestHandler {
-        (
-            req: Handshake,
-            res: {},
-            next: (err?: ExtendedError) => void,
-        ): void;
-    }
-}
-
-type SocketId = string;
-
-// [Главная страница]
-io.of('/').on('connection', (socket: SocketIO.Socket) => {
-    let roomList: { id: string, name: string; }[] = [];
-    for (const room of rooms) {
-        roomList.push({ id: room[0], name: room[1].name });
-    }
-    socket.emit('roomList', roomList);
-});
-
-// [Авторизация в админку]
-io.of('/admin').use((socket: SocketIO.Socket, next) => {
-    sessionMiddleware(socket.handshake, {}, next);
-});
-io.of('/admin').use((socket: SocketIO.Socket, next) => {
-    // если с недоверенного ip, то не открываем вебсокет-соединение
-    if (socket.handshake.address == "::ffff:127.0.0.1") {
-        return next();
-    }
-    return next(new Error("unauthorized"));
-});
-io.of('/admin').on('connection', (socket: SocketIO.Socket) => {
-    if (!socket.handshake.session.admin) {
-        socket.on('joinAdmin', (pass) => {
-            if (pass == "admin123") {
-                socket.handshake.session.admin = true;
-                socket.handshake.session.save();
-                socket.emit('result', true);
-            }
-            else socket.emit('result', false);
-        });
-    } else {
-        let roomList: { id: string, name: string; }[] = [];
-        for (const room of rooms) {
-            roomList.push({ id: room[0], name: room[1].name });
-        }
-        socket.emit('roomList', roomList, roomsIdCount);
-
-        socket.on('deleteRoom', (id: string) => {
-            rooms.delete(id);
-        });
-
-        socket.on('createRoom', (name: string, pass: string) => {
-            rooms.set(String(++roomsIdCount), {name: name, password: pass});
-        });
-    }
-});
-
-// [Авторизация в комнату]
-io.of('/auth').use((socket: SocketIO.Socket, next) => {
-    sessionMiddleware(socket.handshake, {}, next);
-});
-io.of('/auth').on('connection', (socket: SocketIO.Socket) => {
-    if (socket.handshake.session.activeRoomID != undefined) {
-        const roomID: string = socket.handshake.session.activeRoomID;
-        if (rooms.has(roomID)) {
-            socket.emit('roomName', rooms.get(roomID).name);
-
-            socket.on('joinRoom', (pass) => {
-                if (pass == rooms.get(roomID).password) {
-                    // если у пользователя не было сессии
-                    if (!socket.handshake.session.auth) {
-                        socket.handshake.session.auth = true;
-                        socket.handshake.session.authRoomsID = new Array<string>();
-                    }
-                    // запоминаем для этого пользователя авторизованную комнату
-                    socket.handshake.session.authRoomsID.push(roomID);
-                    socket.handshake.session.save();
-                    socket.emit('result', true);
-                }
-                else socket.emit('result', false);
-            });
-        }
-    }
-});
-
-// [Комната]
-io.of('/room').use((socket: SocketIO.Socket, next) => {
-    sessionMiddleware(socket.handshake, {}, next);
-});
-
-io.of('/room').use((socket: SocketIO.Socket, next) => {
-    // у пользователя есть сессия
-    if (socket.handshake.session.auth) {
-        const activeRoomID = socket.handshake.session.activeRoomID;
-        // если он авторизован в запрашиваемой комнате
-        if (socket.handshake.session.authRoomsID.includes(activeRoomID) && socket.handshake.session.isInRoom == false) {
-            socket.handshake.session.isInRoom = true;
-            socket.handshake.session.save();
-            return next();
-        }
-    }
-    return next(new Error("unauthorized"));
-});
-
-// [Комната] обрабатываем подключение нового юзера
-io.of('/room').on('connection', (socket: SocketIO.Socket) => {
-    console.log(`${io.of('/room').sockets.size}: ${socket.id} user connected`);
-    const roomID: string = socket.handshake.session.activeRoomID;
-    socket.join(roomID);
-    /** ID всех сокетов в комнате roomID */
-    const roomUsersID: Set<SocketId> = io.of('/room').adapter.rooms.get(roomID);
-
-    socket.emit('roomName', rooms.get(roomID).name);
-
-    socket.once('afterConnect', (username: string) => {
-        // запоминаем имя в сессии
-        socket.handshake.session.username = username;
-        // перебираем всех пользователей, кроме нового
-        for (const anotherUser_ID of roomUsersID.values()) {
-            if (anotherUser_ID != socket.id) {
-                const offering: boolean = true;
-                const anotherUser_name: string = io.of('/room').sockets.get(anotherUser_ID).handshake.session.username;
-                // сообщаем новому пользователю и пользователю anotherUser,
-                // что им необходимо создать пустое p2p подключение (PeerConnection)
-                socket.emit('newUser', { ID: anotherUser_ID, name: anotherUser_name }, offering);
-                io.of('/room').to(anotherUser_ID).emit('newUser', { ID: socket.id, name: username }, !offering);
-                // сообщаем новому пользователю, что он должен создать приглашение для юзера anotherUser
-                console.log(`запросили приглашение от ${socket.id} для ${anotherUser_ID}`);
-                socket.emit('newOffer', anotherUser_ID);
-            }
-        }
-    });
-
-    socket.on('newUsername', (username: string) => {
-        socket.handshake.session.username = username;
-        socket.to(roomID).emit('newUsername', { ID: socket.id, name: username });
-    });
-
-    // если получили приглашение от юзера socket для юзера anotherUserID
-    socket.on('newOffer', (offer: RTCSessionDescription, anotherUserID: SocketId) => {
-        console.log(`получили приглашение от ${socket.id} для ${anotherUserID}`);
-        // отправляем его другому пользователю
-        if (roomUsersID.has(anotherUserID)) {
-            console.log(`отправили приглашение от ${socket.id} для ${anotherUserID}`);
-            io.of('/room').to(anotherUserID).emit('receiveOffer', offer, socket.id);
-        }
-    });
-
-    // если получили ответ от юзера socket для юзера anotherUserID
-    socket.on('newAnswer', (answer: RTCSessionDescription, anotherUserID: SocketId) => {
-        console.log(`получили ответ от ${socket.id} для ${anotherUserID}`);
-        if (roomUsersID.has(anotherUserID)) {
-            console.log(`отправили ответ от ${socket.id} для ${anotherUserID}`);
-            io.of('/room').to(anotherUserID).emit('receiveAnswer', answer, socket.id);
-        }
-    });
-
-    socket.on('disconnect', (reason) => {
-        console.log(`${socket.id}: user disconnected`, reason);
-        socket.handshake.session.isInRoom = false;
-        socket.handshake.session.save();
-        io.of('/room').in(roomID).emit('userDisconnected', socket.id);
-    });
-});
+const SocketHandlerInstance = new SocketHandler(server, Express.sessionMiddleware, rooms, roomsIdCount);
 
 // для ввода в консоль сервера
-import readline = require('readline');
-
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
