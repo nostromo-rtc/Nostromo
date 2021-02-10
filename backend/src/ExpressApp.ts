@@ -2,6 +2,8 @@ import express = require('express');
 import session = require('express-session');
 import path = require('path');
 
+const frontend_dirname = __dirname + "/../../frontend";
+
 // добавляю в сессию необходимые параметры
 declare module 'express-session' {
     interface SessionData {
@@ -42,7 +44,7 @@ export class ExpressApp {
         // [обрабатываем маршруты]
         // главная страница
         this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, '../frontend/pages', 'index.html'));
+            res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
         });
 
         this.app.get('/rooms/:roomID', (req, res) => {
@@ -56,19 +58,19 @@ export class ExpressApp {
         // открываем доступ к статике, т.е к css, js, картинки
         this.app.use('/admin', (req, res, next) => {
             if (req.ip == "::ffff:127.0.0.1") {
-                express.static("../frontend/static/admin/")(req, res, next);
+                express.static(frontend_dirname + "/static/admin/")(req, res, next);
             }
             else next();
         });
 
         this.app.use('/rooms', (req, res, next) => {
             if (req.session.auth) {
-                express.static("../frontend/static/rooms/")(req, res, next);
+                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
             }
             else next();
         });
 
-        this.app.use('/', express.static("../frontend/static/public/"));
+        this.app.use('/', express.static(frontend_dirname + "/static/public/"));
 
         this.app.use((req, res) => {
             res.status(404).end('404 error: page not found');
@@ -79,10 +81,10 @@ export class ExpressApp {
         if (req.ip == "::ffff:127.0.0.1") {
             if (!req.session.admin) {
                 req.session.admin = false;
-                res.sendFile(path.join(__dirname, '../frontend/pages/admin', 'adminAuth.html'));
+                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
             }
             else {
-                res.sendFile(path.join(__dirname, '../frontend/pages/admin', 'admin.html'));
+                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
             }
         }
         else {
@@ -98,7 +100,7 @@ export class ExpressApp {
             // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
             req.session.isInRoom = false;
             req.session.activeRoomID = roomID;
-            return res.sendFile(path.join(__dirname, '../frontend/pages/room', 'room.html'));
+            return res.sendFile(path.join(frontend_dirname, '/pages/room', 'room.html'));
         };
         // проверяем наличие запрашиваемой комнаты
         const roomID = req.params.roomID;
@@ -123,7 +125,7 @@ export class ExpressApp {
                 return res.send("неправильный пароль");
             }
             req.session.activeRoomID = roomID;
-            return res.sendFile(path.join(__dirname, '../frontend/pages/room', 'roomAuth.html'));
+            return res.sendFile(path.join(frontend_dirname, '/pages/room', 'roomAuth.html'));
         }
         return res.status(404).end('404 Error: page not found');
     }

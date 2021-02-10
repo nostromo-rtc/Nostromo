@@ -27,8 +27,8 @@ rooms.set(String(roomsIdCount), { name: "Главная", password: "testik1" })
 const Express = new ExpressApp(rooms);
 
 const httpsOptions = {
-    key: fs.readFileSync(path.join(__dirname, '/ssl', 'private.key'), 'utf8'),
-    cert: fs.readFileSync(path.join(__dirname, '/ssl', 'public.crt'), 'utf8')
+    key: fs.readFileSync(path.join(__dirname, '../ssl', 'private.key'), 'utf8'),
+    cert: fs.readFileSync(path.join(__dirname, '../ssl', 'public.crt'), 'utf8')
 };
 
 const server: https.Server = https.createServer(httpsOptions, Express.app);
