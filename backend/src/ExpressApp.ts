@@ -38,6 +38,13 @@ export class ExpressApp {
     constructor(_rooms: Map<RoomId, RoomInfo>) {
         console.debug("ExpressApp ctor");
         this.rooms = _rooms;
+        // перенаправляем на https
+        this.app.use((req, res, next) => {
+            if (!req.secure) {
+                return res.redirect(301, ['https://', req.hostname, req.url].join(''));
+            }
+            next();
+        });
         // используем обработчик сессий
         this.app.use(this.sessionMiddleware);
         this.app.disable('x-powered-by');

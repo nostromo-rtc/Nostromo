@@ -18,6 +18,8 @@ export default class indexSocketHandler {
         });
 
         this.socket.on('roomList', (rooms) => this.getRoomList(rooms));
+
+        this.socket.on('disconnect', () => this.onDisconnect());
     }
 
     getRoomList(rooms) {
@@ -28,6 +30,18 @@ export default class indexSocketHandler {
             roomListItem.href = `/rooms/${room['id']}`;
             roomListItem.innerText = room['name'];
             roomList.appendChild(roomListItem);
+        }
+    }
+
+    onDisconnect()
+    {
+        console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
+        const roomList = document.querySelectorAll(".roomListItem");
+        console.log(roomList);
+        for (const room of roomList)
+        {
+            console.log(room);
+            room.remove();
         }
     }
 }
