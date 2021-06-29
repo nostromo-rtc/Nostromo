@@ -51,7 +51,7 @@ export class SocketHandler {
         });
         this.io.of('/admin').use((socket: SocketIO.Socket, next) => {
             // если с недоверенного ip, то не открываем вебсокет-соединение
-            if (socket.handshake.address == "::ffff:127.0.0.1") {
+            if (socket.handshake.address == process.env.ALLOW_ADMIN_IP) {
                 return next();
             }
             return next(new Error("unauthorized"));
@@ -59,7 +59,7 @@ export class SocketHandler {
         this.io.of('/admin').on('connection', (socket: SocketIO.Socket) => {
             if (!socket.handshake.session.admin) {
                 socket.on('joinAdmin', (pass) => {
-                    if (pass == "admin123") {
+                    if (pass == process.env.ADMIN_PASS) {
                         socket.handshake.session.admin = true;
                         socket.handshake.session.save();
                         socket.emit('result', true);
