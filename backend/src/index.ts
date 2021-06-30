@@ -29,6 +29,8 @@ rooms.set(String(roomsIdCount), { name: process.env.DEV_TESTROOM_NAME, password:
 
 const Express = new ExpressApp(rooms);
 
+console.debug(`Version: ${process.env.npm_package_version}`);
+
 const httpsOptions = {
     key: fs.readFileSync(path.join(__dirname, '../ssl', process.env.SSL_PRIVATE_KEY), 'utf8'),
     cert: fs.readFileSync(path.join(__dirname, '../ssl', process.env.SSL_PUBLIC_CERT), 'utf8')
@@ -47,7 +49,6 @@ const port = process.env.HTTPS_PORT;
 server.listen(port, () => {
     console.log(`Https server running on port: ${port}`);
 });
-
 
 const SocketHandlerInstance = new SocketHandler(server, Express.sessionMiddleware, rooms, roomsIdCount);
 

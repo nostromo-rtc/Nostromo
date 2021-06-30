@@ -36,7 +36,6 @@ export class ExpressApp {
     private rooms: Map<RoomId, RoomInfo>;
 
     constructor(_rooms: Map<RoomId, RoomInfo>) {
-        console.debug("ExpressApp ctor");
         this.rooms = _rooms;
         // перенаправляем на https
         this.app.use((req, res, next) => {

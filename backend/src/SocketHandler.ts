@@ -33,7 +33,6 @@ type SocketId = string;
 export class SocketHandler {
     private io: SocketIO.Server;
     constructor(server: https.Server, sessionMiddleware: RequestHandler, rooms: Map<RoomId, RoomInfo>, roomsIdCount: number) {
-        console.debug("SocketHandler ctor");
         this.init_io_Server(server);
 
         // [Главная страница]
