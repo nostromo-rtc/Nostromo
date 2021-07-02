@@ -7,6 +7,9 @@ backend/dist
 # folder with SSL files
 backend/ssl
 
+# compiled .js files of frontend
+frontend/static/*/scripts/*.js
+
 # other
 *.bat
 *.exe

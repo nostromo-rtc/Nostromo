@@ -110,7 +110,7 @@ export default class UI {
         newVideo.id = `remoteVideo-${remoteVideoID}`;
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
-        newVideo.poster = "./img/novideodata.jpg";
+        newVideo.poster = "./images/novideodata.jpg";
 
         let label = document.createElement('span');
         label.classList.add('videoLabel');

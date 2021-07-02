@@ -5,7 +5,9 @@
   "main": "backend/index.js",
   "scripts": {
     "start": "node backend/dist/index.js",
-    "build": "tsc -p backend/src/tsconfig.json",
+    "build-back": "tsc -p backend/src/tsconfig.json",
+    "build-front" : "tsc -p frontend/src/tsconfig.frontend.json",
+    "build" : "npm run build-back && npm run build-front",
     "postinstall": "npm run build"
   },
   "repository": {
