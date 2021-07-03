@@ -1,13 +1,13 @@
+import UI from "./UI";
 import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
+
 // Класс для работы с сокетами
 export default class SocketHandler {
-    /**
-     * @param {import("./UI").default} _UI
-     */
-    constructor(_UI) {
+    private ui : UI;
+    constructor(_ui : UI) {
         // поля
-        this.UI = _UI;
+        this.ui = _ui;
         this.socket = io('/room', {
             'transports': ['websocket']
         });
@@ -111,7 +111,7 @@ export default class SocketHandler {
         });
         // обработка личных чатов
         this.UI.buttons.get('sendMessage').addEventListener('click', () => {
-            if (this.UI.getChatOption() != "default") {
+            if (this.ui.getChatOption() != "default") {
                 const receiverID = this.UI.getChatOption();
                 if (this.pcContainer.has(receiverID)) {
                     let pc = this.pcContainer.get(receiverID);
@@ -120,7 +120,7 @@ export default class SocketHandler {
             }
         });
         this.UI.buttons.get('sendFile').addEventListener('click', () => {
-            if (this.UI.getChatOption() != "default") {
+            if (this.ui.getChatOption() != "default") {
                 const receiverID = this.UI.getChatOption();
                 if (this.pcContainer.has(receiverID)) {
                     let pc = this.pcContainer.get(receiverID);

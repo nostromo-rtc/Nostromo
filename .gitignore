@@ -1,3 +1,6 @@
+# VSCode cfg
+.vscode/
+
 # NodeJS runtime
 node_modules/
 
