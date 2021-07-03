@@ -8,7 +8,10 @@ backend/dist
 backend/ssl
 
 # compiled .js files of frontend
-frontend/static/*/scripts/*.js
+frontend/temp-build/**/*.js
+
+# bundled (webpack) and vendor .js files of frontend
+frontend/static/**/*.js
 
 # other
 *.bat

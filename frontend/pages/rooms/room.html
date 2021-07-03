@@ -4,8 +4,6 @@
 <head>
     <title>Видеоконференция "WebRTC"</title>
     <meta charset="utf-8" />
-    <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="/rooms/scripts/room.js"></script>
     <link href="/styles/style.css" rel="stylesheet">
     <link href="/rooms/styles/room.css" rel="stylesheet">
 </head>
@@ -61,8 +59,9 @@
             <a id="download"></a>
             <progress id="receiveProgress" hidden></progress>
         </section>
-
     </div>
-</body>
 
+    <script src="/scripts/vendor.js"></script>
+    <script src="/rooms/scripts/room.js"></script>
+</body>
 </html>

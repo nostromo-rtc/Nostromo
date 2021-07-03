@@ -4,7 +4,7 @@
         "target": "ES2017",
         "checkJs": true,
         "rootDir": "./",
-        "outDir": "../static/",
+        "outDir": "../temp-build/",
         "experimentalDecorators": true,
         "strict" : true,
         "sourceMap": false,

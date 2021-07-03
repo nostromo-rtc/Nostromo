@@ -1,3 +1,11 @@
 import indexSocketHandler from './indexSocketHandler.js';
-// создаем обработчик интерфейса и обработчик сокетов
-const indexSocketHandlerInstance = new indexSocketHandler();
+import authSocketHandler from './authSocketHandler.js';
+
+// создаем обработчики интерфейса и обработчики сокетов
+
+if (window.location.pathname.search('rooms') == -1) {
+    const indexSocketHandlerInstance = new indexSocketHandler();
+}
+else {
+    const authSocketHandlerInstance = new authSocketHandler();
+}

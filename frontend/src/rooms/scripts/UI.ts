@@ -203,7 +203,7 @@ export default class UI {
         this.localVideo.id = `localVideo`;
         this.localVideo.autoplay = true;
         this.localVideo.muted = true;
-        this.localVideo.poster = "./img/novideodata.jpg";
+        this.localVideo.poster = "./images/novideodata.jpg";
         localVideoContainer.appendChild(this.localVideo);
 
         this.localVideoLabel = document.createElement('span');
