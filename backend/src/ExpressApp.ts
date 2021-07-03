@@ -106,7 +106,7 @@ export class ExpressApp {
             // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
             req.session.isInRoom = false;
             req.session.activeRoomID = roomID;
-            return res.sendFile(path.join(frontend_dirname, '/pages/room', 'room.html'));
+            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
         };
         // проверяем наличие запрашиваемой комнаты
         const roomID = req.params.roomID;
@@ -131,7 +131,7 @@ export class ExpressApp {
                 return res.send("неправильный пароль");
             }
             req.session.activeRoomID = roomID;
-            return res.sendFile(path.join(frontend_dirname, '/pages/room', 'roomAuth.html'));
+            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
         }
         return res.status(404).end('404 Error: page not found');
     }
