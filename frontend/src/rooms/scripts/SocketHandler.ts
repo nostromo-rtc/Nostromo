@@ -1,149 +1,197 @@
-import UI from "./UI";
+import UI from "./UI.js";
 import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
+import { io, Socket } from "socket.io-client";
+
+export type SocketSettings =
+    {
+        remoteUserID: string,
+        remoteUsername: string,
+        socket: Socket;
+    };
 
 // Класс для работы с сокетами
-export default class SocketHandler {
-    private ui : UI;
-    constructor(_ui : UI) {
-        // поля
-        this.ui = _ui;
-        this.socket = io('/room', {
-            'transports': ['websocket']
-        });
-        this.userMedia = new UserMedia(this.UI, this);
-        /** @type {Map<number, PeerConnection>} */
-        // контейнер с p2p-соединениями с другими пользователями
-        this.pcContainer = new Map();
+export default class SocketHandler
+{
+    private ui: UI;
+    private socket: Socket = io('/room', {
+        'transports': ['websocket']
+    });
 
-        // конструктор (тут работаем с сокетами)
+    private userMedia: UserMedia;
+
+    // контейнер с p2p-соединениями с другими пользователями
+    private pcContainer = new Map<string, PeerConnection>();
+    constructor(_ui: UI)
+    {
+        this.ui = _ui;
+        this.userMedia = new UserMedia(this.ui, this);
+
         console.debug("SocketHandler ctor");
-        this.UI.buttons.get('setNewUsername').addEventListener('click', () => {
-            this.UI.setNewUsername();
-            this.socket.emit('newUsername', this.UI.usernameInput.value);
+
+        this.ui.buttons.get('setNewUsername')?.addEventListener('click', () =>
+        {
+            this.ui.setNewUsername();
+            this.socket.emit('newUsername', this.ui.usernameInputValue);
         });
-        this.socket.on('connect', () => {
-            console.info("Создано подключение веб-сокета");
+
+        this.socket.on('connect', () =>
+        {
+            console.info("Создано веб-сокет подключение");
             console.info("Client ID:", this.socket.id);
             // сообщаем имя
-            this.socket.emit('afterConnect', this.UI.usernameInput.value);
+            this.socket.emit('afterConnect', this.ui.usernameInputValue);
         });
 
-        this.socket.on('connect_error', (err) => {
+        this.socket.on('connect_error', (err: Error) =>
+        {
             console.log(err.message); // not authorized
         });
 
-        this.socket.on('roomName', (roomName) => {
-            this.UI.setRoomName(roomName);
+        this.socket.on('roomName', (roomName: string) =>
+        {
+            this.ui.roomName = roomName;
         });
 
         // новый пользователь (т.е другой)
-        this.socket.on('newUser', ({
-            ID: remoteUserID,
-            name: name
-        }, AmIOffer) => {
-            this.UI.addVideo(remoteUserID, name);
-            const socketSettings = {
+        this.socket.on('newUser', (remoteUserID: string, remoteName: string, AmIOffer: boolean) =>
+        {
+            this.ui.addVideo(remoteUserID, remoteName);
+
+            const socketSettings: SocketSettings = {
                 remoteUserID: remoteUserID,
-                remoteUsername: name,
+                remoteUsername: remoteName,
                 socket: this.socket
             };
-            let PCInstance = new PeerConnection(this.UI, this.userMedia.stream, socketSettings, AmIOffer);
+
+            let PCInstance = new PeerConnection(this.ui, this.userMedia.stream, socketSettings, AmIOffer);
+
             // сохраняем подключение
             this.pcContainer.set(remoteUserID, PCInstance);
         });
 
         // другой пользователь поменял имя
-        this.socket.on('newUsername', ({
-            ID: remoteUserID,
-            name: name
-        }) => {
-            this.pcContainer.get(remoteUserID).socketSettings.remoteUsername = name;
-            this.UI.updateVideoLabel(remoteUserID, name);
-            this.UI.updateChatOption(remoteUserID, name);
+        this.socket.on('newUsername', (remoteUserID: string, newName: string) =>
+        {
+            let pc = this.pcContainer.get(remoteUserID);
+            if (pc)
+            {
+                pc.socketSettings.remoteUsername = newName;
+                this.ui.updateVideoLabel(remoteUserID, newName);
+                this.ui.updateChatOption(remoteUserID, newName);
+            }
         });
 
         // от нас запросили приглашение для remoteUserID
-        this.socket.on('newOffer', (remoteUserID) => {
-            if (this.pcContainer.has(remoteUserID)) {
-                const pc = this.pcContainer.get(remoteUserID);
+        this.socket.on('newOffer', async (remoteUserID: string) =>
+        {
+            if (this.pcContainer.has(remoteUserID))
+            {
+                const pc: PeerConnection = this.pcContainer.get(remoteUserID);
                 console.info('SocketHandler > newOffer for', `[${remoteUserID}]`);
-                pc.createOffer();
+                await pc.createOffer();
             }
         });
+
         // если придет приглашение от remoteUser, обработать его
-        this.socket.on('receiveOffer', (SDP, remoteUserID) => {
-            if (this.pcContainer.has(remoteUserID)) {
+        this.socket.on('receiveOffer', async (SDP: RTCSessionDescription, remoteUserID: string) =>
+        {
+            if (this.pcContainer.has(remoteUserID))
+            {
                 const pc = this.pcContainer.get(remoteUserID);
                 console.info('SocketHandler > receiveOffer from', `[${remoteUserID}]`);
                 pc.isOffer = false;
-                pc.receiveOffer(SDP);
+                await pc.receiveOffer(SDP);
             }
         });
+
         // если придет ответ от remoteUser, обработать его
-        this.socket.on('receiveAnswer', (SDP, remoteUserID) => {
-            if (this.pcContainer.has(remoteUserID)) {
+        this.socket.on('receiveAnswer', async (SDP: RTCSessionDescription, remoteUserID: string) =>
+        {
+            if (this.pcContainer.has(remoteUserID))
+            {
                 const pc = this.pcContainer.get(remoteUserID);
                 console.info('SocketHandler > receiveAnswer from', `[${remoteUserID}]`);
-                pc.receiveAnswer(SDP);
+                await pc.receiveAnswer(SDP);
             }
         });
+
         // другой пользователь отключился
-        this.socket.on('userDisconnected', (remoteUserID) => {
-            if (this.pcContainer.has(remoteUserID)) {
+        this.socket.on('userDisconnected', (remoteUserID: string) =>
+        {
+            if (this.pcContainer.has(remoteUserID))
+            {
                 console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserID}]`);
-                this.UI.removeVideo(remoteUserID);
+                this.ui.removeVideo(remoteUserID);
                 // удаляем объект соединения
-                let disconnectedPC = this.pcContainer.get(remoteUserID);
+                let disconnectedPC: PeerConnection = this.pcContainer.get(remoteUserID);
                 this.pcContainer.delete(remoteUserID);
-                disconnectedPC.pc.close();
+                disconnectedPC.close();
             }
         });
-        this.socket.on('disconnect', () => {
+
+        this.socket.on('disconnect', () =>
+        {
             console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
-            for (const remoteUserID of this.pcContainer.keys()) {
-                this.UI.removeVideo(remoteUserID);
+            for (const remoteUserID of this.pcContainer.keys())
+            {
+                this.ui.removeVideo(remoteUserID);
                 // удаляем объект соединения
-                let pc = this.pcContainer.get(remoteUserID);
+                let pc: PeerConnection = this.pcContainer.get(remoteUserID);
                 this.pcContainer.delete(remoteUserID);
-                pc.pc.close();
+                pc.close();
             }
         });
+
         // обработка личных чатов
-        this.UI.buttons.get('sendMessage').addEventListener('click', () => {
-            if (this.ui.getChatOption() != "default") {
-                const receiverID = this.UI.getChatOption();
-                if (this.pcContainer.has(receiverID)) {
+        this.ui.buttons.get('sendMessage').addEventListener('click', () =>
+        {
+            if (this.ui.currentChatOption != "default")
+            {
+                const receiverID = this.ui.currentChatOption;
+                if (this.pcContainer.has(receiverID))
+                {
                     let pc = this.pcContainer.get(receiverID);
                     pc.dc.sendMessage();
                 }
             }
         });
-        this.UI.buttons.get('sendFile').addEventListener('click', () => {
-            if (this.ui.getChatOption() != "default") {
-                const receiverID = this.UI.getChatOption();
-                if (this.pcContainer.has(receiverID)) {
+
+        this.ui.buttons.get('sendFile').addEventListener('click', () =>
+        {
+            if (this.ui.currentChatOption != "default")
+            {
+                const receiverID = this.ui.currentChatOption;
+                if (this.pcContainer.has(receiverID))
+                {
                     let pc = this.pcContainer.get(receiverID);
                     pc.dc.sendFile();
                 }
             }
         });
-        document.addEventListener('beforeunload', () => {
+
+        document.addEventListener('beforeunload', () =>
+        {
             this.socket.close();
         });
     }
+
     // добавить медиапоток в подключение
-    addNewMediaStream(trackKind) {
-        for (const pc of this.pcContainer.values()) {
+    addNewMediaStream(trackKind: string)
+    {
+        for (const pc of this.pcContainer.values())
+        {
             pc.isOffer = true;
             pc.addNewMediaStream(this.userMedia.stream, trackKind);
         }
     }
+
     // обновить существующее медиа
-    updateMediaStream(trackKind) {
-        for (const pc of this.pcContainer.values()) {
+    updateMediaStream(trackKind: string)
+    {
+        for (const pc of this.pcContainer.values())
+        {
             pc.updateMediaStream(this.userMedia.stream, trackKind);
         }
     }
-
 }

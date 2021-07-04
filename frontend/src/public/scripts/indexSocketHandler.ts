@@ -28,13 +28,13 @@ export default class indexSocketHandler {
     }
 
     getRoomList(rooms : Room[]) {
-        const roomList = document.getElementById('roomList');
+        const roomList = document.getElementById('roomList') as HTMLDivElement;
         for (const room of rooms) {
             let roomListItem = document.createElement('a');
             roomListItem.classList.add('roomListItem');
             roomListItem.href = `/rooms/${room['id']}`;
             roomListItem.innerText = room['name'];
-            roomList.appendChild(roomListItem);
+            if (roomList) roomList.appendChild(roomListItem);
         }
     }
 

@@ -148,8 +148,8 @@ export class SocketHandler {
                         const anotherUser_name: string = this.io.of('/room').sockets.get(anotherUser_ID).handshake.session.username;
                         // сообщаем новому пользователю и пользователю anotherUser,
                         // что им необходимо создать пустое p2p подключение (PeerConnection)
-                        socket.emit('newUser', { ID: anotherUser_ID, name: anotherUser_name }, offering);
-                        this.io.of('/room').to(anotherUser_ID).emit('newUser', { ID: socket.id, name: username }, !offering);
+                        socket.emit('newUser', anotherUser_ID, anotherUser_name, offering);
+                        this.io.of('/room').to(anotherUser_ID).emit('newUser', socket.id, username, !offering);
                         // сообщаем новому пользователю, что он должен создать приглашение для юзера anotherUser
                         console.log(`запросили приглашение от ${socket.id} для ${anotherUser_ID}`);
                         socket.emit('newOffer', anotherUser_ID);
@@ -159,7 +159,7 @@ export class SocketHandler {
 
             socket.on('newUsername', (username: string) => {
                 socket.handshake.session.username = username;
-                socket.to(roomID).emit('newUsername', { ID: socket.id, name: username });
+                socket.to(roomID).emit('newUsername', socket.id, username);
             });
 
             // если получили приглашение от юзера socket для юзера anotherUserID

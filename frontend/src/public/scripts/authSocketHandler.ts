@@ -28,7 +28,10 @@ export default class authSocketHandler {
             if (success) location.reload();
             else (document.getElementById('result') as HTMLParagraphElement).innerText = "Неправильный пароль!";
         });
-        document.getElementById('btn_join').addEventListener('click', () => {
+
+        const btn_join = document.getElementById('btn_join') as HTMLButtonElement;
+
+        if (btn_join) btn_join.addEventListener('click', () => {
             const pass : string = (document.getElementById('pass') as HTMLInputElement).value;
             this.socket.emit('joinRoom', pass);
         });

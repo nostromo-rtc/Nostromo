@@ -6,43 +6,59 @@ type Room = {
 };
 
 // Класс для работы с сокетами при авторизации в панель администратора
-export default class adminSocketHandler {
+export default class adminSocketHandler
+{
 
     private socket: Socket = io(`/admin`, {
         'transports': ['websocket']
     });
     private latestRoomId: number = 0;
 
-    constructor() {
+    constructor()
+    {
         console.debug("adminSocketHandler ctor");
-        this.socket.on('connect', () => {
+        this.socket.on('connect', () =>
+        {
             console.info("Создано подключение веб-сокета");
             console.info("Client ID:", this.socket.id);
         });
 
-        this.socket.on('connect_error', (err: Error) => {
+        this.socket.on('connect_error', (err: Error) =>
+        {
             console.log(err.message);
         });
 
-        this.socket.on('result', (success: boolean) => {
+        this.socket.on('result', (success: boolean) =>
+        {
             if (success) location.reload();
-            else document.getElementById('result').innerText = "Неправильный пароль!";
+            else
+            {
+                const result = document.getElementById('result') as HTMLParagraphElement;
+                if (result) result.innerText = "Неправильный пароль!";
+            }
         });
 
-        if (!this.onAuthPage()) {
-            this.socket.on('roomList', (roomList: Room[], roomsIdCount: number) => {
+        if (!this.onAuthPage())
+        {
+            this.socket.on('roomList', (roomList: Room[], roomsIdCount: number) =>
+            {
                 this.setRoomList(roomList);
                 this.latestRoomId = roomsIdCount;
             });
-            document.getElementById('btn_createRoom').addEventListener('click', () => { this.createRoom(); });
-            document.getElementById('btn_deleteRoom').addEventListener('click', () => { this.deleteRoom(); });
+            const btn_createRoom = document.getElementById('btn_createRoom') as HTMLButtonElement;
+            const btn_deleteRoom = document.getElementById('btn_deleteRoom') as HTMLButtonElement;
+            btn_createRoom?.addEventListener('click', () => { this.createRoom(); });
+            btn_deleteRoom?.addEventListener('click', () => { this.deleteRoom(); });
         }
     }
 
-    onAuthPage() {
+    private onAuthPage(): boolean
+    {
         const joinButton = document.getElementById('btn_join');
-        if (joinButton) {
-            joinButton.addEventListener('click', () => {
+        if (joinButton)
+        {
+            joinButton.addEventListener('click', () =>
+            {
                 const pass = (document.getElementById('pass') as HTMLInputElement).value;
                 this.socket.emit('joinAdmin', pass);
             });
@@ -51,7 +67,8 @@ export default class adminSocketHandler {
         return false;
     }
 
-    createRoom() {
+    private createRoom(): void
+    {
         const name = (document.getElementById('roomNameInput') as HTMLInputElement).value;
         const pass = (document.getElementById('roomPassInput') as HTMLInputElement).value;
         this.socket.emit('createRoom', name, pass);
@@ -63,34 +80,37 @@ export default class adminSocketHandler {
         document.execCommand("copy");
     }
 
-    deleteRoom() {
+    private deleteRoom(): void
+    {
         const roomSelect = (document.getElementById('roomSelect') as HTMLSelectElement);
         const roomId = roomSelect.value;
-        if (roomId && roomId != "default") {
+        if (roomId && roomId != "default")
+        {
             this.socket.emit('deleteRoom', roomId);
             let option = document.querySelector(`option[value='${roomId}']`);
-            if (option) {
-                option.remove();
-            }
+            if (option) option.remove();
         }
     }
 
-    setRoomList(roomList: Room[]) {
-        const roomSelect = document.getElementById('roomSelect');
-        for (const room of roomList) {
+    private setRoomList(roomList: Room[]): void
+    {
+        const roomSelect = document.getElementById('roomSelect') as HTMLSelectElement;
+        for (const room of roomList)
+        {
             let newOption = document.createElement('option');
             newOption.value = room['id'];
             newOption.innerText = `[${room['id']}] ${room['name']}`;
-            roomSelect.appendChild(newOption);
+            roomSelect?.appendChild(newOption);
         }
     }
 
-    addRoomListItem(roomName: string) {
-        const roomSelect = document.getElementById('roomSelect');
+    private addRoomListItem(roomName: string): void
+    {
+        const roomSelect = document.getElementById('roomSelect') as HTMLSelectElement;
         const id = ++this.latestRoomId;
         let newOption = document.createElement('option');
         newOption.value = id.toString();
         newOption.innerText = `[${id}] ${roomName}`;
-        roomSelect.appendChild(newOption);
+        roomSelect?.appendChild(newOption);
     }
 }

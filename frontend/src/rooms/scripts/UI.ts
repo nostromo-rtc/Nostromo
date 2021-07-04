@@ -1,36 +1,64 @@
 // Класс для работы с интерфейсом (веб-страница)
-export default class UI {
+export default class UI
+{
     // кнопки
-    private _buttons : Map<string, HTMLButtonElement> = this.prepareButtons();
+    private _buttons: Map<string, HTMLButtonElement> = this.prepareButtons();
+    public get buttons(): Map<string, HTMLButtonElement> { return this._buttons; }
+
     // название комнаты
-    private roomName = document.getElementById('roomName') as HTMLSpanElement;
+    private _roomName = document.getElementById('roomName') as HTMLSpanElement;
+    public get roomName(): string { return this._roomName.innerText; }
+    public set roomName(name: string) { this._roomName.innerText = name; }
+
     // метка локального видео
     private localVideoLabel: HTMLSpanElement;
+
     // контейнер с видеоэлементами
     private _allVideos = new Map<string, HTMLVideoElement>();
+    public get allVideos(): Map<string, HTMLVideoElement> { return this._allVideos; }
+    public get localVideo() { return this._allVideos.get('local'); }
+
     // чат
-    private chat = document.getElementById('chat') as HTMLTextAreaElement;
+    private _chat = document.getElementById('chat') as HTMLTextAreaElement;
+    public get chat() { return this._chat; }
+
     // выбор собеседника-адресата
     private chatOptions = document.getElementById('chatOptions') as HTMLSelectElement;
+    public get currentChatOption(): string { return this.chatOptions.value; }
+
     // сообщение пользователя, отправляемое собеседнику
-    private messageText = document.getElementById('messageText') as HTMLTextAreaElement;
+    private _messageText = document.getElementById('messageText') as HTMLTextAreaElement;
+    public get messageText() { return this._messageText; }
+
     // поле для выбора файла для отправления
-    private fileInput = document.getElementById('fileInput') as HTMLInputElement;
+    private _fileInput = document.getElementById('fileInput') as HTMLInputElement;
+    public get fileInput() { return this._fileInput; }
+
     // ссылка на скачивание файла
-    private downloadLink = document.getElementById('downloadLink') as HTMLAnchorElement;
+    private _downloadLink = document.getElementById('downloadLink') as HTMLAnchorElement;
+    public get downloadLink() { return this._downloadLink; }
+
     // прогресс скачивания
-    private receiveProgress = document.getElementById('receiveProgress') as HTMLProgressElement;
+    private _receiveProgress = document.getElementById('receiveProgress') as HTMLProgressElement;
+    public get receiveProgress() { return this._receiveProgress; }
+
     // настройки захвата видео
     private captureSettings = document.getElementById('captureSettings') as HTMLSelectElement;
+    public get currentCaptureSetting(): string { return this.captureSettings.value; }
+
     // поле для ввода имени пользователя
-    private usernameInput = document.getElementById('usernameInput') as HTMLInputElement;
+    private _usernameInput = document.getElementById('usernameInput') as HTMLInputElement;
+    public get usernameInputValue() : string { return this._usernameInput.value; }
+
     // количество строк и столбцов в раскладке
     private videoRows = 2;
     private videoColumns = 2;
+
     // текущая политика Mute для видео (свойство muted)
     private mutePolicy = true;
 
-    constructor() {
+    constructor()
+    {
         console.debug('UI ctor');
         this.prepareLocalVideo();
         this.prepareMessageText();
@@ -40,68 +68,71 @@ export default class UI {
         this.showUserName();
     }
 
-    public get buttons() : Map<string, HTMLButtonElement>
+    public addCaptureSetting(label: string, value: string): void
     {
-        return this._buttons;
+        let newSetting = new HTMLOptionElement();
+        newSetting.label = label;
+        newSetting.value = value;
+        this.captureSettings.add(newSetting);
     }
 
-    public get allVideos() : Map<string, HTMLVideoElement>
+    private prepareButtons(): Map<string, HTMLButtonElement>
     {
-        return this._allVideos;
-    }
-
-    private prepareButtons(): Map<string, HTMLButtonElement> {
         let buttons = new Map<string, HTMLButtonElement>();
 
-        buttons.set('getUserMediaMic', document.getElementById('btn_getUserMediaMic')  as HTMLButtonElement);
-        buttons.set('getUserMediaCam', document.getElementById('btn_getUserMediaCam')  as HTMLButtonElement);
-        buttons.set('getDisplayMedia', document.getElementById('btn_getDisplayMedia')  as HTMLButtonElement);
-        buttons.set('sendMessage',     document.getElementById('btn_sendMessage')      as HTMLButtonElement);
-        buttons.set('sendFile',        document.getElementById('btn_sendFile')         as HTMLButtonElement);
-        buttons.set('enableSounds',    document.getElementById('btn_enableSounds')     as HTMLButtonElement);
-        buttons.set('setNewUsername',  document.getElementById('btn_setNewUsername')   as HTMLButtonElement);
+        buttons.set('getUserMediaMic',  document.getElementById('btn_getUserMediaMic')  as HTMLButtonElement);
+        buttons.set('getUserMediaCam',  document.getElementById('btn_getUserMediaCam')  as HTMLButtonElement);
+        buttons.set('getDisplayMedia',  document.getElementById('btn_getDisplayMedia')  as HTMLButtonElement);
+        buttons.set('sendMessage',      document.getElementById('btn_sendMessage')      as HTMLButtonElement);
+        buttons.set('sendFile',         document.getElementById('btn_sendFile')         as HTMLButtonElement);
+        buttons.set('enableSounds',     document.getElementById('btn_enableSounds')     as HTMLButtonElement);
+        buttons.set('setNewUsername',   document.getElementById('btn_setNewUsername')   as HTMLButtonElement);
 
         return buttons;
     }
 
-    private prepareMessageText(): void {
-        this.messageText.addEventListener('keydown', (e) => {
-            if (e.key == 'Enter' && !e.shiftKey) {
+    private prepareMessageText(): void
+    {
+        this.messageText.addEventListener('keydown', (e) =>
+        {
+            if (e.key == 'Enter' && !e.shiftKey)
+            {
                 e.preventDefault();
                 this._buttons.get('sendMessage').click();
                 this.messageText.value = '';
             };
         });
     }
-    private setNewUsername(): void {
-        localStorage['username'] = this.usernameInput.value;
+
+    public setNewUsername(): void
+    {
+        localStorage['username'] = this._usernameInput.value;
         this.showUserName();
     }
-    private showUserName(): void {
+
+    private showUserName(): void
+    {
         if (localStorage['username'] == undefined) localStorage['username'] = 'noname';
-        this.usernameInput.value = localStorage['username'];
+        this._usernameInput.value = localStorage['username'];
         this.localVideoLabel.innerText = localStorage['username'];
     }
-    private setRoomName(roomName: string): void {
-        this.roomName.innerText = roomName;
-    }
-    private getCaptureSettings(): string {
-        return this.captureSettings.value;
-    }
-    public getChatOption(): string {
-        return this.chatOptions.value;
-    }
+
     // включить звук для всех видео
-    private enableSounds(): void {
-        for (const video of this._allVideos) {
-            if (video[0] != 'localVideo') {
+    private enableSounds(): void
+    {
+        for (const video of this._allVideos)
+        {
+            if (video[0] != 'localVideo')
+            {
                 video[1].muted = false;
             }
         }
         this.mutePolicy = false;
     }
+
     // добавить новый видеоэлемент собеседника
-    private addVideo(remoteVideoID: string, name: string): void {
+    public addVideo(remoteVideoID: string, name: string): void
+    {
         let newVideoItem = document.createElement('div');
         newVideoItem.classList.add('videoItem');
 
@@ -129,30 +160,41 @@ export default class UI {
         this.calculateLayout();
         this.resizeVideos();
     }
+
     // обновления метки видеоэлемента собеседника
-    private updateVideoLabel(remoteVideoID: string, newName: string): void {
+    public updateVideoLabel(remoteVideoID: string, newName: string): void
+    {
         document.getElementById(`remoteVideoLabel-${remoteVideoID}`).innerText = newName;
     }
+
     // изменить элемент выбора собеседника-адресата в виджете chatOption
-    private updateChatOption(remoteUserID: string, name: string): void {
+    public updateChatOption(remoteUserID: string, name: string): void
+    {
         let chatOption = document.querySelector(`option[value='${remoteUserID}']`) as HTMLOptionElement;
         if (chatOption) chatOption.innerText = `собеседник ${name}`;
     }
+
     // добавить выбор собеседника-адресата в виджет chatOption
-    private addChatOption(remoteUserID: string, remoteUsername: string): void {
+    public addChatOption(remoteUserID: string, remoteUsername: string): void
+    {
         let newChatOption = document.createElement('option') as HTMLOptionElement;
         newChatOption.value = remoteUserID;
         newChatOption.innerText = `собеседник ${remoteUsername}`;
         this.chatOptions.appendChild(newChatOption);
     }
+
     // удалить выбор собеседника-адресата из виджета chatOption
-    private removeChatOption(remoteUserID: string): void {
+    public removeChatOption(remoteUserID: string): void
+    {
         let chatOption = document.querySelector(`option[value='${remoteUserID}']`) as HTMLOptionElement;
         if (chatOption) chatOption.remove();
     }
+
     // удалить видео собеседника (и опцию для чата/файлов тоже)
-    private removeVideo(remoteVideoID: string): void {
-        if (this._allVideos.has(remoteVideoID)) {
+    public removeVideo(remoteVideoID: string): void
+    {
+        if (this._allVideos.has(remoteVideoID))
+        {
             const video = this._allVideos.get(remoteVideoID);
             video.parentElement.parentElement.remove(); // video > videoContainer > videoItem.remove()
             this._allVideos.delete(remoteVideoID);
@@ -161,30 +203,37 @@ export default class UI {
             this.resizeVideos();
         }
     }
+
     // подсчитать количество столбцов и строк в раскладке
     // в зависимости от количества собеседников
-    private calculateLayout(): void {
+    private calculateLayout(): void
+    {
         const videoCount = this._allVideos.size;
         // если только 1 видео на экране
-        if (videoCount == 1) {
+        if (videoCount == 1)
+        {
             this.videoRows = 2;
             this.videoColumns = 2;
         } // если количество собеседников превысило размеры сетки раскладки
-        else if (videoCount > this.videoColumns * this.videoRows) {
+        else if (videoCount > this.videoColumns * this.videoRows)
+        {
             // если количество столбцов не равно количеству строк, значит увеличиваем количество строк
             if (this.videoColumns != this.videoRows) ++this.videoRows;
             // иначе увеличиваем количество столбцов
             else ++this.videoColumns;
         } // пересчитываем сетку и после выхода пользователей
-        else if (videoCount < this.videoColumns * this.videoRows) {
+        else if (videoCount < this.videoColumns * this.videoRows)
+        {
             if (this.videoColumns == this.videoRows &&
                 (videoCount <= this.videoColumns * (this.videoRows - 1))) { --this.videoRows; }
             else if (this.videoColumns != this.videoRows &&
                 (videoCount <= (this.videoColumns - 1) * this.videoRows)) { --this.videoColumns; }
         }
     }
+
     // перестроить раскладку
-    private resizeVideos(): void {
+    private resizeVideos(): void
+    {
         const header_offset = 82.5;
         const nav_offset    = 150;
         const offset        = 30;
@@ -192,13 +241,16 @@ export default class UI {
         // max_h для регулирования размеров видео, чтобы оно вмещалось в videoRows (количество) строк
         let max_h = ((document.documentElement.clientHeight - header_offset) / this.videoRows) - offset;
         let flexBasis = ((document.documentElement.clientWidth - nav_offset) / this.videoColumns) - offset;
-        for (const videoItem of document.getElementsByClassName('videoItem')) {
+        for (const videoItem of document.getElementsByClassName('videoItem'))
+        {
             (videoItem as HTMLDivElement).style.maxWidth = max_h * aspect_ratio + 'px';
             (videoItem as HTMLDivElement).style.flexBasis = flexBasis + 'px';
         }
     }
+
     // подготовить локальный видеоэлемент
-    private prepareLocalVideo(): void {
+    private prepareLocalVideo(): void
+    {
         let localVideoItem = document.createElement('div');
         localVideoItem.classList.add('videoItem');
 
