@@ -47,8 +47,8 @@ export default class adminSocketHandler
             });
             const btn_createRoom = document.getElementById('btn_createRoom') as HTMLButtonElement;
             const btn_deleteRoom = document.getElementById('btn_deleteRoom') as HTMLButtonElement;
-            btn_createRoom?.addEventListener('click', () => { this.createRoom(); });
-            btn_deleteRoom?.addEventListener('click', () => { this.deleteRoom(); });
+            btn_createRoom!.addEventListener('click', () => { this.createRoom(); });
+            btn_deleteRoom!.addEventListener('click', () => { this.deleteRoom(); });
         }
     }
 
@@ -100,7 +100,7 @@ export default class adminSocketHandler
             let newOption = document.createElement('option');
             newOption.value = room['id'];
             newOption.innerText = `[${room['id']}] ${room['name']}`;
-            roomSelect?.appendChild(newOption);
+            roomSelect!.appendChild(newOption);
         }
     }
 
@@ -111,6 +111,6 @@ export default class adminSocketHandler
         let newOption = document.createElement('option');
         newOption.value = id.toString();
         newOption.innerText = `[${id}] ${roomName}`;
-        roomSelect?.appendChild(newOption);
+        roomSelect!.appendChild(newOption);
     }
 }

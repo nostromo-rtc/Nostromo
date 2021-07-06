@@ -40,7 +40,7 @@ export default class indexSocketHandler
             roomListItem.classList.add('roomListItem');
             roomListItem.href = `/rooms/${room['id']}`;
             roomListItem.innerText = room['name'];
-            roomList?.appendChild(roomListItem);
+            roomList!.appendChild(roomListItem);
         }
     }
 
