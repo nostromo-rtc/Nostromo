@@ -2,7 +2,6 @@
 import DataChannel from './DataChannel.js';
 import UI from './UI.js';
 import { SocketSettings } from './SocketHandler.js';
-import { MediaKind } from 'mediasoup/lib/RtpParameters';
 
 // Класс, устанавливающий соединение с одним собеседником (p2p-соединение)
 export default class PeerConnection

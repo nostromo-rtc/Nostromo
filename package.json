@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node backend/dist/index.js",
     "build-back": "tsc -p backend/src/tsconfig.json",
-    "bundle-front": "webpack",
-    "build-front": "tsc -p frontend/src/tsconfig.frontend.json && npm run bundle-front",
+    "build-front": "tsc -p frontend/src/tsconfig.frontend.json && webpack",
     "build": "npm run build-back && npm run build-front",
     "postinstall": "npm run build"
   },

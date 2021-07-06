@@ -11,12 +11,12 @@ export default class UI
     public set roomName(name: string) { this._roomName.innerText = name; }
 
     // метка локального видео
-    private localVideoLabel: HTMLSpanElement;
+    private localVideoLabel: HTMLSpanElement = this.prepareLocalVideoLabel();
 
     // контейнер с видеоэлементами
     private _allVideos = new Map<string, HTMLVideoElement>();
     public get allVideos(): Map<string, HTMLVideoElement> { return this._allVideos; }
-    public get localVideo() { return this._allVideos.get('local'); }
+    public get localVideo() { return this._allVideos.get('localVideo'); }
 
     // чат
     private _chat = document.getElementById('chat') as HTMLTextAreaElement;
@@ -64,15 +64,13 @@ export default class UI
         this.prepareMessageText();
         this.resizeVideos();
         window.addEventListener('resize', () => this.resizeVideos());
-        this._buttons.get('enableSounds').addEventListener('click', () => this.enableSounds());
+        this._buttons.get('enableSounds')!.addEventListener('click', () => this.enableSounds());
         this.showUserName();
     }
 
     public addCaptureSetting(label: string, value: string): void
     {
-        let newSetting = new HTMLOptionElement();
-        newSetting.label = label;
-        newSetting.value = value;
+        let newSetting = new Option(label, value);
         this.captureSettings.add(newSetting);
     }
 
@@ -98,7 +96,7 @@ export default class UI
             if (e.key == 'Enter' && !e.shiftKey)
             {
                 e.preventDefault();
-                this._buttons.get('sendMessage').click();
+                this._buttons.get('sendMessage')!.click();
                 this.messageText.value = '';
             };
         });
@@ -140,6 +138,12 @@ export default class UI
         newVideoContainer.classList.add('videoContainer');
         newVideoItem.appendChild(newVideoContainer);
 
+        let videoLabel = document.createElement('span');
+        videoLabel.classList.add('videoLabel');
+        videoLabel.innerText = name;
+        videoLabel.id = `remoteVideoLabel-${remoteVideoID}`;
+        newVideoItem.appendChild(videoLabel);
+
         let newVideo = document.createElement('video');
         newVideo.id = `remoteVideo-${remoteVideoID}`;
         newVideo.autoplay = true;
@@ -147,13 +151,7 @@ export default class UI
         newVideo.poster = './images/novideodata.jpg';
         newVideoContainer.appendChild(newVideo);
 
-        let videoLabel = document.createElement('span');
-        videoLabel.classList.add('videoLabel');
-        videoLabel.innerText = name;
-        videoLabel.id = `remoteVideoLabel-${remoteVideoID}`;
-        newVideo.appendChild(videoLabel);
-
-        document.getElementById('videos').appendChild(newVideoItem);
+        document.getElementById('videos')!.appendChild(newVideoItem);
         this._allVideos.set(remoteVideoID, newVideo);
 
         // перестроим раскладку
@@ -164,7 +162,7 @@ export default class UI
     // обновления метки видеоэлемента собеседника
     public updateVideoLabel(remoteVideoID: string, newName: string): void
     {
-        document.getElementById(`remoteVideoLabel-${remoteVideoID}`).innerText = newName;
+        document.getElementById(`remoteVideoLabel-${remoteVideoID}`)!.innerText = newName;
     }
 
     // изменить элемент выбора собеседника-адресата в виджете chatOption
@@ -177,9 +175,7 @@ export default class UI
     // добавить выбор собеседника-адресата в виджет chatOption
     public addChatOption(remoteUserID: string, remoteUsername: string): void
     {
-        let newChatOption = document.createElement('option') as HTMLOptionElement;
-        newChatOption.value = remoteUserID;
-        newChatOption.innerText = `собеседник ${remoteUsername}`;
+        let newChatOption = new Option(`собеседник ${remoteUsername}`, remoteUserID);
         this.chatOptions.appendChild(newChatOption);
     }
 
@@ -195,8 +191,8 @@ export default class UI
     {
         if (this._allVideos.has(remoteVideoID))
         {
-            const video = this._allVideos.get(remoteVideoID);
-            video.parentElement.parentElement.remove(); // video > videoContainer > videoItem.remove()
+            const video = this._allVideos.get(remoteVideoID)!;
+            video.parentElement!.parentElement!.remove(); // video > videoContainer > videoItem.remove()
             this._allVideos.delete(remoteVideoID);
             this.removeChatOption(remoteVideoID);
             this.calculateLayout();
@@ -257,6 +253,7 @@ export default class UI
         let localVideoContainer = document.createElement('div');
         localVideoContainer.classList.add('videoContainer');
         localVideoItem.appendChild(localVideoContainer);
+        localVideoItem.appendChild(this.localVideoLabel);
 
         let localVideo = document.createElement('video');
         localVideo.id = `localVideo`;
@@ -265,11 +262,14 @@ export default class UI
         localVideo.poster = './images/novideodata.jpg';
         localVideoContainer.appendChild(localVideo);
 
-        this.localVideoLabel = document.createElement('span');
-        this.localVideoLabel.classList.add('videoLabel');
-        localVideo.appendChild(this.localVideoLabel);
-
-        document.getElementById('videos').appendChild(localVideoItem);
+        document.getElementById('videos')!.appendChild(localVideoItem);
         this._allVideos.set('localVideo', localVideo);
+    }
+
+    private prepareLocalVideoLabel() : HTMLSpanElement
+    {
+        let label = document.createElement('span');
+        label.classList.add('videoLabel');
+        return label;
     }
 }

@@ -3,14 +3,18 @@ const path = require('path');
 const BUILD_DIR = path.join('frontend/temp-build/');
 const OUT_DIR = path.join('frontend/static/');
 
-const INDEX_PATH = path.join('public/scripts/index');
-const ADMIN_PATH = path.join('admin/scripts/admin');
+const ADMIN_PATHNAME = path.join('admin/scripts/admin');
+const INDEX_PATHNAME = path.join('public/scripts/index');
+const ROOM_PATHNAME = path.join('rooms/scripts/room');
+
+const VENDOR_PATHNAME = path.join('public/scripts/vendor');
 
 module.exports = {
     mode: "production",
     entry: {
-        [INDEX_PATH]: path.join(__dirname, BUILD_DIR + INDEX_PATH + '.js'),
-        [ADMIN_PATH]: path.join(__dirname, BUILD_DIR + ADMIN_PATH + '.js')
+        [INDEX_PATHNAME]: path.join(__dirname, BUILD_DIR + INDEX_PATHNAME + '.js'),
+        [ADMIN_PATHNAME]: path.join(__dirname, BUILD_DIR + ADMIN_PATHNAME + '.js'),
+        [ROOM_PATHNAME] : path.join(__dirname, BUILD_DIR + ROOM_PATHNAME + '.js')
     },
     output: {
         path: path.join(__dirname, OUT_DIR),
@@ -20,7 +24,7 @@ module.exports = {
         minimize: false,
         splitChunks: {
             chunks: 'all',
-            name: path.join('public/scripts/vendor')
+            name: VENDOR_PATHNAME
         }
     }
 };

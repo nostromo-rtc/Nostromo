@@ -6,43 +6,51 @@ type Room = {
 };
 
 // Класс для работы с сокетами на главной странице
-export default class indexSocketHandler {
+export default class indexSocketHandler
+{
     private socket: Socket = io("/", {
         'transports': ['websocket']
     });
 
-    constructor() {
+    constructor()
+    {
         console.debug("indexSocketHandler ctor");
-        this.socket.on('connect', () => {
+        this.socket.on('connect', () =>
+        {
             console.info("Создано подключение веб-сокета");
             console.info("Client ID:", this.socket.id);
         });
 
-        this.socket.on('connect_error', (err : Error) => {
+        this.socket.on('connect_error', (err: Error) =>
+        {
             console.log(err.message);
         });
 
-        this.socket.on('roomList', (rooms : Room[]) => this.getRoomList(rooms));
+        this.socket.on('roomList', (rooms: Room[]) => this.getRoomList(rooms));
 
         this.socket.on('disconnect', () => this.onDisconnect());
     }
 
-    getRoomList(rooms : Room[]) {
+    private getRoomList(rooms: Room[]) : void
+    {
         const roomList = document.getElementById('roomList') as HTMLDivElement;
-        for (const room of rooms) {
+        for (const room of rooms)
+        {
             let roomListItem = document.createElement('a');
             roomListItem.classList.add('roomListItem');
             roomListItem.href = `/rooms/${room['id']}`;
             roomListItem.innerText = room['name'];
-            if (roomList) roomList.appendChild(roomListItem);
+            roomList?.appendChild(roomListItem);
         }
     }
 
-    onDisconnect() {
+    private onDisconnect(): void
+    {
         console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
-        const roomList = document.querySelectorAll(".roomListItem");
+        const roomList: NodeListOf<HTMLAnchorElement> = document.querySelectorAll(".roomListItem");
         console.log(roomList);
-        for (const room of roomList) {
+        for (const room of roomList)
+        {
             console.log(room);
             room.remove();
         }

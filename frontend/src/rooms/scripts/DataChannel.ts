@@ -81,7 +81,7 @@ export default class DataChannel
 
     public sendFile(): void
     {
-        const file: (File | undefined | null) = this.ui.fileInput?.files?.item(0);
+        const file: (File | undefined | null) = this.ui.fileInput.files?.item(0);
         if (file)
         {
             console.log("> Отправляем файл", file.name, file.size);

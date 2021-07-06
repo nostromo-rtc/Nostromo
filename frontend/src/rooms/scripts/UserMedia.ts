@@ -23,7 +23,8 @@ export default class UserMedia
     private streamConstraintsCam: MediaStreamConstraints = {
         audio: false, video: true
     };
-    private captureConstraints = this.prepareCaptureConstraints();
+
+    private captureConstraints: Map<string, MediaStreamConstraints>;
 
     constructor(_ui: UI, _parent: SocketHandler)
     {
@@ -31,19 +32,23 @@ export default class UserMedia
         this.ui = _ui;          // интерфейс
         this.parent = _parent;  // родительский класс
 
-        this.ui.buttons.get('getUserMediaMic').addEventListener('click',
+        this.captureConstraints = this.prepareCaptureConstraints();
+
+        // подключаем медиапоток к HTML-элементу <video> (localVideo)
+        this.ui.localVideo!.srcObject = this.stream;
+
+        this.ui.buttons.get('getUserMediaMic')!.addEventListener('click',
             () => this.getUserMedia_click("audio", this.streamConstraintsMic));
 
-        this.ui.buttons.get('getUserMediaCam').addEventListener('click',
+        this.ui.buttons.get('getUserMediaCam')!.addEventListener('click',
             () => this.getUserMedia_click("video", this.streamConstraintsCam));
 
-        this.ui.buttons.get('getDisplayMedia').addEventListener('click',
+        this.ui.buttons.get('getDisplayMedia')!.addEventListener('click',
             () => this.getDisplayMedia_click());
-
     }
 
     // -- в случае, если не удалось захватить потоки юзера -- //
-    private getUserMedia_error(error: DOMException)
+    private getUserMedia_error(error: DOMException): void
     {
         console.error("> getUserMedia_error():", error);
         if (error.name == "NotFoundError")
@@ -53,7 +58,7 @@ export default class UserMedia
     }
 
     // -- получение видео (веб-камера) и аудио (микрофон) потоков -- //
-    async getUserMedia_click(trackKind: string, streamConstraints: MediaStreamConstraints)
+    async getUserMedia_click(trackKind: string, streamConstraints: MediaStreamConstraints): Promise<void>
     {
         try
         {
@@ -64,11 +69,7 @@ export default class UserMedia
                 if (oldTrack.kind == trackKind)
                 {
                     presentMedia = true;
-                    oldTrack.stop();
-                    if (trackKind == "video")
-                    {
-                        //this.ui.localVideo.srcObject = null;
-                    }
+                    this.stopTrack(oldTrack);
                 }
             }
 
@@ -80,9 +81,6 @@ export default class UserMedia
             }
 
             console.debug("getUserMedia success:", this.stream);
-
-            // -- подключаем медиапоток к HTML-элементу <video> (localVideo) -- //
-            this.ui.localVideo.srcObject = this.stream;
 
             // обновляем медиапоток в подключении
             if (presentMedia)
@@ -97,7 +95,7 @@ export default class UserMedia
     }
 
     // -- захват видео с экрана юзера -- //
-    private async getDisplayMedia_click()
+    private async getDisplayMedia_click(): Promise<void>
     {
         try
         {
@@ -106,9 +104,8 @@ export default class UserMedia
             if (this.stream.getVideoTracks().length == 1)
             {
                 presentVideo = true;
-                const oldVideoTrack: MediaStreamTrack = this.stream.getVideoTracks()[0];
-                oldVideoTrack.stop();
-                //this.ui.localVideo.srcObject = null;
+                let oldVideoTrack: MediaStreamTrack = this.stream.getVideoTracks()[0];
+                this.stopTrack(oldVideoTrack);
             }
             // захват экрана
             let displayMediaStream: MediaStream =
@@ -128,7 +125,7 @@ export default class UserMedia
                 {
                     presentAudio = true;
                     const oldAudioTrack: MediaStreamTrack = this.stream.getAudioTracks()[0];
-                    oldAudioTrack.stop();
+                    this.stopTrack(oldAudioTrack);
                 }
                 // добавляем аудиодорожку
                 let audioTrack: MediaStreamTrack = displayMediaStream.getAudioTracks()[0];
@@ -161,11 +158,7 @@ export default class UserMedia
                     this.parent.addNewMediaStream('video');
             }
 
-            console.debug("getDisplayMedia success:", this.stream);
-            console.debug(await navigator.mediaDevices.enumerateDevices());
-
-            // -- подключаем медиапоток к HTML-элементу <video> (localVideo) -- //
-            this.ui.localVideo.srcObject = this.stream;
+            console.debug("getDisplayMedia success:", this.stream, this.stream.getTracks());
         }
         catch (error)
         {
@@ -173,17 +166,31 @@ export default class UserMedia
         }
     }
 
+    private stopTrack(oldVideoTrack: MediaStreamTrack): void
+    {
+        // stop не вызывает событие ended,
+        // поэтому удаляем трек из стрима сами
+        oldVideoTrack.stop();
+        this.removeTrackFromStream(oldVideoTrack);
+    }
+
     // обработка закончившихся (ended) треков
-    private handleEndedTrack(track: MediaStreamTrack)
+    private handleEndedTrack(track: MediaStreamTrack): void
     {
         track.addEventListener('ended', () =>
         {
-            this.stream.removeTrack(track);
-            if (this.stream.getTracks().length == 0)
-            {
-                this.ui.localVideo.srcObject = null;
-            }
+            this.removeTrackFromStream(track);
         });
+    }
+
+    private removeTrackFromStream(track: MediaStreamTrack): void
+    {
+        this.stream.removeTrack(track);
+        if (track.kind == 'video')
+        {
+            // сбрасываем видео объект
+            this.ui.localVideo!.load();
+        }
     }
 
     // подготовить опции с разрешениями

@@ -29,7 +29,7 @@ export default class SocketHandler
 
         console.debug("SocketHandler ctor");
 
-        this.ui.buttons.get('setNewUsername')?.addEventListener('click', () =>
+        this.ui.buttons.get('setNewUsername')!.addEventListener('click', () =>
         {
             this.ui.setNewUsername();
             this.socket.emit('newUsername', this.ui.usernameInputValue);
@@ -87,7 +87,7 @@ export default class SocketHandler
         {
             if (this.pcContainer.has(remoteUserID))
             {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserID);
+                const pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
                 console.info('SocketHandler > newOffer for', `[${remoteUserID}]`);
                 await pc.createOffer();
             }
@@ -98,7 +98,7 @@ export default class SocketHandler
         {
             if (this.pcContainer.has(remoteUserID))
             {
-                const pc = this.pcContainer.get(remoteUserID);
+                const pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
                 console.info('SocketHandler > receiveOffer from', `[${remoteUserID}]`);
                 pc.isOffer = false;
                 await pc.receiveOffer(SDP);
@@ -110,7 +110,7 @@ export default class SocketHandler
         {
             if (this.pcContainer.has(remoteUserID))
             {
-                const pc = this.pcContainer.get(remoteUserID);
+                const pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
                 console.info('SocketHandler > receiveAnswer from', `[${remoteUserID}]`);
                 await pc.receiveAnswer(SDP);
             }
@@ -124,7 +124,7 @@ export default class SocketHandler
                 console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserID}]`);
                 this.ui.removeVideo(remoteUserID);
                 // удаляем объект соединения
-                let disconnectedPC: PeerConnection = this.pcContainer.get(remoteUserID);
+                let disconnectedPC: PeerConnection = this.pcContainer.get(remoteUserID)!;
                 this.pcContainer.delete(remoteUserID);
                 disconnectedPC.close();
             }
@@ -137,34 +137,34 @@ export default class SocketHandler
             {
                 this.ui.removeVideo(remoteUserID);
                 // удаляем объект соединения
-                let pc: PeerConnection = this.pcContainer.get(remoteUserID);
+                let pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
                 this.pcContainer.delete(remoteUserID);
                 pc.close();
             }
         });
 
         // обработка личных чатов
-        this.ui.buttons.get('sendMessage').addEventListener('click', () =>
+        this.ui.buttons.get('sendMessage')!.addEventListener('click', () =>
         {
             if (this.ui.currentChatOption != "default")
             {
                 const receiverID = this.ui.currentChatOption;
                 if (this.pcContainer.has(receiverID))
                 {
-                    let pc = this.pcContainer.get(receiverID);
+                    let pc: PeerConnection = this.pcContainer.get(receiverID)!;
                     pc.dc.sendMessage();
                 }
             }
         });
 
-        this.ui.buttons.get('sendFile').addEventListener('click', () =>
+        this.ui.buttons.get('sendFile')!.addEventListener('click', () =>
         {
             if (this.ui.currentChatOption != "default")
             {
                 const receiverID = this.ui.currentChatOption;
                 if (this.pcContainer.has(receiverID))
                 {
-                    let pc = this.pcContainer.get(receiverID);
+                    let pc: PeerConnection = this.pcContainer.get(receiverID)!;
                     pc.dc.sendFile();
                 }
             }
@@ -177,7 +177,7 @@ export default class SocketHandler
     }
 
     // добавить медиапоток в подключение
-    addNewMediaStream(trackKind: string)
+    public addNewMediaStream(trackKind: string): void
     {
         for (const pc of this.pcContainer.values())
         {
@@ -187,7 +187,7 @@ export default class SocketHandler
     }
 
     // обновить существующее медиа
-    updateMediaStream(trackKind: string)
+    public updateMediaStream(trackKind: string): void
     {
         for (const pc of this.pcContainer.values())
         {
