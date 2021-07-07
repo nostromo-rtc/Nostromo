@@ -6,7 +6,8 @@ const frontend_dirname = __dirname + "/../../frontend";
 
 // добавляю в сессию необходимые параметры
 declare module 'express-session' {
-    interface SessionData {
+    interface SessionData
+    {
         auth: boolean;
         username: string;
         authRoomsID: Array<string>;
@@ -18,13 +19,15 @@ declare module 'express-session' {
 
 import { RoomId, RoomInfo } from './index';
 
-// класс - обработчик сокетов
-export class ExpressApp {
+// класс - обработчик веб-сервера
+export class ExpressApp
+{
     // приложение Express
     public app: express.Express = express();
+
     // обработчик сессий
     public sessionMiddleware: express.RequestHandler = session({
-        secret: 'developmentsecretkey',
+        secret: process.env.EXPRESS_SESSION_KEY!,
         name: 'sessionId',
         resave: false,
         saveUninitialized: false,
@@ -33,44 +36,74 @@ export class ExpressApp {
             secure: true
         }
     });
+
     private rooms: Map<RoomId, RoomInfo>;
 
-    constructor(_rooms: Map<RoomId, RoomInfo>) {
+    private wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (req.hostname.slice(0, 4) === 'www.')
+        {
+            const newHost: string = req.hostname.slice(4);
+            return res.redirect(301, req.protocol + '://' + newHost + req.originalUrl);
+        }
+        next();
+    }
+
+    private httpsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (!req.secure)
+        {
+            return res.redirect(301, ['https://', req.hostname, req.originalUrl].join(''));
+        }
+        next();
+    }
+
+    constructor(_rooms: Map<RoomId, RoomInfo>)
+    {
         this.rooms = _rooms;
+
+        // убираем www из адреса
+        this.app.use(this.wwwMiddleware);
+
         // перенаправляем на https
-        this.app.use((req, res, next) => {
-            if (!req.secure) {
-                return res.redirect(301, ['https://', req.hostname, req.url].join(''));
-            }
-            next();
-        });
+        this.app.use(this.httpsMiddleware);
+
         // используем обработчик сессий
         this.app.use(this.sessionMiddleware);
+
         this.app.disable('x-powered-by');
+
         // [обрабатываем маршруты]
         // главная страница
-        this.app.get('/', (req, res) => {
+        this.app.get('/', (req, res) =>
+        {
             res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
         });
 
-        this.app.get('/rooms/:roomID', (req, res) => {
+        this.app.get('/rooms/:roomID', (req, res) =>
+        {
             this.roomRoute(req, res);
         });
 
-        this.app.get('/admin', (req, res) => {
+        this.app.get('/admin', (req, res) =>
+        {
             this.adminRoute(req, res);
         });
 
         // открываем доступ к статике, т.е к css, js, картинки
-        this.app.use('/admin', (req, res, next) => {
-            if (req.ip == process.env.ALLOW_ADMIN_IP) {
+        this.app.use('/admin', (req, res, next) =>
+        {
+            if (req.ip == process.env.ALLOW_ADMIN_IP)
+            {
                 express.static(frontend_dirname + "/static/admin/")(req, res, next);
             }
             else next();
         });
 
-        this.app.use('/rooms', (req, res, next) => {
-            if (req.session.auth) {
+        this.app.use('/rooms', (req, res, next) =>
+        {
+            if (req.session.auth)
+            {
                 express.static(frontend_dirname + "/static/rooms/")(req, res, next);
             }
             else next();
@@ -78,58 +111,76 @@ export class ExpressApp {
 
         this.app.use('/', express.static(frontend_dirname + "/static/public/"));
 
-        this.app.use((req, res) => {
+        this.app.use((req, res) =>
+        {
             res.status(404).end('404 error: page not found');
         });
     }
 
-    private adminRoute(req: express.Request, res: express.Response) {
-        if (req.ip == process.env.ALLOW_ADMIN_IP) {
-            if (!req.session.admin) {
+    private adminRoute(req: express.Request, res: express.Response): void 
+    {
+        if (req.ip == process.env.ALLOW_ADMIN_IP)
+        {
+            if (!req.session.admin)
+            {
                 req.session.admin = false;
                 res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
             }
-            else {
+            else
+            {
                 res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
             }
         }
-        else {
+        else
+        {
             res.status(404).end('404 Error: page not found');
         }
     }
-    private roomRoute(req: express.Request, res: express.Response) {
+
+    private roomRoute(req: express.Request, res: express.Response): void | express.Response
+    {
         // запрещаем кешировать страницу с комнатой
         res.setHeader('Cache-Control', 'no-store');
+
         // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
-        const joinInRoom = (roomID: string) => {
+        const joinInRoom = (roomID: string): void =>
+        {
             // сокет сделает данный параметр true,
             // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
             req.session.isInRoom = false;
             req.session.activeRoomID = roomID;
             return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
         };
+
         // проверяем наличие запрашиваемой комнаты
-        const roomID = req.params.roomID;
-        if (this.rooms.has(roomID)) {
+        const roomID: RoomId = req.params.roomID;
+        if (this.rooms.has(roomID))
+        {
             // если пользователь авторизован в этой комнате
-            if (req.session.auth && req.session.authRoomsID.includes(roomID)) {
+            if (req.session.auth && req.session.authRoomsID?.includes(roomID))
+            {
                 return joinInRoom(roomID);
             }
+
             // если не авторизован, но есть пароль в query
-            const pass = req.query.p;
-            if (pass) {
-                if (pass == this.rooms.get(roomID).password) {
+            const pass = req.query.p as string || undefined;
+            if (pass)
+            {
+                if (pass == this.rooms.get(roomID)!.password)
+                {
                     // если у пользователя не было сессии
-                    if (!req.session.auth) {
+                    if (!req.session.auth)
+                    {
                         req.session.auth = true;
                         req.session.authRoomsID = new Array<string>();
                     }
                     // запоминаем для этого пользователя авторизованную комнату
-                    req.session.authRoomsID.push(roomID);
+                    req.session.authRoomsID!.push(roomID);
                     return joinInRoom(roomID);
                 }
                 return res.send("неправильный пароль");
             }
+
             req.session.activeRoomID = roomID;
             return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
         }

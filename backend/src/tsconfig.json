@@ -6,8 +6,9 @@
         "outDir": "../dist/",
         "allowJs": true,
         "experimentalDecorators": true,
-        "strictFunctionTypes": true,
-        "sourceMap": false
+        "strict" : true,
+        "sourceMap": false,
+        "noEmitOnError": true
     },
     "include": ["*.ts"],
     "exclude": ["../../node_modules/*"]
