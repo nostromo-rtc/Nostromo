@@ -62,6 +62,8 @@ export default class UserMedia
     {
         try
         {
+            let mediaStream: MediaStream = await navigator.mediaDevices.getUserMedia(streamConstraints);
+
             // проверяем, было ли от нас что-то до этого
             let presentMedia: boolean = false;
             for (const oldTrack of this.stream.getTracks())
@@ -73,7 +75,6 @@ export default class UserMedia
                 }
             }
 
-            let mediaStream: MediaStream = await navigator.mediaDevices.getUserMedia(streamConstraints);
             for (const track of mediaStream.getTracks())
             {
                 this.handleEndedTrack(track);
@@ -99,6 +100,11 @@ export default class UserMedia
     {
         try
         {
+            // захват экрана
+            let displayMediaStream: MediaStream =
+                await navigator.mediaDevices.getDisplayMedia
+                    (this.captureConstraints.get(this.ui.currentCaptureSetting));
+
             // проверяем, было ли видео от нас до этого
             let presentVideo: boolean = false;
             if (this.stream.getVideoTracks().length == 1)
@@ -107,10 +113,6 @@ export default class UserMedia
                 let oldVideoTrack: MediaStreamTrack = this.stream.getVideoTracks()[0];
                 this.stopTrack(oldVideoTrack);
             }
-            // захват экрана
-            let displayMediaStream: MediaStream =
-                await navigator.mediaDevices.getDisplayMedia
-                    (this.captureConstraints.get(this.ui.currentCaptureSetting));
 
             // добавляем видеодорожку
             let videoTrack: MediaStreamTrack = displayMediaStream.getVideoTracks()[0];
