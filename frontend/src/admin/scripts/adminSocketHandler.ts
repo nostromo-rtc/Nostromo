@@ -45,10 +45,10 @@ export default class adminSocketHandler
                 this.setRoomList(roomList);
                 this.latestRoomId = roomsIdCount;
             });
-            const btn_createRoom = document.getElementById('btn_createRoom') as HTMLButtonElement;
-            const btn_deleteRoom = document.getElementById('btn_deleteRoom') as HTMLButtonElement;
-            btn_createRoom!.addEventListener('click', () => { this.createRoom(); });
-            btn_deleteRoom!.addEventListener('click', () => { this.deleteRoom(); });
+            const btn_createRoom = document.getElementById('btn_createRoom')! as HTMLButtonElement;
+            const btn_deleteRoom = document.getElementById('btn_deleteRoom')! as HTMLButtonElement;
+            btn_createRoom.addEventListener('click', () => { this.createRoom(); });
+            btn_deleteRoom.addEventListener('click', () => { this.deleteRoom(); });
         }
     }
 
@@ -57,11 +57,22 @@ export default class adminSocketHandler
         const joinButton = document.getElementById('btn_join');
         if (joinButton)
         {
+            const passInput = document.getElementById('pass')! as HTMLInputElement;
+
             joinButton.addEventListener('click', () =>
             {
-                const pass = (document.getElementById('pass') as HTMLInputElement).value;
-                this.socket.emit('joinAdmin', pass);
+                this.socket.emit('joinAdmin', passInput.value);
             });
+
+            passInput.addEventListener('keydown', (e) =>
+            {
+                if (e.key == 'Enter' && !e.shiftKey)
+                {
+                    e.preventDefault();
+                    joinButton.click();
+                };
+            });
+
             return true;
         }
         return false;

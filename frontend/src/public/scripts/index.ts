@@ -3,9 +3,11 @@ import authSocketHandler from './authSocketHandler.js';
 
 // создаем обработчики интерфейса и обработчики сокетов
 
-if (window.location.pathname.search('rooms') == -1) {
+if (window.location.pathname.search('rooms') == -1)
+{
     const indexSocketHandlerInstance = new indexSocketHandler();
 }
-else {
+else
+{
     const authSocketHandlerInstance = new authSocketHandler();
 }
