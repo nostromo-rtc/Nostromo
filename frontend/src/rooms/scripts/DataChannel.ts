@@ -14,9 +14,9 @@ export default class DataChannel
     private ui: UI;
     private parent: PeerConnection;
 
-    private messageDc = new RTCDataChannel();
+    private messageDc? : RTCDataChannel;
 
-    private fileDc = new RTCDataChannel();
+    private fileDc? : RTCDataChannel;
     private receiveBuffer = new Array<ArrayBuffer>();
     private receivedSize: number = 0;
     private fileSize: number = 0;
@@ -63,7 +63,7 @@ export default class DataChannel
     public sendMessage(): void
     {
         const message: string = this.ui.messageText.value.trim();
-        if (message.length > 0)
+        if (message.length > 0 && this.messageDc)
         {
             const timestamp: string = this.getTimestamp();
             this.ui.chat.innerHTML += "[" + timestamp + "] " + "Я: " + message + "\n";
@@ -82,7 +82,7 @@ export default class DataChannel
     public sendFile(): void
     {
         const file: (File | undefined | null) = this.ui.fileInput.files?.item(0);
-        if (file)
+        if (file && this.fileDc)
         {
             console.log("> Отправляем файл", file.name, file.size);
             this.fileDc.send(file.name); // отправляем имя+расширение файла
@@ -102,7 +102,7 @@ export default class DataChannel
             {
                 if (e.target)
                 {
-                    this.fileDc.send(e.target.result as ArrayBuffer);
+                    this.fileDc!.send(e.target.result as ArrayBuffer);
                     offset += (e.target.result as ArrayBuffer).byteLength;
                     if (offset < file.size) readSlice(offset);
                 }
