@@ -20,7 +20,8 @@ class User
 export class Room
 {
     // номер комнаты
-    private _roomId: RoomId;
+    private _id: RoomId;
+    public get id(): RoomId { return this._id; }
 
     // название комнаты
     private _name: string;
@@ -34,6 +35,7 @@ export class Room
 
     // mediasoup Router
     private _mediasoupRouter: mediasoupTypes.Router;
+    public get mediasoupRouter(): mediasoupTypes.Router { return this._mediasoupRouter; }
 
     // пользователи в комнате
     private _users = new Map<SocketId, User>();
@@ -42,7 +44,7 @@ export class Room
     constructor(roomId: RoomId, name: string, password: string, router: mediasoupTypes.Router)
     {
         console.log(`creating a new Room [${roomId}, ${name}]`);
-        this._roomId = roomId;
+        this._id = roomId;
         this._name = name;
         this._password = password;
         this._mediasoupRouter = router;
@@ -50,18 +52,19 @@ export class Room
 
     public join(userId: SocketId): void
     {
-        console.log(`[${this._roomId}, ${this._name}]: ${userId} user connected`);
+        console.log(`[${this._id}, ${this._name}]: ${userId} user connected`);
         this._users.set(userId, new User(userId));
     }
 
-    public leave(userId: SocketId): void
+    public leave(userId: SocketId, reason : string): void
     {
+        console.log(`[${this._id}, ${this._name}]: ${userId} user disconnected`, reason);
         this._users.delete(userId);
     }
 
     public close(): void
     {
-        console.log(`closing Room [${this._roomId}]`);
+        console.log(`closing Room [${this._id}]`);
         this._mediasoupRouter.close();
     }
 }

@@ -75,7 +75,7 @@ async function main()
     console.debug(`Version: ${process.env.npm_package_version}`);
 
     // создание mediasoup Workers
-    await Mediasoup.createMediasoupWorkers();
+    await Mediasoup.createMediasoupWorkers(1);
 
     // комнаты
     let rooms = new Map<RoomId, Room>();

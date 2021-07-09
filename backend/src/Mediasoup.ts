@@ -6,10 +6,8 @@ export class Mediasoup
 {
     static mediasoupWorkers = new Array<mediasoupTypes.Worker>();
 
-    static async createMediasoupWorkers()
+    static async createMediasoupWorkers(numWorkers: number)
     {
-        const numWorkers: number = 1;
-
         console.log('running %d mediasoup Workers...', numWorkers);
 
         for (let i: number = 0; i < numWorkers; ++i)
@@ -50,7 +48,7 @@ export class Mediasoup
         return router;
     }
 
-    static async createWebRtcTransport(router: mediasoupTypes.Router)
+    static async createWebRtcTransport(router: mediasoupTypes.Router): Promise<mediasoupTypes.WebRtcTransport>
     {
         const transport = await router.createWebRtcTransport({
             listenIps: ['127.0.0.1'],
@@ -70,9 +68,6 @@ export class Mediasoup
         {
             console.error("can't consume");
             return;
-        }
-        try {
-            let consumer = await consumer
         }
     }
 }
