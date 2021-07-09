@@ -17,7 +17,7 @@ export default class authSocketHandler
         this.socket.on('connect', () =>
         {
             console.info("Создано подключение веб-сокета");
-            console.info("Client ID:", this.socket.id);
+            console.info("Client Id:", this.socket.id);
         });
 
         this.socket.on('connect_error', (err: Error) =>

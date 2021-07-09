@@ -8,16 +8,16 @@ const frontend_dirname = __dirname + "/../../frontend";
 declare module 'express-session' {
     interface SessionData
     {
-        auth: boolean;
-        username: string;
-        authRoomsID: Array<string>;
-        activeRoomID: string;
-        isInRoom: boolean;
-        admin: boolean;
+        auth: boolean;              // авторизован?
+        username: string;           // ник
+        authRoomsId: Array<string>; // список авторизованных комнат
+        joined: boolean;            // в данный момент в комнате?
+        joinedRoomId: string;       // номер комнаты, в которой находится пользователе
+        admin: boolean;             // администратор?
     }
 }
 
-import { RoomId, RoomInfo } from './index';
+import { RoomId, Room } from './Room';
 
 // класс - обработчик веб-сервера
 export class ExpressApp
@@ -37,7 +37,7 @@ export class ExpressApp
         }
     });
 
-    private rooms: Map<RoomId, RoomInfo>;
+    private rooms: Map<RoomId, Room>;
 
     private wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
@@ -58,7 +58,7 @@ export class ExpressApp
         next();
     }
 
-    constructor(_rooms: Map<RoomId, RoomInfo>)
+    constructor(_rooms: Map<RoomId, Room>)
     {
         this.rooms = _rooms;
 
@@ -80,7 +80,7 @@ export class ExpressApp
             res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
         });
 
-        this.app.get('/rooms/:roomID', (req, res) =>
+        this.app.get('/rooms/:roomId', (req, res) =>
         {
             this.roomRoute(req, res);
         });
@@ -143,45 +143,45 @@ export class ExpressApp
         res.setHeader('Cache-Control', 'no-store');
 
         // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
-        const joinInRoom = (roomID: string): void =>
+        const joinInRoom = (roomId: string): void =>
         {
             // сокет сделает данный параметр true,
             // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
-            req.session.isInRoom = false;
-            req.session.activeRoomID = roomID;
+            req.session.joined = false;
+            req.session.joinedRoomId = roomId;
             return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
         };
 
         // проверяем наличие запрашиваемой комнаты
-        const roomID: RoomId = req.params.roomID;
-        if (this.rooms.has(roomID))
+        const roomId: RoomId = req.params.roomId;
+        if (this.rooms.has(roomId))
         {
             // если пользователь авторизован в этой комнате
-            if (req.session.auth && req.session.authRoomsID?.includes(roomID))
+            if (req.session.auth && req.session.authRoomsId?.includes(roomId))
             {
-                return joinInRoom(roomID);
+                return joinInRoom(roomId);
             }
 
             // если не авторизован, но есть пароль в query
             const pass = req.query.p as string || undefined;
             if (pass)
             {
-                if (pass == this.rooms.get(roomID)!.password)
+                if (pass == this.rooms.get(roomId)!.password)
                 {
                     // если у пользователя не было сессии
                     if (!req.session.auth)
                     {
                         req.session.auth = true;
-                        req.session.authRoomsID = new Array<string>();
+                        req.session.authRoomsId = new Array<string>();
                     }
                     // запоминаем для этого пользователя авторизованную комнату
-                    req.session.authRoomsID!.push(roomID);
-                    return joinInRoom(roomID);
+                    req.session.authRoomsId!.push(roomId);
+                    return joinInRoom(roomId);
                 }
                 return res.send("неправильный пароль");
             }
 
-            req.session.activeRoomID = roomID;
+            req.session.joinedRoomId = roomId;
             return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
         }
         return res.status(404).end('404 Error: page not found');

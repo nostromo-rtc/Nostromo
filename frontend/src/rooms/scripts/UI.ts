@@ -129,7 +129,7 @@ export default class UI
     }
 
     // добавить новый видеоэлемент собеседника
-    public addVideo(remoteVideoID: string, name: string): void
+    public addVideo(remoteVideoId: string, name: string): void
     {
         let newVideoItem = document.createElement('div');
         newVideoItem.classList.add('videoItem');
@@ -141,18 +141,18 @@ export default class UI
         let videoLabel = document.createElement('span');
         videoLabel.classList.add('videoLabel');
         videoLabel.innerText = name;
-        videoLabel.id = `remoteVideoLabel-${remoteVideoID}`;
+        videoLabel.id = `remoteVideoLabel-${remoteVideoId}`;
         newVideoItem.appendChild(videoLabel);
 
         let newVideo = document.createElement('video');
-        newVideo.id = `remoteVideo-${remoteVideoID}`;
+        newVideo.id = `remoteVideo-${remoteVideoId}`;
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
         newVideo.poster = './images/novideodata.jpg';
         newVideoContainer.appendChild(newVideo);
 
         document.getElementById('videos')!.appendChild(newVideoItem);
-        this._allVideos.set(remoteVideoID, newVideo);
+        this._allVideos.set(remoteVideoId, newVideo);
 
         // перестроим раскладку
         this.calculateLayout();
@@ -160,41 +160,41 @@ export default class UI
     }
 
     // обновления метки видеоэлемента собеседника
-    public updateVideoLabel(remoteVideoID: string, newName: string): void
+    public updateVideoLabel(remoteVideoId: string, newName: string): void
     {
-        document.getElementById(`remoteVideoLabel-${remoteVideoID}`)!.innerText = newName;
+        document.getElementById(`remoteVideoLabel-${remoteVideoId}`)!.innerText = newName;
     }
 
     // изменить элемент выбора собеседника-адресата в виджете chatOption
-    public updateChatOption(remoteUserID: string, name: string): void
+    public updateChatOption(remoteUserId: string, name: string): void
     {
-        let chatOption = document.querySelector(`option[value='${remoteUserID}']`) as HTMLOptionElement;
+        let chatOption = document.querySelector(`option[value='${remoteUserId}']`) as HTMLOptionElement;
         if (chatOption) chatOption.innerText = `собеседник ${name}`;
     }
 
     // добавить выбор собеседника-адресата в виджет chatOption
-    public addChatOption(remoteUserID: string, remoteUsername: string): void
+    public addChatOption(remoteUserId: string, remoteUsername: string): void
     {
-        let newChatOption = new Option(`собеседник ${remoteUsername}`, remoteUserID);
+        let newChatOption = new Option(`собеседник ${remoteUsername}`, remoteUserId);
         this.chatOptions.appendChild(newChatOption);
     }
 
     // удалить выбор собеседника-адресата из виджета chatOption
-    public removeChatOption(remoteUserID: string): void
+    public removeChatOption(remoteUserId: string): void
     {
-        let chatOption = document.querySelector(`option[value='${remoteUserID}']`) as HTMLOptionElement;
+        let chatOption = document.querySelector(`option[value='${remoteUserId}']`) as HTMLOptionElement;
         if (chatOption) chatOption.remove();
     }
 
     // удалить видео собеседника (и опцию для чата/файлов тоже)
-    public removeVideo(remoteVideoID: string): void
+    public removeVideo(remoteVideoId: string): void
     {
-        if (this._allVideos.has(remoteVideoID))
+        if (this._allVideos.has(remoteVideoId))
         {
-            const video = this._allVideos.get(remoteVideoID)!;
+            const video = this._allVideos.get(remoteVideoId)!;
             video.parentElement!.parentElement!.remove(); // video > videoContainer > videoItem.remove()
-            this._allVideos.delete(remoteVideoID);
-            this.removeChatOption(remoteVideoID);
+            this._allVideos.delete(remoteVideoId);
+            this.removeChatOption(remoteVideoId);
             this.calculateLayout();
             this.resizeVideos();
         }

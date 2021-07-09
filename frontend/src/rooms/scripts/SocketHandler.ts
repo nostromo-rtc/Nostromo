@@ -5,7 +5,7 @@ import { io, Socket } from "socket.io-client";
 
 export type SocketSettings =
     {
-        remoteUserID: string,
+        remoteUserId: string,
         remoteUsername: string,
         socket: Socket;
     };
@@ -38,9 +38,14 @@ export default class SocketHandler
         this.socket.on('connect', () =>
         {
             console.info("Создано веб-сокет подключение");
-            console.info("Client ID:", this.socket.id);
+            console.info("Client Id:", this.socket.id);
             // сообщаем имя
             this.socket.emit('afterConnect', this.ui.usernameInputValue);
+        });
+
+        this.socket.on('getRouterRtpCapabilities', () =>
+        {
+            
         });
 
         this.socket.on('connect_error', (err: Error) =>
@@ -54,12 +59,12 @@ export default class SocketHandler
         });
 
         // новый пользователь (т.е другой)
-        this.socket.on('newUser', (remoteUserID: string, remoteName: string, AmIOffer: boolean) =>
+        this.socket.on('newUser', (remoteUserId: string, remoteName: string, AmIOffer: boolean) =>
         {
-            this.ui.addVideo(remoteUserID, remoteName);
+            this.ui.addVideo(remoteUserId, remoteName);
 
             const socketSettings: SocketSettings = {
-                remoteUserID: remoteUserID,
+                remoteUserId: remoteUserId,
                 remoteUsername: remoteName,
                 socket: this.socket
             };
@@ -67,65 +72,65 @@ export default class SocketHandler
             let PCInstance = new PeerConnection(this.ui, this.userMedia.stream, socketSettings, AmIOffer);
 
             // сохраняем подключение
-            this.pcContainer.set(remoteUserID, PCInstance);
+            this.pcContainer.set(remoteUserId, PCInstance);
         });
 
         // другой пользователь поменял имя
-        this.socket.on('newUsername', (remoteUserID: string, newName: string) =>
+        this.socket.on('newUsername', (remoteUserId: string, newName: string) =>
         {
-            let pc = this.pcContainer.get(remoteUserID);
+            let pc = this.pcContainer.get(remoteUserId);
             if (pc)
             {
                 pc.socketSettings.remoteUsername = newName;
-                this.ui.updateVideoLabel(remoteUserID, newName);
-                this.ui.updateChatOption(remoteUserID, newName);
+                this.ui.updateVideoLabel(remoteUserId, newName);
+                this.ui.updateChatOption(remoteUserId, newName);
             }
         });
 
-        // от нас запросили приглашение для remoteUserID
-        this.socket.on('newOffer', async (remoteUserID: string) =>
+        // от нас запросили приглашение для remoteUserd
+        this.socket.on('newOffer', async (remoteUserId: string) =>
         {
-            if (this.pcContainer.has(remoteUserID))
+            if (this.pcContainer.has(remoteUserId))
             {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
-                console.info('SocketHandler > newOffer for', `[${remoteUserID}]`);
+                const pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
+                console.info('SocketHandler > newOffer for', `[${remoteUserId}]`);
                 await pc.createOffer();
             }
         });
 
         // если придет приглашение от remoteUser, обработать его
-        this.socket.on('receiveOffer', async (SDP: RTCSessionDescription, remoteUserID: string) =>
+        this.socket.on('receiveOffer', async (SDP: RTCSessionDescription, remoteUserId: string) =>
         {
-            if (this.pcContainer.has(remoteUserID))
+            if (this.pcContainer.has(remoteUserId))
             {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
-                console.info('SocketHandler > receiveOffer from', `[${remoteUserID}]`);
+                const pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
+                console.info('SocketHandler > receiveOffer from', `[${remoteUserId}]`);
                 pc.isOffer = false;
                 await pc.receiveOffer(SDP);
             }
         });
 
         // если придет ответ от remoteUser, обработать его
-        this.socket.on('receiveAnswer', async (SDP: RTCSessionDescription, remoteUserID: string) =>
+        this.socket.on('receiveAnswer', async (SDP: RTCSessionDescription, remoteUserId: string) =>
         {
-            if (this.pcContainer.has(remoteUserID))
+            if (this.pcContainer.has(remoteUserId))
             {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
-                console.info('SocketHandler > receiveAnswer from', `[${remoteUserID}]`);
+                const pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
+                console.info('SocketHandler > receiveAnswer from', `[${remoteUserId}]`);
                 await pc.receiveAnswer(SDP);
             }
         });
 
         // другой пользователь отключился
-        this.socket.on('userDisconnected', (remoteUserID: string) =>
+        this.socket.on('userDisconnected', (remoteUserId: string) =>
         {
-            if (this.pcContainer.has(remoteUserID))
+            if (this.pcContainer.has(remoteUserId))
             {
-                console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserID}]`);
-                this.ui.removeVideo(remoteUserID);
+                console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserId}]`);
+                this.ui.removeVideo(remoteUserId);
                 // удаляем объект соединения
-                let disconnectedPC: PeerConnection = this.pcContainer.get(remoteUserID)!;
-                this.pcContainer.delete(remoteUserID);
+                let disconnectedPC: PeerConnection = this.pcContainer.get(remoteUserId)!;
+                this.pcContainer.delete(remoteUserId);
                 disconnectedPC.close();
             }
         });
@@ -133,12 +138,12 @@ export default class SocketHandler
         this.socket.on('disconnect', () =>
         {
             console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
-            for (const remoteUserID of this.pcContainer.keys())
+            for (const remoteUserId of this.pcContainer.keys())
             {
-                this.ui.removeVideo(remoteUserID);
+                this.ui.removeVideo(remoteUserId);
                 // удаляем объект соединения
-                let pc: PeerConnection = this.pcContainer.get(remoteUserID)!;
-                this.pcContainer.delete(remoteUserID);
+                let pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
+                this.pcContainer.delete(remoteUserId);
                 pc.close();
             }
         });
@@ -148,10 +153,10 @@ export default class SocketHandler
         {
             if (this.ui.currentChatOption != "default")
             {
-                const receiverID = this.ui.currentChatOption;
-                if (this.pcContainer.has(receiverID))
+                const receiverId = this.ui.currentChatOption;
+                if (this.pcContainer.has(receiverId))
                 {
-                    let pc: PeerConnection = this.pcContainer.get(receiverID)!;
+                    let pc: PeerConnection = this.pcContainer.get(receiverId)!;
                     pc.dc.sendMessage();
                 }
             }
@@ -161,10 +166,10 @@ export default class SocketHandler
         {
             if (this.ui.currentChatOption != "default")
             {
-                const receiverID = this.ui.currentChatOption;
-                if (this.pcContainer.has(receiverID))
+                const receiverId = this.ui.currentChatOption;
+                if (this.pcContainer.has(receiverId))
                 {
-                    let pc: PeerConnection = this.pcContainer.get(receiverID)!;
+                    let pc: PeerConnection = this.pcContainer.get(receiverId)!;
                     pc.dc.sendFile();
                 }
             }
