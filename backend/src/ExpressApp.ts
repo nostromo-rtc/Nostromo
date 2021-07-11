@@ -41,7 +41,7 @@ export class ExpressApp
 
     private wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
-        if (req.hostname.slice(0, 4) === 'www.')
+        if (req.hostname?.slice(0, 4) === 'www.')
         {
             const newHost: string = req.hostname.slice(4);
             return res.redirect(301, req.protocol + '://' + newHost + req.originalUrl);
@@ -117,7 +117,7 @@ export class ExpressApp
         });
     }
 
-    private adminRoute(req: express.Request, res: express.Response): void 
+    private adminRoute(req: express.Request, res: express.Response): void
     {
         if (req.ip == process.env.ALLOW_ADMIN_IP)
         {

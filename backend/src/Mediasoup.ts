@@ -7,6 +7,59 @@ export class Mediasoup
 {
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
+    // настройки кодеков на сервере
+    private mediaCodecsConf: MediasoupTypes.RtpCodecCapability[] =
+        [
+            {
+                kind: 'audio',
+                mimeType: 'audio/opus',
+                clockRate: 48000,
+                channels: 2
+            },
+            {
+                kind: 'video',
+                mimeType: 'video/VP8',
+                clockRate: 90000,
+                parameters:
+                {
+                    'x-google-start-bitrate': 1000
+                }
+            },
+            {
+                kind: 'video',
+                mimeType: 'video/VP9',
+                clockRate: 90000,
+                parameters:
+                {
+                    'x-google-start-bitrate': 1000
+                }
+            },
+            {
+                kind: 'video',
+                mimeType: 'video/h264',
+                clockRate: 90000,
+                parameters:
+                {
+                    'packetization-mode': 1,
+                    'profile-level-id': '4d0032',
+                    'level-asymmetry-allowed': 1,
+                    'x-google-start-bitrate': 1000
+                }
+            },
+            {
+                kind: 'video',
+                mimeType: 'video/h264',
+                clockRate: 90000,
+                parameters:
+                {
+                    'packetization-mode': 1,
+                    'profile-level-id': '42e01f',
+                    'level-asymmetry-allowed': 1,
+                    'x-google-start-bitrate': 1000
+                }
+            }
+        ];
+
     public static async create(numWorkers: number): Promise<Mediasoup>
     {
         console.log('running %d mediasoup Workers...', numWorkers);
@@ -50,7 +103,13 @@ export class Mediasoup
 
     public async createRouter(): Promise<MediasoupTypes.Router>
     {
-        const router = await this.getWorker().createRouter();
+        const routerOptions: MediasoupTypes.RouterOptions =
+        {
+            mediaCodecs: this.mediaCodecsConf
+        };
+
+        const router = await this.getWorker().createRouter(routerOptions);
+
         return router;
     }
 

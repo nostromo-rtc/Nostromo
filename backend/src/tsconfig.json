@@ -8,7 +8,10 @@
         "experimentalDecorators": true,
         "strict" : true,
         "sourceMap": false,
-        "noEmitOnError": true
+        "noEmitOnError": true,
+        "paths": {
+            "shared/*" : ["../../shared/*"]
+        }
     },
     "include": ["*.ts"],
     "exclude": ["../../node_modules/*"]

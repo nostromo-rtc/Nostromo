@@ -1,24 +1,8 @@
 import { Mediasoup, MediasoupTypes } from "./Mediasoup";
 import { SocketHandler, SocketWrapper, SocketId } from "./SocketHandler";
-// номер комнаты
-export type RoomId = string;
+import { RoomId, NewUserInfo, NewConsumerInfo, AfterConnectInfo } from "shared/RoomTypes";
 
-type NewConsumerType = {
-    userId: SocketId,
-    producerId: MediasoupTypes.Producer['id'],
-    id: MediasoupTypes.Consumer['id'],
-    kind: MediasoupTypes.MediaKind,
-    rtpParameters: MediasoupTypes.RtpParameters,
-    type: MediasoupTypes.ConsumerType,
-    appData: MediasoupTypes.Producer['appData'],
-    producerPaused: boolean;
-
-};
-
-type NewUserType = {
-    id: SocketId,
-    name: string;
-};
+export { RoomId };
 
 // пользователь комнаты
 export class User
@@ -121,12 +105,11 @@ export class Room
         socket.emit('routerRtpCapabilities', this.routerRtpCapabilities);
 
         socket.once('afterConnect', async (
-            username: string,
-            rtpCapabilities: MediasoupTypes.RtpCapabilities
+            {name, rtpCapabilities} : AfterConnectInfo
         ) =>
         {
             // запоминаем имя в сессии
-            session.username = username;
+            session.username = name;
             user.rtpCapabilities = rtpCapabilities;
 
             // перебираем всех пользователей, кроме нового
@@ -139,7 +122,7 @@ export class Room
                         await this.createConsumer(user, anotherUser[0], producer, socket);
                     }
 
-                    const anotherUserInfo: NewUserType = {
+                    const anotherUserInfo: NewUserInfo = {
                         id: anotherUser[0],
                         name: this.socketHandler
                             .getSocketById(anotherUser[0])
@@ -149,9 +132,9 @@ export class Room
                     // сообщаем новому пользователю о пользователе anotherUser
                     socket.emit('newUser', anotherUserInfo);
 
-                    const thisUserInfo: NewUserType = {
+                    const thisUserInfo: NewUserInfo = {
                         id: socket.id,
-                        name: username
+                        name: name
                     };
 
                     // сообщаем пользователю anotherUser о новом пользователе
@@ -160,9 +143,9 @@ export class Room
             }
         });
 
-        socket.on('newConsumer', async ({ userId, consumerId }) =>
+        socket.on('newConsumer', async (consumerId) =>
         {
-            await this.users.get(userId)
+            await this.users.get(socket.id)
                 ?.consumers.get(consumerId)
                 ?.resume();
         });
@@ -176,7 +159,12 @@ export class Room
         {
             session.username = username;
 
-            socket.to(this.id).emit('newUsername', socket.id, username);
+            const userInfo: NewUserInfo = {
+                id: socket.id,
+                name: username
+            };
+
+            socket.to(this.id).emit('newUsername', userInfo);
         });
 
         socket.on('disconnect', (reason: string) =>
@@ -203,7 +191,7 @@ export class Room
             // обрабатываем события у Consumer
             this.handleConsumerEvents(consumer, user, socket);
 
-            const newConsumer: NewConsumerType = {
+            const newConsumer: NewConsumerInfo = {
                 userId: anotherUserId,
                 producerId: producer.id,
                 id: consumer.id,

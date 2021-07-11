@@ -5,13 +5,18 @@ export { MediasoupTypes };
 // Класс, получающий медиапотоки пользователя
 export class Mediasoup
 {
-    private device?: MediasoupTypes.Device;
+    private _device: MediasoupTypes.Device;
+    public get device(): MediasoupTypes.Device { return this._device; }
 
-    private async loadDevice(routerRtpCapabilities: MediasoupTypes.RtpCapabilities)
+    constructor()
+    {
+        this._device = new mediasoup.Device();
+    }
+
+    public async loadDevice(routerRtpCapabilities: MediasoupTypes.RtpCapabilities): Promise<MediasoupTypes.RtpCapabilities>
     {
         try
         {
-            this.device = new mediasoup.Device();
             await this.device.load({ routerRtpCapabilities });
         }
         catch (error)
@@ -21,5 +26,6 @@ export class Mediasoup
                 console.error('Browser not supported', error);
             }
         }
+        return this.device.rtpCapabilities;
     }
 }

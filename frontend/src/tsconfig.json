@@ -3,13 +3,15 @@
         "module": "ES6",
         "target": "ES2017",
         "checkJs": true,
-        "rootDir": "./",
         "outDir": "../temp-build/",
         "experimentalDecorators": true,
         "strict" : true,
         "sourceMap": false,
         "noEmitOnError": true,
-        "moduleResolution": "Node"
+        "moduleResolution": "Node",
+        "paths": {
+            "shared/*" : ["../../shared/*"]
+        }
     },
     "include": ["./"]
 }

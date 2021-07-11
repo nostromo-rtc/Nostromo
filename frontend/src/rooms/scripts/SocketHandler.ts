@@ -2,7 +2,8 @@ import UI from "./UI.js";
 import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
 import { io, Socket } from "socket.io-client";
-import { MediasoupTypes } from "./Mediasoup.js";
+import { Mediasoup, MediasoupTypes } from "./Mediasoup.js";
+import { SocketId, NewUserInfo, AfterConnectInfo, NewConsumerInfo } from "shared/RoomTypes";
 
 export type SocketSettings =
     {
@@ -20,15 +21,16 @@ export default class SocketHandler
     });
 
     private userMedia: UserMedia;
+    private mediasoup: Mediasoup;
 
-    // контейнер с p2p-соединениями с другими пользователями
-    private pcContainer = new Map<string, PeerConnection>();
-    constructor(_ui: UI)
+    constructor(ui: UI, mediasoup: Mediasoup)
     {
-        this.ui = _ui;
-        this.userMedia = new UserMedia(this.ui, this);
-
         console.debug("SocketHandler ctor");
+
+        this.ui = ui;
+        this.mediasoup = mediasoup;
+
+        this.userMedia = new UserMedia(this.ui, this);
 
         this.ui.buttons.get('setNewUsername')!.addEventListener('click', () =>
         {
@@ -40,13 +42,19 @@ export default class SocketHandler
         {
             console.info("Создано веб-сокет подключение");
             console.info("Client Id:", this.socket.id);
-            // сообщаем имя
-            this.socket.emit('afterConnect', this.ui.usernameInputValue);
         });
 
-        this.socket.on('routerRtpCapabilities', (routerRtpCapabilities : MediasoupTypes.RtpCapabilities) =>
+        this.socket.on('routerRtpCapabilities', async (routerRtpCapabilities: MediasoupTypes.RtpCapabilities) =>
         {
-            console.log('TEST | ', routerRtpCapabilities);
+            const rtpCapabilities = await this.mediasoup.loadDevice(routerRtpCapabilities);
+
+            // сообщаем имя и rtpCapabilities
+            const info: AfterConnectInfo = {
+                name: this.ui.usernameInputValue,
+                rtpCapabilities: rtpCapabilities
+            };
+
+            this.socket.emit('afterConnect', info);
         });
 
         this.socket.on('connect_error', (err: Error) =>
@@ -60,93 +68,28 @@ export default class SocketHandler
         });
 
         // новый пользователь (т.е другой)
-        this.socket.on('newUser', (remoteUserId: string, remoteName: string, AmIOffer: boolean) =>
+        this.socket.on('newUser', ({ id, name }: NewUserInfo) =>
         {
-            this.ui.addVideo(remoteUserId, remoteName);
-
-            const socketSettings: SocketSettings = {
-                remoteUserId: remoteUserId,
-                remoteUsername: remoteName,
-                socket: this.socket
-            };
-
-            let PCInstance = new PeerConnection(this.ui, this.userMedia.stream, socketSettings, AmIOffer);
-
-            // сохраняем подключение
-            this.pcContainer.set(remoteUserId, PCInstance);
+            this.ui.addVideo(id, name);
         });
 
         // другой пользователь поменял имя
-        this.socket.on('newUsername', (remoteUserId: string, newName: string) =>
+        this.socket.on('newUsername', ({ id, name }: NewUserInfo) =>
         {
-            let pc = this.pcContainer.get(remoteUserId);
-            if (pc)
-            {
-                pc.socketSettings.remoteUsername = newName;
-                this.ui.updateVideoLabel(remoteUserId, newName);
-                this.ui.updateChatOption(remoteUserId, newName);
-            }
-        });
-
-        // от нас запросили приглашение для remoteUserd
-        this.socket.on('newOffer', async (remoteUserId: string) =>
-        {
-            if (this.pcContainer.has(remoteUserId))
-            {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
-                console.info('SocketHandler > newOffer for', `[${remoteUserId}]`);
-                await pc.createOffer();
-            }
-        });
-
-        // если придет приглашение от remoteUser, обработать его
-        this.socket.on('receiveOffer', async (SDP: RTCSessionDescription, remoteUserId: string) =>
-        {
-            if (this.pcContainer.has(remoteUserId))
-            {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
-                console.info('SocketHandler > receiveOffer from', `[${remoteUserId}]`);
-                pc.isOffer = false;
-                await pc.receiveOffer(SDP);
-            }
-        });
-
-        // если придет ответ от remoteUser, обработать его
-        this.socket.on('receiveAnswer', async (SDP: RTCSessionDescription, remoteUserId: string) =>
-        {
-            if (this.pcContainer.has(remoteUserId))
-            {
-                const pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
-                console.info('SocketHandler > receiveAnswer from', `[${remoteUserId}]`);
-                await pc.receiveAnswer(SDP);
-            }
+            this.ui.updateVideoLabel(id, name);
+            this.ui.updateChatOption(id, name);
         });
 
         // другой пользователь отключился
-        this.socket.on('userDisconnected', (remoteUserId: string) =>
+        this.socket.on('userDisconnected', (remoteUserId: SocketId) =>
         {
-            if (this.pcContainer.has(remoteUserId))
-            {
-                console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserId}]`);
-                this.ui.removeVideo(remoteUserId);
-                // удаляем объект соединения
-                let disconnectedPC: PeerConnection = this.pcContainer.get(remoteUserId)!;
-                this.pcContainer.delete(remoteUserId);
-                disconnectedPC.close();
-            }
+            console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserId}]`);
+            this.ui.removeVideo(remoteUserId);
         });
 
         this.socket.on('disconnect', () =>
         {
             console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
-            for (const remoteUserId of this.pcContainer.keys())
-            {
-                this.ui.removeVideo(remoteUserId);
-                // удаляем объект соединения
-                let pc: PeerConnection = this.pcContainer.get(remoteUserId)!;
-                this.pcContainer.delete(remoteUserId);
-                pc.close();
-            }
         });
 
         // обработка личных чатов
@@ -155,11 +98,6 @@ export default class SocketHandler
             if (this.ui.currentChatOption != "default")
             {
                 const receiverId = this.ui.currentChatOption;
-                if (this.pcContainer.has(receiverId))
-                {
-                    let pc: PeerConnection = this.pcContainer.get(receiverId)!;
-                    pc.dc.sendMessage();
-                }
             }
         });
 
@@ -168,11 +106,6 @@ export default class SocketHandler
             if (this.ui.currentChatOption != "default")
             {
                 const receiverId = this.ui.currentChatOption;
-                if (this.pcContainer.has(receiverId))
-                {
-                    let pc: PeerConnection = this.pcContainer.get(receiverId)!;
-                    pc.dc.sendFile();
-                }
             }
         });
 
@@ -185,19 +118,12 @@ export default class SocketHandler
     // добавить медиапоток в подключение
     public addNewMediaStream(trackKind: string): void
     {
-        for (const pc of this.pcContainer.values())
-        {
-            pc.isOffer = true;
-            pc.addNewMediaStream(this.userMedia.stream, trackKind);
-        }
+
     }
 
     // обновить существующее медиа
     public updateMediaStream(trackKind: string): void
     {
-        for (const pc of this.pcContainer.values())
-        {
-            pc.updateMediaStream(this.userMedia.stream, trackKind);
-        }
+
     }
 }
