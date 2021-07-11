@@ -1,6 +1,14 @@
 import { Mediasoup, MediasoupTypes } from "./Mediasoup";
 import { SocketHandler, SocketWrapper, SocketId } from "./SocketHandler";
-import { RoomId, NewUserInfo, NewConsumerInfo, AfterConnectInfo, NewWebRtcTransport } from "shared/RoomTypes";
+import
+{
+    RoomId,
+    NewUserInfo,
+    NewConsumerInfo,
+    AfterConnectInfo,
+    NewWebRtcTransportInfo,
+    ConnectWebRtcTransportInfo
+} from "shared/RoomTypes";
 
 export { RoomId };
 
@@ -143,7 +151,7 @@ export class Room
             }
         });
 
-        socket.on('newConsumer', async (consumerId) =>
+        socket.on('newConsumer', async (consumerId: string) =>
         {
             await this.users.get(socket.id)
                 ?.consumers.get(consumerId)
@@ -152,20 +160,38 @@ export class Room
 
         socket.on('createWebRtcTransport', async (consuming: boolean) =>
         {
-            const transport = await this.mediasoup.createWebRtcTransport(
-                user,
-                consuming,
-                this.mediasoupRouter
-            );
+            try
+            {
+                const transport = await this.mediasoup.createWebRtcTransport(
+                    user,
+                    consuming,
+                    this.mediasoupRouter
+                );
 
-            const info: NewWebRtcTransport = {
-                id: transport.id,
-                iceParameters: transport.iceParameters,
-                iceCandidates: transport.iceCandidates as NewWebRtcTransport['iceCandidates'],
-                dtlsParameters: transport.dtlsParameters
-            };
+                const info: NewWebRtcTransportInfo = {
+                    id: transport.id,
+                    iceParameters: transport.iceParameters,
+                    iceCandidates: transport.iceCandidates as NewWebRtcTransportInfo['iceCandidates'],
+                    dtlsParameters: transport.dtlsParameters
+                };
 
-            socket.emit('createWebRtcTransport', info);
+                socket.emit('createWebRtcTransport', info);
+            }
+            catch (error)
+            {
+                console.error('> createWebRtcTransport error: ', error);
+            }
+        });
+
+        socket.on('connectWebRtcTransport', async (
+            { transportId, dtlsParameters }: ConnectWebRtcTransportInfo
+        ) =>
+        {
+            if (!user.transports.has(transportId))
+                throw new Error(`transport with id "${transportId}" not found`);
+
+            const transport = user.transports.get(transportId)!;
+            await transport.connect({ dtlsParameters });
         });
 
         socket.on('newUsername', (username: string) =>
@@ -191,7 +217,12 @@ export class Room
         });
     }
 
-    private async createConsumer(user: User, anotherUserId: SocketId, producer: MediasoupTypes.Producer, socket: SocketWrapper)
+    private async createConsumer(
+        user: User,
+        anotherUserId: SocketId,
+        producer: MediasoupTypes.Producer,
+        socket: SocketWrapper
+    )
     {
         try
         {
@@ -219,11 +250,15 @@ export class Room
         }
         catch (error)
         {
-            console.error('> createConsumer() | ', error);
+            console.error('> createConsumer() error | ', error);
         }
     }
 
-    private handleConsumerEvents(consumer: MediasoupTypes.Consumer, user: User, socket: SocketWrapper): void
+    private handleConsumerEvents(
+        consumer: MediasoupTypes.Consumer,
+        user: User,
+        socket: SocketWrapper
+    ): void
     {
         consumer.on('transportclose', () =>
         {

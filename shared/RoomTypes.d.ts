@@ -25,9 +25,14 @@ export type NewConsumerInfo = {
     producerPaused: boolean;
 };
 
-export type NewWebRtcTransport = {
+export type NewWebRtcTransportInfo = {
     id: MediasoupTypes.Transport['id'],
     iceParameters: MediasoupTypes.IceParameters,
     iceCandidates: Array<MediasoupClientTypes.IceCandidate>,
+    dtlsParameters: MediasoupTypes.DtlsParameters;
+};
+
+export type ConnectWebRtcTransportInfo = {
+    transportId: MediasoupTypes.Transport['id'],
     dtlsParameters: MediasoupTypes.DtlsParameters;
 };

@@ -3,7 +3,15 @@ import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
 import { io, Socket } from "socket.io-client";
 import { Mediasoup, MediasoupTypes } from "./Mediasoup.js";
-import { SocketId, NewUserInfo, AfterConnectInfo, NewConsumerInfo, NewWebRtcTransport } from "shared/RoomTypes";
+import
+{
+    SocketId,
+    NewUserInfo,
+    AfterConnectInfo,
+    NewConsumerInfo,
+    NewWebRtcTransportInfo,
+    ConnectWebRtcTransportInfo
+} from "shared/RoomTypes";
 
 export type SocketSettings =
     {
@@ -64,7 +72,7 @@ export default class SocketHandler
         });
 
         // создаем локально транспортный канал
-        this.socket.on('createWebRtcTransport', (transport: NewWebRtcTransport) =>
+        this.socket.on('createWebRtcTransport', (transport: NewWebRtcTransportInfo) =>
         {
             console.debug('> createWebRtcTransport | server transport: ', transport);
             try
@@ -76,6 +84,34 @@ export default class SocketHandler
                     dtlsParameters: transport.dtlsParameters
                 });
                 console.debug('> createWebRtcTransport | client transport: ', localTransport);
+
+                localTransport.on('connect', (
+                    { dtlsParameters }, callback, errback
+                ) =>
+                {
+                    console.debug('> TEST: ', dtlsParameters, transport.dtlsParameters);
+                    try
+                    {
+                        const info: ConnectWebRtcTransportInfo = {
+                            transportId: localTransport.id,
+                            dtlsParameters
+                        };
+                        this.socket.emit('connectWebRtcTransport', info);
+
+                        // сообщаем транспорту, что параметры были переданы на сервер
+                        callback();
+                    }
+                    catch (error)
+                    {
+                        // сообщаем транспорту, что что-то пошло не так
+                        errback(error);
+                    }
+                });
+
+                localTransport.on('connectionstatechange', async (state) =>
+                {
+                    console.debug("connectionstatechange: ", state);
+                });
             }
             catch (error)
             {
