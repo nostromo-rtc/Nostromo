@@ -2,6 +2,7 @@ import UI from "./UI.js";
 import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
 import { io, Socket } from "socket.io-client";
+import { MediasoupTypes } from "./Mediasoup.js";
 
 export type SocketSettings =
     {
@@ -43,9 +44,9 @@ export default class SocketHandler
             this.socket.emit('afterConnect', this.ui.usernameInputValue);
         });
 
-        this.socket.on('getRouterRtpCapabilities', () =>
+        this.socket.on('routerRtpCapabilities', (routerRtpCapabilities : MediasoupTypes.RtpCapabilities) =>
         {
-            
+            console.log('TEST | ', routerRtpCapabilities);
         });
 
         this.socket.on('connect_error', (err: Error) =>

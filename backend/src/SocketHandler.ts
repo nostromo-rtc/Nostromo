@@ -1,19 +1,14 @@
 import https = require('https');
 import session = require('express-session');
-
 import SocketIO = require('socket.io');
-type Socket = SocketIO.Socket;
-
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
-
 import { RequestHandler } from 'express';
-
 import { RoomId, Room } from './Room';
-
 import { Mediasoup } from './Mediasoup';
 
 export type SocketId = string;
+type Socket = SocketIO.Socket;
 type RoomForUser = { id: RoomId, name: Room["name"]; };
 
 // расширяю класс Handshake у сокетов, добавляя в него Express сессии
@@ -39,11 +34,46 @@ declare module "express"
     }
 }
 
+export class SocketWrapper
+{
+    private socket: Socket;
+
+    public get id() { return this.socket.id; }
+    public get handshake() { return this.socket.handshake; }
+
+    constructor(socket: Socket)
+    {
+        this.socket = socket;
+    }
+
+    public emit(ev: string, ...args: any[]): boolean
+    {
+        return this.socket.emit(ev, ...args);
+    }
+
+    public on(event: string | symbol, listener: (...args: any[]) => void): SocketIO.Socket
+    {
+        return this.socket.on(event, listener);
+    }
+
+    public once(event: string | symbol, listener: (...args: any[]) => void): SocketIO.Socket
+    {
+        return this.socket.once(event, listener);
+    }
+
+    public to(name: string)
+    {
+        return this.socket.to(name);
+    }
+}
+
 // класс - обработчик сокетов
 export class SocketHandler
 {
     private io: SocketIO.Server;
 
+    private sessionMiddleware: RequestHandler;
+    private mediasoup: Mediasoup;
     private rooms: Map<RoomId, Room>;
 
     private createSocketServer(server: https.Server): SocketIO.Server
@@ -56,10 +86,13 @@ export class SocketHandler
         });
     }
 
-    constructor(server: https.Server, sessionMiddleware: RequestHandler, _rooms: Map<RoomId, Room>)
+    constructor(server: https.Server, sessionMiddleware: RequestHandler, mediasoup: Mediasoup, rooms: Map<RoomId, Room>)
     {
         this.io = this.createSocketServer(server);
-        this.rooms = _rooms;
+
+        this.sessionMiddleware = sessionMiddleware;
+        this.mediasoup = mediasoup;
+        this.rooms = rooms;
 
         // [Главная страница]
         this.io.of('/').on('connection', (socket: Socket) =>
@@ -68,16 +101,16 @@ export class SocketHandler
         });
 
         // [Админка]
-        this.handleAdmin(sessionMiddleware);
+        this.handleAdmin();
 
         // [Авторизация в комнату]
-        this.handleRoomAuth(sessionMiddleware);
+        this.handleRoomAuth();
 
         // [Комната]
-        this.handleRoom(sessionMiddleware);
+        this.handleRoom();
     }
 
-    private getRoomList()
+    private getRoomList(): RoomForUser[]
     {
         let roomList: Array<RoomForUser> = [];
         for (const room of this.rooms)
@@ -87,11 +120,11 @@ export class SocketHandler
         return roomList;
     }
 
-    private handleAdmin(sessionMiddleware: RequestHandler)
+    private handleAdmin(): void
     {
         this.io.of('/admin').use((socket: Socket, next) =>
         {
-            sessionMiddleware(socket.handshake, {}, next);
+            this.sessionMiddleware(socket.handshake, {}, next);
         });
 
         this.io.of('/admin').use((socket: Socket, next) =>
@@ -141,7 +174,7 @@ export class SocketHandler
         });
     }
 
-    private removeRoom(id: string)
+    private removeRoom(id: string): void
     {
         if (this.rooms.has(id))
         {
@@ -150,16 +183,20 @@ export class SocketHandler
         }
     }
 
-    private async createRoom(roomId: RoomId, name: string, pass: string)
+    private async createRoom(roomId: RoomId, name: string, pass: string): Promise<void>
     {
-        this.rooms.set(roomId, new Room(roomId, name, pass, await Mediasoup.createRouter()));
+        this.rooms.set(roomId, await Room.create(
+            roomId,
+            name, pass,
+            this.mediasoup, this
+        ));
     }
 
-    private handleRoomAuth(sessionMiddleware: RequestHandler)
+    private handleRoomAuth(): void
     {
         this.io.of('/auth').use((socket: Socket, next) =>
         {
-            sessionMiddleware(socket.handshake, {}, next);
+            this.sessionMiddleware(socket.handshake, {}, next);
         });
 
         this.io.of('/auth').on('connection', (socket: Socket) =>
@@ -200,19 +237,14 @@ export class SocketHandler
     private joinRoom(room: Room, socket: Socket): void
     {
         socket.join(room.id);
-        room.join(socket.id);
+        room.join(new SocketWrapper(socket));
     }
 
-    private leaveRoom(room: Room, socketId: SocketId, reason: string): void
+    private handleRoom(): void
     {
-        room.leave(socketId, reason);
-    }
-
-    private handleRoom(sessionMiddleware: RequestHandler): void
-    {
-        this.io.of('/room').use((socket: SocketIO.Socket, next) =>
+        this.io.of('/room').use((socket: Socket, next) =>
         {
-            sessionMiddleware(socket.handshake, {}, next);
+            this.sessionMiddleware(socket.handshake, {}, next);
         });
 
         this.io.of('/room').use((socket: Socket, next) =>
@@ -245,50 +277,16 @@ export class SocketHandler
             const room: Room = this.rooms.get(roomId)!;
 
             this.joinRoom(room, socket);
-
-            /** Id всех сокетов в комнате roomId */
-            const roomUsersId: Set<SocketId> = room.users;
-
-            // сообщаем пользователю название комнаты
-            socket.emit('roomName', room.name);
-
-            // сообщаем пользователю RTP возможности (кодеки) сервера
-            socket.emit('routerRtpCapabilities', room.mediasoupRouter.rtpCapabilities);
-
-            socket.once('afterConnect', (username: string) =>
-            {
-                // запоминаем имя в сессии
-                session.username = username;
-
-                // перебираем всех пользователей, кроме нового
-                for (const anotherUserId of roomUsersId.values())
-                {
-                    if (anotherUserId != socket.id)
-                    {
-                        const anotherUserName: string = this.io.of('/room')
-                            .sockets.get(anotherUserId)!
-                            .handshake.session!.username!;
-
-                    }
-                }
-            });
-
-            socket.on('newUsername', (username: string) =>
-            {
-                session.username = username;
-
-                socket.in(roomId).emit('newUsername', socket.id, username);
-            });
-
-            socket.on('disconnect', (reason: string) =>
-            {
-                session.joined = false;
-                session.save();
-
-                this.leaveRoom(room, socket.id, reason);
-
-                this.io.of('/room').in(roomId).emit('userDisconnected', socket.id);
-            });
         });
+    }
+
+    public getSocketById(id: SocketId): SocketWrapper
+    {
+        return new SocketWrapper(this.io.of('/room').sockets.get(id)!);
+    }
+
+    public emitTo(name: string, ev: string | symbol, ...args : any[]) : boolean
+    {
+        return this.io.of('/room').to(name).emit(ev, ...args);
     }
 }

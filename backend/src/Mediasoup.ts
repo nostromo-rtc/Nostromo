@@ -1,18 +1,21 @@
 import mediasoup = require('mediasoup');
-import mediasoupTypes = mediasoup.types;
-export { mediasoupTypes };
+import { User } from './Room';
+import MediasoupTypes = mediasoup.types;
+export { MediasoupTypes };
 
 export class Mediasoup
 {
-    static mediasoupWorkers = new Array<mediasoupTypes.Worker>();
+    private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
-    static async createMediasoupWorkers(numWorkers: number)
+    public static async create(numWorkers: number): Promise<Mediasoup>
     {
         console.log('running %d mediasoup Workers...', numWorkers);
 
+        let workers = new Array<MediasoupTypes.Worker>();
+
         for (let i: number = 0; i < numWorkers; ++i)
         {
-            const worker: mediasoupTypes.Worker = await mediasoup.createWorker(
+            const worker: MediasoupTypes.Worker = await mediasoup.createWorker(
                 {
                     logLevel: 'debug',
                     rtcMinPort: 10000,
@@ -27,28 +30,31 @@ export class Mediasoup
                 setTimeout(() => process.exit(1), 3000);
             });
 
-            Mediasoup.mediasoupWorkers.push(worker);
+            workers.push(worker);
         }
+
+        return new Mediasoup(workers);
     }
 
-    static test(): number
+    private constructor(workers: Array<MediasoupTypes.Worker>)
     {
-        return 0;
+        this.mediasoupWorkers = workers;
     }
 
-    static getWorker(): mediasoupTypes.Worker
+    private getWorker(): MediasoupTypes.Worker
     {
-        const worker: mediasoupTypes.Worker = Mediasoup.mediasoupWorkers[0];
+        // пока временно возвращаем первый Worker из массива
+        const worker: MediasoupTypes.Worker = this.mediasoupWorkers[0];
         return worker;
     }
 
-    static async createRouter(): Promise<mediasoupTypes.Router>
+    public async createRouter(): Promise<MediasoupTypes.Router>
     {
-        const router = await Mediasoup.getWorker().createRouter();
+        const router = await this.getWorker().createRouter();
         return router;
     }
 
-    static async createWebRtcTransport(router: mediasoupTypes.Router): Promise<mediasoupTypes.WebRtcTransport>
+    private async createWebRtcTransport(router: MediasoupTypes.Router): Promise<MediasoupTypes.WebRtcTransport>
     {
         const transport = await router.createWebRtcTransport({
             listenIps: ['127.0.0.1'],
@@ -59,15 +65,52 @@ export class Mediasoup
         return transport;
     }
 
-    static async createConsumer(
-        producer: mediasoupTypes.Producer,
-        rtpCapabilities: mediasoupTypes.RtpCapabilities,
-        router: mediasoupTypes.Router)
+    public async createConsumer(
+        consumerUser: User,
+        producer: MediasoupTypes.Producer,
+        router: MediasoupTypes.Router): Promise<mediasoup.types.Consumer>
     {
-        if (!router.canConsume({ producerId: producer.id, rtpCapabilities }))
+        // не создаем Consumer, если пользователь не может потреблять медиапоток
+        if (!consumerUser.rtpCapabilities ||
+            !router.canConsume(
+                {
+                    producerId: producer.id,
+                    rtpCapabilities: consumerUser.rtpCapabilities
+                })
+        )
         {
-            console.error("can't consume");
-            return;
+            throw new Error(`User ${consumerUser} can't consume`);
         }
+
+        // берем Transport пользователя, предназначенный для потребления
+        const transport = Array.from(consumerUser.transports.values())
+            .find((tr) => tr.appData.consuming);
+
+        if (!transport)
+        {
+            throw new Error('Transport for consuming not found');
+        }
+
+        // создаем Consumer в режиме паузы
+        let consumer: MediasoupTypes.Consumer;
+
+        try
+        {
+            consumer = await transport.consume(
+                {
+                    producerId: producer.id,
+                    rtpCapabilities: consumerUser.rtpCapabilities,
+                    paused: true
+                });
+        }
+        catch (error)
+        {
+            throw new Error(`transport.consume(): ${error}`);
+        }
+
+        // сохраняем Consumer у пользователя
+        consumerUser.consumers.set(consumer.id, consumer);
+
+        return consumer;
     }
 }

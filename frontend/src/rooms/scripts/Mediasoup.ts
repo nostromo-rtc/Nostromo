@@ -1,12 +1,13 @@
 import * as mediasoup from 'mediasoup-client';
-import mediasoupTypes = mediasoup.types;
+import MediasoupTypes = mediasoup.types;
+export { MediasoupTypes };
 
 // Класс, получающий медиапотоки пользователя
 export class Mediasoup
 {
-    private device?: mediasoupTypes.Device;
+    private device?: MediasoupTypes.Device;
 
-    private async loadDevice(routerRtpCapabilities: mediasoupTypes.RtpCapabilities)
+    private async loadDevice(routerRtpCapabilities: MediasoupTypes.RtpCapabilities)
     {
         try
         {

@@ -20,19 +20,21 @@ import { RoomId, Room } from './Room';
 import readline = require('readline');
 
 // инициализация тестовой комнаты
-async function initTestRoom(rooms : Map<RoomId, Room>) : Promise<void>
+async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, rooms: Map<RoomId, Room>): Promise<void>
 {
     rooms.set('0',
-        new Room('0',
+        await Room.create(
+            '0',
             process.env.DEV_TESTROOM_NAME || 'Тестовая',
             process.env.DEV_TESTROOM_PASS || 'testik1',
-            await Mediasoup.createRouter()
+            mediasoup,
+            socketHandler
         )
     );
 }
 
 // добавление временных в меток в лог
-function addTimestampsToLog() : void
+function addTimestampsToLog(): void
 {
     let origlog = console.log;
 
@@ -61,9 +63,6 @@ function addTimestampsToLog() : void
     };
 }
 
-// вызов главной функции
-main();
-
 // главная функция
 async function main()
 {
@@ -74,12 +73,11 @@ async function main()
     process.title = `WebRTC Server ${process.env.npm_package_version}`;
     console.debug(`Version: ${process.env.npm_package_version}`);
 
-    // создание mediasoup Workers
-    await Mediasoup.createMediasoupWorkers(1);
+    // создание класса-обработчика mediasoup
+    const mediasoup = await Mediasoup.create(1);
 
     // комнаты
     let rooms = new Map<RoomId, Room>();
-    await initTestRoom(rooms);
 
     const Express = new ExpressApp(rooms);
 
@@ -105,8 +103,10 @@ async function main()
         console.log(`Https server running on port: ${port}`);
     });
 
-    const SocketHandlerInstance = new SocketHandler(server, Express.sessionMiddleware, rooms);
-    const mediasoup = new Mediasoup();
+    const socketHandlerInstance = new SocketHandler(server, Express.sessionMiddleware, mediasoup, rooms);
+
+    // создаем тестовую комнату
+    await initTestRoom(mediasoup, socketHandlerInstance, rooms);
 
     // для ввода в консоль сервера
     const rl = readline.createInterface({
@@ -123,3 +123,6 @@ async function main()
         process.exit();
     });
 }
+
+// вызов главной функции
+main();
