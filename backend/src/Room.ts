@@ -1,6 +1,6 @@
 import { Mediasoup, MediasoupTypes } from "./Mediasoup";
 import { SocketHandler, SocketWrapper, SocketId } from "./SocketHandler";
-import { RoomId, NewUserInfo, NewConsumerInfo, AfterConnectInfo } from "shared/RoomTypes";
+import { RoomId, NewUserInfo, NewConsumerInfo, AfterConnectInfo, NewWebRtcTransport } from "shared/RoomTypes";
 
 export { RoomId };
 
@@ -105,7 +105,7 @@ export class Room
         socket.emit('routerRtpCapabilities', this.routerRtpCapabilities);
 
         socket.once('afterConnect', async (
-            {name, rtpCapabilities} : AfterConnectInfo
+            { name, rtpCapabilities }: AfterConnectInfo
         ) =>
         {
             // запоминаем имя в сессии
@@ -150,9 +150,22 @@ export class Room
                 ?.resume();
         });
 
-        socket.on('createWebRtcTransport', () =>
+        socket.on('createWebRtcTransport', async (consuming: boolean) =>
         {
+            const transport = await this.mediasoup.createWebRtcTransport(
+                user,
+                consuming,
+                this.mediasoupRouter
+            );
 
+            const info: NewWebRtcTransport = {
+                id: transport.id,
+                iceParameters: transport.iceParameters,
+                iceCandidates: transport.iceCandidates as NewWebRtcTransport['iceCandidates'],
+                dtlsParameters: transport.dtlsParameters
+            };
+
+            socket.emit('createWebRtcTransport', info);
         });
 
         socket.on('newUsername', (username: string) =>

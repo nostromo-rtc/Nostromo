@@ -113,14 +113,25 @@ export class Mediasoup
         return router;
     }
 
-    private async createWebRtcTransport(router: MediasoupTypes.Router): Promise<MediasoupTypes.WebRtcTransport>
+    public async createWebRtcTransport(user: User, consuming: boolean, router: MediasoupTypes.Router): Promise<MediasoupTypes.WebRtcTransport>
     {
         const transport = await router.createWebRtcTransport({
             listenIps: ['127.0.0.1'],
+            initialAvailableOutgoingBitrate: 1000000,
             enableUdp: true,
             enableTcp: true,
-            preferUdp: true
+            preferUdp: true,
+            appData: { consuming }
         });
+
+        transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
+        {
+            if (dtlsstate === 'failed' || dtlsstate === 'closed')
+                console.error('> WebRtcTransport - dtlsstatechange event: ', transport, dtlsstate);
+        });
+
+        user.transports.set(transport.id, transport);
+
         return transport;
     }
 

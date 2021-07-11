@@ -1,19 +1,20 @@
 import { types as MediasoupTypes } from "mediasoup";
-type SocketId = string;
+import { types as MediasoupClientTypes } from "mediasoup-client";
+export type SocketId = string;
 // номер комнаты
-type RoomId = string;
+export type RoomId = string;
 
-type NewUserInfo = {
+export type NewUserInfo = {
     id: SocketId,
     name: string;
 };
 
-type AfterConnectInfo = {
+export type AfterConnectInfo = {
     name: string,
     rtpCapabilities: MediasoupTypes.RtpCapabilities;
 };
 
-type NewConsumerInfo = {
+export type NewConsumerInfo = {
     userId: SocketId,
     producerId: MediasoupTypes.Producer['id'],
     id: MediasoupTypes.Consumer['id'],
@@ -24,4 +25,9 @@ type NewConsumerInfo = {
     producerPaused: boolean;
 };
 
-export { SocketId, RoomId, NewUserInfo, AfterConnectInfo, NewConsumerInfo };
+export type NewWebRtcTransport = {
+    id: MediasoupTypes.Transport['id'],
+    iceParameters: MediasoupTypes.IceParameters,
+    iceCandidates: Array<MediasoupClientTypes.IceCandidate>,
+    dtlsParameters: MediasoupTypes.DtlsParameters;
+};

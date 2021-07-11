@@ -3,7 +3,7 @@ import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
 import { io, Socket } from "socket.io-client";
 import { Mediasoup, MediasoupTypes } from "./Mediasoup.js";
-import { SocketId, NewUserInfo, AfterConnectInfo, NewConsumerInfo } from "shared/RoomTypes";
+import { SocketId, NewUserInfo, AfterConnectInfo, NewConsumerInfo, NewWebRtcTransport } from "shared/RoomTypes";
 
 export type SocketSettings =
     {
@@ -44,9 +44,15 @@ export default class SocketHandler
             console.info("Client Id:", this.socket.id);
         });
 
+        // получаем RTP возможности сервера
         this.socket.on('routerRtpCapabilities', async (routerRtpCapabilities: MediasoupTypes.RtpCapabilities) =>
         {
             const rtpCapabilities = await this.mediasoup.loadDevice(routerRtpCapabilities);
+
+            // запрашиваем создание транспортного канала на сервере
+            // (потом по событию createWebRtcTransport создадим локально)
+            let consuming: boolean = true;
+            this.socket.emit('createWebRtcTransport', consuming);
 
             // сообщаем имя и rtpCapabilities
             const info: AfterConnectInfo = {
@@ -57,11 +63,33 @@ export default class SocketHandler
             this.socket.emit('afterConnect', info);
         });
 
+        // создаем локально транспортный канал
+        this.socket.on('createWebRtcTransport', (transport: NewWebRtcTransport) =>
+        {
+            console.debug('> createWebRtcTransport | server transport: ', transport);
+            try
+            {
+                const localTransport = this.mediasoup.device.createRecvTransport({
+                    id: transport.id,
+                    iceParameters: transport.iceParameters,
+                    iceCandidates: transport.iceCandidates,
+                    dtlsParameters: transport.dtlsParameters
+                });
+                console.debug('> createWebRtcTransport | client transport: ', localTransport);
+            }
+            catch (error)
+            {
+                console.error('> createWebRtcTransport | error', error);
+            }
+        });
+
+        // ошибка при соединении нашего веб-сокета
         this.socket.on('connect_error', (err: Error) =>
         {
             console.log(err.message); // not authorized
         });
 
+        // получаем название комнаты
         this.socket.on('roomName', (roomName: string) =>
         {
             this.ui.roomName = roomName;
@@ -87,6 +115,7 @@ export default class SocketHandler
             this.ui.removeVideo(remoteUserId);
         });
 
+        // наше веб-сокет соединение разорвано
         this.socket.on('disconnect', () =>
         {
             console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
