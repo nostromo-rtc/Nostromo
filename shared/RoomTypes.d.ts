@@ -14,17 +14,6 @@ export type AfterConnectInfo = {
     rtpCapabilities: MediasoupTypes.RtpCapabilities;
 };
 
-export type NewConsumerInfo = {
-    userId: SocketId,
-    producerId: MediasoupTypes.Producer['id'],
-    id: MediasoupTypes.Consumer['id'],
-    kind: MediasoupTypes.MediaKind,
-    rtpParameters: MediasoupTypes.RtpParameters,
-    type: MediasoupTypes.ConsumerType,
-    appData: MediasoupTypes.Producer['appData'],
-    producerPaused: boolean;
-};
-
 export type NewWebRtcTransportInfo = {
     id: MediasoupTypes.Transport['id'],
     iceParameters: MediasoupTypes.IceParameters,
@@ -35,4 +24,18 @@ export type NewWebRtcTransportInfo = {
 export type ConnectWebRtcTransportInfo = {
     transportId: MediasoupTypes.Transport['id'],
     dtlsParameters: MediasoupTypes.DtlsParameters;
+};
+
+export type NewProducerInfo = {
+    transportId: MediasoupTypes.Transport['id'],
+    kind: MediasoupTypes.MediaKind,
+    rtpParameters: MediasoupTypes.RtpParameters
+};
+
+export type NewConsumerInfo = {
+    producerUserId: SocketId,
+    id: MediasoupTypes.Consumer['id'],
+    producerId: MediasoupTypes.Producer['id'],
+    kind: MediasoupTypes.MediaKind,
+    rtpParameters: MediasoupTypes.RtpParameters
 };

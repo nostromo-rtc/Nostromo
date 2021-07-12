@@ -85,9 +85,9 @@ export default class UserMedia
 
             // обновляем медиапоток в подключении
             if (presentMedia)
-                this.parent.updateMediaStream(trackKind);
+                await this.parent.updateMediaStream(trackKind);
             else
-                this.parent.addNewMediaStream(trackKind);
+                await this.parent.addNewMediaStream(trackKind);
         }
         catch (error) // -- в случае ошибки -- //
         {
@@ -136,19 +136,19 @@ export default class UserMedia
 
                 if (!presentAudio && !presentVideo)
                 {
-                    this.parent.addNewMediaStream('both');
+                    await this.parent.addNewMediaStream('both');
                 }
                 else
                 {
                     if (presentAudio)
                         this.parent.updateMediaStream('audio');
                     else
-                        this.parent.addNewMediaStream('audio');
+                        await this.parent.addNewMediaStream('audio');
 
                     if (presentVideo)
                         this.parent.updateMediaStream('video');
                     else
-                        this.parent.addNewMediaStream('video');
+                        await this.parent.addNewMediaStream('video');
                 }
             }
             else // если захват экрана без звука
@@ -157,7 +157,7 @@ export default class UserMedia
                 if (presentVideo)
                     this.parent.updateMediaStream('video');
                 else
-                    this.parent.addNewMediaStream('video');
+                    await this.parent.addNewMediaStream('video');
             }
 
             console.debug("getDisplayMedia success:", this.stream, this.stream.getTracks());

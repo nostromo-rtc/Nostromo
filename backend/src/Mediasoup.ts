@@ -1,4 +1,5 @@
 import mediasoup = require('mediasoup');
+import { NewProducerInfo } from 'shared/RoomTypes';
 import { User } from './Room';
 import MediasoupTypes = mediasoup.types;
 export { MediasoupTypes };
@@ -60,6 +61,7 @@ export class Mediasoup
             }
         ];
 
+    // создаем экземпляр класса (внутри которого создаются Workers)
     public static async create(numWorkers: number): Promise<Mediasoup>
     {
         console.log('running %d mediasoup Workers...', numWorkers);
@@ -71,8 +73,8 @@ export class Mediasoup
             const worker: MediasoupTypes.Worker = await mediasoup.createWorker(
                 {
                     logLevel: 'debug',
-                    rtcMinPort: 10000,
-                    rtcMaxPort: 59999
+                    rtcMinPort: 40000,
+                    rtcMaxPort: 50000
                 });
 
             worker.on('died', () =>
@@ -101,6 +103,7 @@ export class Mediasoup
         return worker;
     }
 
+    // создать Router
     public async createRouter(): Promise<MediasoupTypes.Router>
     {
         const routerOptions: MediasoupTypes.RouterOptions =
@@ -113,15 +116,28 @@ export class Mediasoup
         return router;
     }
 
-    public async createWebRtcTransport(user: User, consuming: boolean, router: MediasoupTypes.Router): Promise<MediasoupTypes.WebRtcTransport>
+    // создать транспортный канал для user
+    // если consuming = true,   то канал для приема потоков
+    // если consuming = false,  то канал для отдачи потоков
+    public async createWebRtcTransport(
+        user: User,
+        consuming: boolean,
+        router: MediasoupTypes.Router
+    ): Promise<MediasoupTypes.WebRtcTransport>
     {
         const transport = await router.createWebRtcTransport({
-            listenIps: ['127.0.0.1'],
+            listenIps: [
+                { ip: "192.168.1.4" },
+                { ip: "192.168.1.4", announcedIp: "62.220.53.229" }
+            ],
             initialAvailableOutgoingBitrate: 1000000,
             enableUdp: true,
-            enableTcp: true,
-            preferUdp: true,
             appData: { consuming }
+        });
+
+        transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
+        {
+            console.debug('> WebRtcTransport - icestatechange event: ', transport.iceSelectedTuple?.remoteIp, state);
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
@@ -135,25 +151,47 @@ export class Mediasoup
         return transport;
     }
 
-    public async createConsumer(
-        consumerUser: User,
-        producer: MediasoupTypes.Producer,
-        router: MediasoupTypes.Router): Promise<mediasoup.types.Consumer>
+    // создаем производителя (producer) для user
+    public async createProducer(
+        user: User,
+        newProducerInfo: NewProducerInfo
+    ): Promise<MediasoupTypes.Producer>
     {
-        // не создаем Consumer, если пользователь не может потреблять медиапоток
-        if (!consumerUser.rtpCapabilities ||
+        const { transportId, kind, rtpParameters } = newProducerInfo;
+
+        if (!user.transports.has(transportId))
+            throw new Error(`transport with id "${transportId}" not found`);
+
+        const transport = user.transports.get(transportId)!;
+
+        const producer = await transport.produce({ kind, rtpParameters });
+
+        user.producers.set(producer.id, producer);
+
+        return producer;
+    }
+
+    // создаем потребителя (consumer) для user
+    public async createConsumer(
+        user: User,
+        producer: MediasoupTypes.Producer,
+        router: MediasoupTypes.Router
+    ): Promise<MediasoupTypes.Consumer>
+    {
+        // не создаем consumer, если пользователь не может потреблять медиапоток
+        if (!user.rtpCapabilities ||
             !router.canConsume(
                 {
                     producerId: producer.id,
-                    rtpCapabilities: consumerUser.rtpCapabilities
+                    rtpCapabilities: user.rtpCapabilities
                 })
         )
         {
-            throw new Error(`User ${consumerUser} can't consume`);
+            throw new Error(`User ${user} can't consume`);
         }
 
         // берем Transport пользователя, предназначенный для потребления
-        const transport = Array.from(consumerUser.transports.values())
+        const transport = Array.from(user.transports.values())
             .find((tr) => tr.appData.consuming);
 
         if (!transport)
@@ -166,12 +204,11 @@ export class Mediasoup
 
         try
         {
-            consumer = await transport.consume(
-                {
-                    producerId: producer.id,
-                    rtpCapabilities: consumerUser.rtpCapabilities,
-                    paused: true
-                });
+            consumer = await transport.consume({
+                producerId: producer.id,
+                rtpCapabilities: user.rtpCapabilities,
+                paused: true
+            });
         }
         catch (error)
         {
@@ -179,7 +216,7 @@ export class Mediasoup
         }
 
         // сохраняем Consumer у пользователя
-        consumerUser.consumers.set(consumer.id, consumer);
+        user.consumers.set(consumer.id, consumer);
 
         return consumer;
     }

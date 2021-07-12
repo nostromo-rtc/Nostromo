@@ -11,11 +11,13 @@ export type SocketId = string;
 type Socket = SocketIO.Socket;
 type RoomForUser = { id: RoomId, name: Room["name"]; };
 
+export type HandshakeSession = session.Session & Partial<session.SessionData>;
+
 // расширяю класс Handshake у сокетов, добавляя в него Express сессии
 declare module "socket.io/dist/socket" {
     interface Handshake
     {
-        session?: session.Session & Partial<session.SessionData>;
+        session?: HandshakeSession;
         sessionId?: string;
     }
 }
@@ -285,7 +287,7 @@ export class SocketHandler
         return new SocketWrapper(this.io.of('/room').sockets.get(id)!);
     }
 
-    public emitTo(name: string, ev: string | symbol, ...args : any[]) : boolean
+    public emitTo(name: string, ev: string | symbol, ...args: any[]): boolean
     {
         return this.io.of('/room').to(name).emit(ev, ...args);
     }

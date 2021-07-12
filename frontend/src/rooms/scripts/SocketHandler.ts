@@ -2,7 +2,13 @@ import UI from "./UI.js";
 import UserMedia from './UserMedia.js';
 import PeerConnection from "./PeerConnection.js";
 import { io, Socket } from "socket.io-client";
-import { Mediasoup, MediasoupTypes } from "./Mediasoup.js";
+import
+{
+    Mediasoup,
+    MediasoupTypes,
+    TransportProduceParameters
+} from "./Mediasoup.js";
+
 import
 {
     SocketId,
@@ -10,7 +16,8 @@ import
     AfterConnectInfo,
     NewConsumerInfo,
     NewWebRtcTransportInfo,
-    ConnectWebRtcTransportInfo
+    ConnectWebRtcTransportInfo,
+    NewProducerInfo
 } from "shared/RoomTypes";
 
 export type SocketSettings =
@@ -55,68 +62,47 @@ export default class SocketHandler
         // получаем RTP возможности сервера
         this.socket.on('routerRtpCapabilities', async (routerRtpCapabilities: MediasoupTypes.RtpCapabilities) =>
         {
-            const rtpCapabilities = await this.mediasoup.loadDevice(routerRtpCapabilities);
+            await this.routerRtpCapabilities(routerRtpCapabilities);
+        });
 
-            // запрашиваем создание транспортного канала на сервере
-            // (потом по событию createWebRtcTransport создадим локально)
-            let consuming: boolean = true;
-            this.socket.emit('createWebRtcTransport', consuming);
+        // создаем локально транспортный канал для приема потоков
+        this.socket.on('createRecvTransport', (transport: NewWebRtcTransportInfo) =>
+        {
+            this.mediasoup.recvTransport = this.createRecvTransport(transport);
 
-            // сообщаем имя и rtpCapabilities
+            // теперь, когда транспортный канал для приема потоков создан
+            // войдем в комнату - т.е сообщим имя и rtpCapabilities
             const info: AfterConnectInfo = {
                 name: this.ui.usernameInputValue,
-                rtpCapabilities: rtpCapabilities
+                rtpCapabilities: this.mediasoup.device.rtpCapabilities
             };
 
             this.socket.emit('afterConnect', info);
         });
 
-        // создаем локально транспортный канал
-        this.socket.on('createWebRtcTransport', (transport: NewWebRtcTransportInfo) =>
+        // создаем локально транспортный канал для отдачи потоков
+        this.socket.on('createSendTransport', (transport: NewWebRtcTransportInfo) =>
         {
-            console.debug('> createWebRtcTransport | server transport: ', transport);
-            try
-            {
-                const localTransport = this.mediasoup.device.createRecvTransport({
-                    id: transport.id,
-                    iceParameters: transport.iceParameters,
-                    iceCandidates: transport.iceCandidates,
-                    dtlsParameters: transport.dtlsParameters
-                });
-                console.debug('> createWebRtcTransport | client transport: ', localTransport);
+            this.mediasoup.sendTransport = this.createSendTransport(transport);
+        });
 
-                localTransport.on('connect', (
-                    { dtlsParameters }, callback, errback
-                ) =>
-                {
-                    console.debug('> TEST: ', dtlsParameters, transport.dtlsParameters);
-                    try
-                    {
-                        const info: ConnectWebRtcTransportInfo = {
-                            transportId: localTransport.id,
-                            dtlsParameters
-                        };
-                        this.socket.emit('connectWebRtcTransport', info);
+        this.socket.on('newConsumer', async (newConsumerInfo: NewConsumerInfo) =>
+        {
+            const { id, producerId, kind, rtpParameters } = newConsumerInfo;
 
-                        // сообщаем транспорту, что параметры были переданы на сервер
-                        callback();
-                    }
-                    catch (error)
-                    {
-                        // сообщаем транспорту, что что-то пошло не так
-                        errback(error);
-                    }
-                });
+            const consumer = await this.mediasoup.recvTransport!.consume({
+                id,
+                producerId,
+                kind,
+                rtpParameters
+            });
 
-                localTransport.on('connectionstatechange', async (state) =>
-                {
-                    console.debug("connectionstatechange: ", state);
-                });
-            }
-            catch (error)
-            {
-                console.error('> createWebRtcTransport | error', error);
-            }
+            this.socket.emit('consumerReady', consumer.id);
+
+            console.debug("TESTESTES", newConsumerInfo.id, consumer.id);
+
+            const remoteVideo = this.ui.allVideos.get(newConsumerInfo.producerUserId);
+            if (remoteVideo) remoteVideo.srcObject = new MediaStream([consumer.track]);
         });
 
         // ошибка при соединении нашего веб-сокета
@@ -180,10 +166,138 @@ export default class SocketHandler
         });
     }
 
-    // добавить медиапоток в подключение
-    public addNewMediaStream(trackKind: string): void
+    private async routerRtpCapabilities(routerRtpCapabilities: MediasoupTypes.RtpCapabilities)
     {
+        await this.mediasoup.loadDevice(routerRtpCapabilities);
 
+        // запрашиваем создание транспортного канала на сервере для приема потоков
+        let consuming: boolean = true;
+        this.socket.emit('createWebRtcTransport', consuming);
+
+        // и для отдачи наших потоков
+        this.socket.emit('createWebRtcTransport', !consuming);
+    }
+
+    private handleCommonTransportEvents(localTransport: MediasoupTypes.Transport)
+    {
+        localTransport.on('connect', (
+            { dtlsParameters }, callback, errback
+        ) =>
+        {
+            console.debug('> TEST: ', dtlsParameters);
+            try
+            {
+                const info: ConnectWebRtcTransportInfo = {
+                    transportId: localTransport.id,
+                    dtlsParameters
+                };
+                this.socket.emit('connectWebRtcTransport', info);
+
+                // сообщаем транспорту, что параметры были переданы на сервер
+                callback();
+            }
+            catch (error)
+            {
+                // сообщаем транспорту, что что-то пошло не так
+                errback(error);
+            }
+        });
+
+        localTransport.on('connectionstatechange', async (state) =>
+        {
+            console.debug("connectionstatechange: ", state);
+        });
+    }
+
+    private createSendTransport(transport: NewWebRtcTransportInfo)
+        : MediasoupTypes.Transport | undefined
+    {
+        console.debug('> createSendTransport | server transport: ', transport);
+        try
+        {
+            const localTransport = this.mediasoup.device.createSendTransport({
+                id: transport.id,
+                iceParameters: transport.iceParameters,
+                iceCandidates: transport.iceCandidates,
+                dtlsParameters: transport.dtlsParameters
+            });
+            console.debug('> createSendTransport | client transport: ', localTransport);
+
+            this.handleCommonTransportEvents(localTransport);
+
+            localTransport.on('produce', (
+                parameters: TransportProduceParameters, callback, errback
+            ) =>
+            {
+                try
+                {
+                    const info: NewProducerInfo = {
+                        transportId: localTransport.id,
+                        kind: parameters.kind,
+                        rtpParameters: parameters.rtpParameters
+                    };
+
+                    this.socket.emit('newProducer', info);
+
+                    // сообщаем транспорту, что параметры были переданы на сервер
+                    // и передаем транспорту id серверного producer
+                    this.socket.once('newProducer', (id: string) =>
+                    {
+                        console.log("TEST id Producer > | ", id);
+                        callback({ id });
+                    });
+                }
+                catch (error)
+                {
+                    // сообщаем транспорту, что что-то пошло не так
+                    errback(error);
+                }
+            });
+
+            return localTransport;
+        }
+        catch (error)
+        {
+            console.error('> createSendTransport | error', error);
+        }
+    }
+
+    private createRecvTransport(transport: NewWebRtcTransportInfo)
+        : MediasoupTypes.Transport | undefined
+    {
+        console.debug('> createRecvTransport | server transport: ', transport);
+        try
+        {
+            const localTransport = this.mediasoup.device.createRecvTransport({
+                id: transport.id,
+                iceParameters: transport.iceParameters,
+                iceCandidates: transport.iceCandidates,
+                dtlsParameters: transport.dtlsParameters
+            });
+
+            console.debug('> createRecvTransport | client transport: ', localTransport);
+
+            this.handleCommonTransportEvents(localTransport);
+
+            return localTransport;
+        }
+        catch (error)
+        {
+            console.error('> createRecvTransport | error', error);
+        }
+    }
+
+    // добавить медиапоток в подключение
+    public async addNewMediaStream(trackKind: string): Promise<void>
+    {
+        const videoTrack = this.userMedia.stream.getVideoTracks()[0];
+        const producer = await this.mediasoup.sendTransport!.produce({
+            track: videoTrack,
+            codecOptions:
+            {
+                videoGoogleStartBitrate: 1000
+            }
+        });
     }
 
     // обновить существующее медиа
