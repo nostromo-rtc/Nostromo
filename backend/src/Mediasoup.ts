@@ -19,7 +19,7 @@ export class Mediasoup
             },
             {
                 kind: 'video',
-                mimeType: 'video/VP8',
+                mimeType: 'video/VP9',
                 clockRate: 90000,
                 parameters:
                 {
@@ -28,7 +28,7 @@ export class Mediasoup
             },
             {
                 kind: 'video',
-                mimeType: 'video/VP9',
+                mimeType: 'video/VP8',
                 clockRate: 90000,
                 parameters:
                 {

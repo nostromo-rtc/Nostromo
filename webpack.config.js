@@ -3,9 +3,9 @@ const path = require('path');
 const BUILD_DIR = path.join('frontend/temp-build/');
 const OUT_DIR = path.join('frontend/static/');
 
-const ADMIN_PATHNAME = path.join('admin/scripts/admin');
+const ADMIN_PATHNAME = path.join('admin/scripts/index');
 const INDEX_PATHNAME = path.join('public/scripts/index');
-const ROOM_PATHNAME = path.join('rooms/scripts/room');
+const ROOM_PATHNAME = path.join('rooms/scripts/index');
 
 const VENDOR_PATHNAME = path.join('public/scripts/vendor');
 

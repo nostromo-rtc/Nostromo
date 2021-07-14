@@ -5,7 +5,7 @@ import
     RoomId,
     NewUserInfo,
     NewConsumerInfo,
-    AfterConnectInfo,
+    JoinInfo,
     NewWebRtcTransportInfo,
     ConnectWebRtcTransportInfo,
     NewProducerInfo
@@ -114,9 +114,11 @@ export class Room
         // сообщаем пользователю RTP возможности (кодеки) сервера
         socket.emit('routerRtpCapabilities', this.routerRtpCapabilities);
 
-        socket.once('afterConnect', async (afterConnectInfo: AfterConnectInfo) =>
+        // пользователь заходит в комнату (т.е уже создал транспортные каналы)
+        // и готов к получению потоков (готов к получению consumers)
+        socket.once('join', async (joinInfo: JoinInfo) =>
         {
-            await this.joinEvAfterConnect(user, socket, session, afterConnectInfo);
+            await this.joinEvJoin(user, socket, session, joinInfo);
         });
 
         // создание транспортного канала на сервере (с последующей отдачей информации о канале клиенту)
@@ -246,15 +248,15 @@ export class Room
         socket.emit('restartIce', iceParameters);
     }
 
-    // обработка события 'afterConnect' в методе join
-    private async joinEvAfterConnect(
+    // обработка события 'join' в методе join
+    private async joinEvJoin(
         user: User,
         socket: SocketWrapper,
         session: HandshakeSession,
-        afterConnectInfo: AfterConnectInfo
+        joinInfo: JoinInfo
     )
     {
-        const { name, rtpCapabilities } = afterConnectInfo;
+        const { name, rtpCapabilities } = joinInfo;
 
         // запоминаем имя в сессии
         session.username = name;

@@ -1,5 +1,5 @@
-import UI from "./UI.js";
-import SocketHandler from "./SocketHandler.js";
+import { UI } from "./UI.js";
+import { Room } from "./Room.js";
 
 declare global
 {
@@ -10,13 +10,13 @@ declare global
 }
 
 // Класс, получающий медиапотоки пользователя
-export default class UserMedia
+export class UserMedia
 {
     private ui: UI;
-    private parent: SocketHandler;
+    private parent: Room;
 
-    private _stream = new MediaStream();
-    public get stream() { return this._stream; }
+    private stream = new MediaStream();
+
     private streamConstraintsMic: MediaStreamConstraints = {
         audio: true, video: false
     };
@@ -26,9 +26,10 @@ export default class UserMedia
 
     private captureConstraints: Map<string, MediaStreamConstraints>;
 
-    constructor(_ui: UI, _parent: SocketHandler)
+    constructor(_ui: UI, _parent: Room)
     {
         console.debug("UserMedia ctor");
+
         this.ui = _ui;          // интерфейс
         this.parent = _parent;  // родительский класс
 
@@ -38,133 +39,78 @@ export default class UserMedia
         this.ui.localVideo!.srcObject = this.stream;
 
         this.ui.buttons.get('getUserMediaMic')!.addEventListener('click',
-            () => this.getUserMedia_click("audio", this.streamConstraintsMic));
+            () => this.getUserMedia(this.streamConstraintsMic));
 
         this.ui.buttons.get('getUserMediaCam')!.addEventListener('click',
-            () => this.getUserMedia_click("video", this.streamConstraintsCam));
+            () => this.getUserMedia(this.streamConstraintsCam));
 
         this.ui.buttons.get('getDisplayMedia')!.addEventListener('click',
-            () => this.getDisplayMedia_click());
+            () => this.getDisplayMedia());
     }
 
-    // -- в случае, если не удалось захватить потоки юзера -- //
-    private getUserMedia_error(error: DOMException): void
-    {
-        console.error("> getUserMedia_error():", error);
-        if (error.name == "NotFoundError")
-        {
-            console.error("Webcam or Mic not found.");
-        }
-    }
-
-    // -- получение видео (веб-камера) и аудио (микрофон) потоков -- //
-    async getUserMedia_click(trackKind: string, streamConstraints: MediaStreamConstraints): Promise<void>
+    // -- получение видео (веб-камера) или аудио (микрофон) потока -- //
+    private async getUserMedia(
+        streamConstraints: MediaStreamConstraints
+    ): Promise<void>
     {
         try
         {
-            let mediaStream: MediaStream = await navigator.mediaDevices.getUserMedia(streamConstraints);
+            const mediaStream: MediaStream = await navigator.mediaDevices.getUserMedia(streamConstraints);
 
-            // проверяем, было ли от нас что-то до этого
-            let presentMedia: boolean = false;
-            for (const oldTrack of this.stream.getTracks())
-            {
-                if (oldTrack.kind == trackKind)
-                {
-                    presentMedia = true;
-                    this.stopTrack(oldTrack);
-                }
-            }
+            console.debug("> [UserMedia] getUserMedia success:", mediaStream);
 
-            for (const track of mediaStream.getTracks())
-            {
-                this.handleEndedTrack(track);
-                this.stream.addTrack(track);
-            }
-
-            console.debug("getUserMedia success:", this.stream);
-
-            // обновляем медиапоток в подключении
-            if (presentMedia)
-                await this.parent.updateMediaStream(trackKind);
-            else
-                await this.parent.addNewMediaStream(trackKind);
+            await this.handleMediaStream(mediaStream);
         }
         catch (error) // -- в случае ошибки -- //
         {
-            this.getUserMedia_error(error as DOMException);
+            console.error("> [UserMedia] getUserMedia error:", error as DOMException);
         }
     }
 
     // -- захват видео с экрана юзера -- //
-    private async getDisplayMedia_click(): Promise<void>
+    private async getDisplayMedia(): Promise<void>
     {
         try
         {
             // захват экрана
-            let displayMediaStream: MediaStream =
-                await navigator.mediaDevices.getDisplayMedia
-                    (this.captureConstraints.get(this.ui.currentCaptureSetting));
+            const mediaStream: MediaStream = await navigator.mediaDevices
+                .getDisplayMedia(this.captureConstraints.get(this.ui.currentCaptureSetting));
 
-            // проверяем, было ли видео от нас до этого
-            let presentVideo: boolean = false;
-            if (this.stream.getVideoTracks().length == 1)
-            {
-                presentVideo = true;
-                let oldVideoTrack: MediaStreamTrack = this.stream.getVideoTracks()[0];
-                this.stopTrack(oldVideoTrack);
-            }
+            console.debug("> [UserMedia] getDisplayMedia success:", mediaStream.getTracks());
 
-            // добавляем видеодорожку
-            let videoTrack: MediaStreamTrack = displayMediaStream.getVideoTracks()[0];
-            this.handleEndedTrack(videoTrack);
-            this.stream.addTrack(videoTrack);
-            // если захват экрана со звуком
-            if (displayMediaStream.getAudioTracks().length == 1)
-            {
-                // если до этого от нас был звук
-                let presentAudio: boolean = false;
-                if (this.stream.getAudioTracks().length == 1)
-                {
-                    presentAudio = true;
-                    const oldAudioTrack: MediaStreamTrack = this.stream.getAudioTracks()[0];
-                    this.stopTrack(oldAudioTrack);
-                }
-                // добавляем аудиодорожку
-                let audioTrack: MediaStreamTrack = displayMediaStream.getAudioTracks()[0];
-                this.handleEndedTrack(audioTrack);
-                this.stream.addTrack(audioTrack);
-
-                if (!presentAudio && !presentVideo)
-                {
-                    await this.parent.addNewMediaStream('both');
-                }
-                else
-                {
-                    if (presentAudio)
-                        this.parent.updateMediaStream('audio');
-                    else
-                        await this.parent.addNewMediaStream('audio');
-
-                    if (presentVideo)
-                        this.parent.updateMediaStream('video');
-                    else
-                        await this.parent.addNewMediaStream('video');
-                }
-            }
-            else // если захват экрана без звука
-            {
-                // обновляем видеопоток в подключении
-                if (presentVideo)
-                    this.parent.updateMediaStream('video');
-                else
-                    await this.parent.addNewMediaStream('video');
-            }
-
-            console.debug("getDisplayMedia success:", this.stream, this.stream.getTracks());
+            await this.handleMediaStream(mediaStream);
         }
         catch (error)
         {
-            console.error("> getDisplayMedia_error():", error as DOMException);
+            console.error("> [UserMedia] getDisplayMedia error:", error as DOMException);
+        }
+    }
+
+    private async handleMediaStream(mediaStream: MediaStream)
+    {
+        for (const newTrack of mediaStream.getTracks())
+        {
+            this.handleEndedTrack(newTrack);
+
+            // проверяем, было ли от нас что-то до этого
+            let presentMedia = false;
+            for (const oldTrack of this.stream.getTracks())
+            {
+                if (oldTrack.kind == newTrack.kind)
+                {
+                    presentMedia = true;
+                    this.stopTrack(oldTrack);
+                    await this.parent.updateMediaStreamTrack(oldTrack.id, newTrack);
+                }
+            }
+
+            this.stream.addTrack(newTrack);
+
+            // если не было
+            if (!presentMedia)
+            {
+                await this.parent.addMediaStreamTrack(newTrack);
+            }
         }
     }
 
@@ -173,6 +119,7 @@ export default class UserMedia
         // stop не вызывает событие ended,
         // поэтому удаляем трек из стрима сами
         oldVideoTrack.stop();
+        console.debug("stopTrack", oldVideoTrack);
         this.removeTrackFromStream(oldVideoTrack);
     }
 
@@ -205,7 +152,7 @@ export default class UserMedia
                 frameRate: 30,
                 width: 2560, height: 1440
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints1080p: MediaStreamConstraints = {
@@ -213,7 +160,7 @@ export default class UserMedia
                 frameRate: 30,
                 width: 1920, height: 1080
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints1080p60: MediaStreamConstraints = {
@@ -221,7 +168,7 @@ export default class UserMedia
                 frameRate: 60,
                 width: 1920, height: 1080
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints720p: MediaStreamConstraints = {
@@ -229,7 +176,7 @@ export default class UserMedia
                 frameRate: 30,
                 width: 1280, height: 720
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints720p60: MediaStreamConstraints = {
@@ -237,7 +184,7 @@ export default class UserMedia
                 frameRate: 60,
                 width: 1280, height: 720
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints480p: MediaStreamConstraints = {
@@ -245,7 +192,7 @@ export default class UserMedia
                 frameRate: 30,
                 width: 854, height: 480
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints360p: MediaStreamConstraints = {
@@ -253,7 +200,7 @@ export default class UserMedia
                 frameRate: 30,
                 width: 640, height: 360
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         let constraints240p: MediaStreamConstraints = {
@@ -261,7 +208,7 @@ export default class UserMedia
                 frameRate: 30,
                 width: 426, height: 240
             },
-            audio: true
+            audio: { echoCancellation: false, noiseSuppression: false }
         };
 
         _constraints.set('1440p', constraints1440p);

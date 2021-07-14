@@ -9,7 +9,7 @@ export type NewUserInfo = {
     name: string;
 };
 
-export type AfterConnectInfo = {
+export type JoinInfo = {
     name: string,
     rtpCapabilities: MediasoupTypes.RtpCapabilities;
 };

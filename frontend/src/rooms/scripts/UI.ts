@@ -1,5 +1,5 @@
 // Класс для работы с интерфейсом (веб-страница)
-export default class UI
+export class UI
 {
     // кнопки
     private _buttons: Map<string, HTMLButtonElement> = this.prepareButtons();
@@ -129,14 +129,10 @@ export default class UI
     }
 
     // добавить новый видеоэлемент собеседника
-    public addVideo(remoteVideoId: string, name: string): void
+    public addVideo(remoteVideoId: string, name: string, mediaStream : MediaStream): void
     {
         let newVideoItem = document.createElement('div');
         newVideoItem.classList.add('videoItem');
-
-        let newVideoContainer = document.createElement('div');
-        newVideoContainer.classList.add('videoContainer');
-        newVideoItem.appendChild(newVideoContainer);
 
         let videoLabel = document.createElement('span');
         videoLabel.classList.add('videoLabel');
@@ -144,11 +140,16 @@ export default class UI
         videoLabel.id = `remoteVideoLabel-${remoteVideoId}`;
         newVideoItem.appendChild(videoLabel);
 
+        let newVideoContainer = document.createElement('div');
+        newVideoContainer.classList.add('videoContainer');
+        newVideoItem.appendChild(newVideoContainer);
+
         let newVideo = document.createElement('video');
         newVideo.id = `remoteVideo-${remoteVideoId}`;
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
         newVideo.poster = './images/novideodata.jpg';
+        newVideo.srcObject = mediaStream;
         newVideoContainer.appendChild(newVideo);
 
         document.getElementById('videos')!.appendChild(newVideoItem);
