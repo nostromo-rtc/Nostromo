@@ -1,5 +1,8 @@
 import { io, Socket } from "socket.io-client";
 
+import { NewRoomInfo } from "shared/AdminTypes";
+import { VideoCodec } from "shared/RoomTypes";
+
 type Room = {
     id: string,
     name: string;
@@ -13,6 +16,8 @@ export default class adminSocketHandler
         'transports': ['websocket']
     });
     private latestRoomId: number = 0;
+
+    private videoCodecSelect?: HTMLSelectElement;
 
     constructor()
     {
@@ -47,9 +52,26 @@ export default class adminSocketHandler
             });
             const btn_createRoom = document.getElementById('btn_createRoom')! as HTMLButtonElement;
             const btn_deleteRoom = document.getElementById('btn_deleteRoom')! as HTMLButtonElement;
+
+            this.prepareVideoCodecSelect();
+
             btn_createRoom.addEventListener('click', () => { this.createRoom(); });
             btn_deleteRoom.addEventListener('click', () => { this.deleteRoom(); });
         }
+    }
+
+    private prepareVideoCodecSelect()
+    {
+        this.videoCodecSelect = document.getElementById('videoCodec')! as HTMLSelectElement;
+
+        const Vp9Option = new Option(VideoCodec.VP9, VideoCodec.VP9, true);
+        this.videoCodecSelect.add(Vp9Option);
+
+        const Vp8Option = new Option(VideoCodec.VP8, VideoCodec.VP8);
+        this.videoCodecSelect.add(Vp8Option);
+
+        const H264Option = new Option(VideoCodec.H264, VideoCodec.H264);
+        this.videoCodecSelect.add(H264Option);
     }
 
     private onAuthPage(): boolean
@@ -82,8 +104,17 @@ export default class adminSocketHandler
     {
         const name = (document.getElementById('roomNameInput') as HTMLInputElement).value;
         const pass = (document.getElementById('roomPassInput') as HTMLInputElement).value;
-        this.socket.emit('createRoom', name, pass);
+        const videoCodec = this.videoCodecSelect!.value as VideoCodec;
+
+        const newRoomInfo: NewRoomInfo = {
+            name,
+            pass,
+            videoCodec
+        };
+
+        this.socket.emit('createRoom', newRoomInfo);
         this.addRoomListItem(name);
+
         const roomLink = document.getElementById('roomLink') as HTMLInputElement;
         if (roomLink.hidden) roomLink.hidden = false;
         roomLink.value = `${window.location.origin}/rooms/${this.latestRoomId}?p=${pass}`;

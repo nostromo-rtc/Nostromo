@@ -5,6 +5,7 @@ import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 import { RequestHandler } from 'express';
 import { RoomId, Room } from './Room';
+import { NewRoomInfo } from 'shared/AdminTypes';
 import { Mediasoup } from './Mediasoup';
 
 export type SocketId = string;
@@ -132,7 +133,8 @@ export class SocketHandler
         this.io.of('/admin').use((socket: Socket, next) =>
         {
             // если с недоверенного ip, то не открываем вебсокет-соединение
-            if (socket.handshake.address == process.env.ALLOW_ADMIN_IP)
+            if ((socket.handshake.address == process.env.ALLOW_ADMIN_IP)
+                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
             {
                 return next();
             }
@@ -167,10 +169,10 @@ export class SocketHandler
                     this.removeRoom(id);
                 });
 
-                socket.on('createRoom', async (name: string, pass: string) =>
+                socket.on('createRoom', async (info: NewRoomInfo) =>
                 {
                     const roomId: RoomId = String(this.rooms.size);
-                    await this.createRoom(roomId, name, pass);
+                    await this.createRoom(roomId, info);
                 });
             }
         });
@@ -185,12 +187,17 @@ export class SocketHandler
         }
     }
 
-    private async createRoom(roomId: RoomId, name: string, pass: string): Promise<void>
+    private async createRoom(roomId: RoomId, info: NewRoomInfo): Promise<void>
     {
+        const { name, pass, videoCodec } = info;
+
         this.rooms.set(roomId, await Room.create(
             roomId,
-            name, pass,
-            this.mediasoup, this
+            name,
+            pass,
+            videoCodec,
+            this.mediasoup,
+            this
         ));
     }
 

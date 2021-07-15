@@ -15,6 +15,7 @@ import { Mediasoup } from './Mediasoup';
 
 // комната
 import { RoomId, Room } from './Room';
+import { VideoCodec } from 'shared/RoomTypes';
 
 // для ввода в консоль
 import readline = require('readline');
@@ -27,6 +28,7 @@ async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, 
             '0',
             process.env.DEV_TESTROOM_NAME || 'Тестовая',
             process.env.DEV_TESTROOM_PASS || 'testik1',
+            VideoCodec.VP9,
             mediasoup,
             socketHandler
         )
@@ -34,11 +36,12 @@ async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, 
 }
 
 // добавление временных в меток в лог
-function addTimestampsToLog(): void
+function addTimestampsToConsoleLogs(): void
 {
     let origlog = console.log;
+    let origerror = console.error;
 
-    console.log = function (obj, ...placeholders)
+    let consoleFuncExtending = (obj: any, ...placeholders: any[]) =>
     {
         const timestamp = (new Date).toLocaleString("en-GB", {
             day: "2-digit",
@@ -50,16 +53,25 @@ function addTimestampsToLog(): void
         }) + '.' + ((new Date).getUTCMilliseconds() / 1000).toFixed(3).slice(2, 5);
 
         if (typeof obj === 'string')
+        {
             placeholders.unshift(`[${timestamp}] ${obj}`);
-
+        }
         else
         {
-            // This handles console.log( object )
             placeholders.unshift(obj);
             placeholders.unshift(`[${timestamp} %j`);
         }
+        return placeholders;
+    };
 
-        origlog.apply(this, placeholders);
+    console.log = function (obj, ...placeholders)
+    {
+        origlog.apply(this, consoleFuncExtending(obj, ...placeholders));
+    };
+
+    console.error = function (obj, ...placeholders)
+    {
+        origerror.apply(this, consoleFuncExtending(obj, ...placeholders));
     };
 }
 
@@ -67,7 +79,7 @@ function addTimestampsToLog(): void
 async function main()
 {
     // добавление временных меток в лог
-    addTimestampsToLog();
+    addTimestampsToConsoleLogs();
 
     // -- инициализация приложения -- //
     process.title = `WebRTC Server ${process.env.npm_package_version}`;

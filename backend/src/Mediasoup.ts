@@ -1,40 +1,44 @@
 import mediasoup = require('mediasoup');
-import { NewProducerInfo } from 'shared/RoomTypes';
+import { NewProducerInfo, VideoCodec } from 'shared/RoomTypes';
 import { User } from './Room';
 import MediasoupTypes = mediasoup.types;
+
 export { MediasoupTypes };
 
 export class Mediasoup
 {
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
-    // настройки кодеков на сервере
-    private mediaCodecsConf: MediasoupTypes.RtpCodecCapability[] =
+    // аудио кодек
+    private audioCodecConf: MediasoupTypes.RtpCodecCapability = {
+        kind: 'audio',
+        mimeType: 'audio/opus',
+        clockRate: 48000,
+        channels: 2
+    };
+    // VP9
+    private videoCodecVp9Conf: MediasoupTypes.RtpCodecCapability = {
+        kind: 'video',
+        mimeType: 'video/VP9',
+        clockRate: 90000,
+        parameters:
+        {
+            'x-google-start-bitrate': 1000
+        }
+    };
+    // VP8
+    private videoCodecVp8Conf: MediasoupTypes.RtpCodecCapability = {
+        kind: 'video',
+        mimeType: 'video/VP8',
+        clockRate: 90000,
+        parameters:
+        {
+            'x-google-start-bitrate': 1000
+        }
+    };
+    // H264
+    private videoCodecsH264Conf: MediasoupTypes.RtpCodecCapability[] =
         [
-            {
-                kind: 'audio',
-                mimeType: 'audio/opus',
-                clockRate: 48000,
-                channels: 2
-            },
-            {
-                kind: 'video',
-                mimeType: 'video/VP9',
-                clockRate: 90000,
-                parameters:
-                {
-                    'x-google-start-bitrate': 1000
-                }
-            },
-            {
-                kind: 'video',
-                mimeType: 'video/VP8',
-                clockRate: 90000,
-                parameters:
-                {
-                    'x-google-start-bitrate': 1000
-                }
-            },
             {
                 kind: 'video',
                 mimeType: 'video/h264',
@@ -64,7 +68,7 @@ export class Mediasoup
     // создаем экземпляр класса (внутри которого создаются Workers)
     public static async create(numWorkers: number): Promise<Mediasoup>
     {
-        console.log('running %d mediasoup Workers...', numWorkers);
+        console.log('[Mediasoup] running %d mediasoup Workers...', numWorkers);
 
         let workers = new Array<MediasoupTypes.Worker>();
 
@@ -80,7 +84,7 @@ export class Mediasoup
             worker.on('died', () =>
             {
                 console.error(
-                    'mediasoup Worker died, exiting in 3 seconds... [pid:%d]', worker.pid);
+                    '[Mediasoup] mediasoup Worker died, exiting in 3 seconds... [pid:%d]', worker.pid);
 
                 setTimeout(() => process.exit(1), 3000);
             });
@@ -104,12 +108,17 @@ export class Mediasoup
     }
 
     // создать Router
-    public async createRouter(): Promise<MediasoupTypes.Router>
+    public async createRouter(codecChoice: VideoCodec): Promise<MediasoupTypes.Router>
     {
-        const routerOptions: MediasoupTypes.RouterOptions =
-        {
-            mediaCodecs: this.mediaCodecsConf
-        };
+        // сначала звуковой кодек opus
+        let mediaCodecs = new Array<MediasoupTypes.RtpCodecCapability>(this.audioCodecConf);
+
+        // теперь определяемся с кодеками для видео
+        if (codecChoice == VideoCodec.VP9) mediaCodecs.push(this.videoCodecVp9Conf);
+        else if (codecChoice == VideoCodec.VP8) mediaCodecs.push(this.videoCodecVp8Conf);
+        else if (codecChoice == VideoCodec.H264) mediaCodecs = mediaCodecs.concat(this.videoCodecsH264Conf);
+
+        const routerOptions: MediasoupTypes.RouterOptions = { mediaCodecs };
 
         const router = await this.getWorker().createRouter(routerOptions);
 
@@ -137,13 +146,13 @@ export class Mediasoup
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
         {
-            console.debug('> WebRtcTransport - icestatechange event: ', transport.iceSelectedTuple?.remoteIp, state);
+            console.debug('[Mediasoup] WebRtcTransport - icestatechange event: ', transport.iceSelectedTuple?.remoteIp, state);
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
         {
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
-                console.error('> WebRtcTransport - dtlsstatechange event: ', transport, dtlsstate);
+                console.error('[Mediasoup] WebRtcTransport - dtlsstatechange event: ', transport.iceSelectedTuple?.remoteIp, dtlsstate);
         });
 
         user.transports.set(transport.id, transport);
@@ -160,7 +169,7 @@ export class Mediasoup
         const { transportId, kind, rtpParameters } = newProducerInfo;
 
         if (!user.transports.has(transportId))
-            throw new Error(`transport with id "${transportId}" not found`);
+            throw new Error(`[Mediasoup] transport with id "${transportId}" not found`);
 
         const transport = user.transports.get(transportId)!;
 
@@ -187,7 +196,7 @@ export class Mediasoup
                 })
         )
         {
-            throw new Error(`User ${user} can't consume`);
+            throw new Error(`[Mediasoup] User ${user} can't consume`);
         }
 
         // берем Transport пользователя, предназначенный для потребления
@@ -196,7 +205,7 @@ export class Mediasoup
 
         if (!transport)
         {
-            throw new Error('Transport for consuming not found');
+            throw new Error('[Mediasoup] Transport for consuming not found');
         }
 
         // создаем Consumer в режиме паузы
@@ -212,7 +221,7 @@ export class Mediasoup
         }
         catch (error)
         {
-            throw new Error(`transport.consume(): ${error}`);
+            throw new Error(`[Mediasoup] transport.consume(): ${error}`);
         }
 
         // сохраняем Consumer у пользователя

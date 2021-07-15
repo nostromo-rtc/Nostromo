@@ -39,3 +39,10 @@ export type NewConsumerInfo = {
     kind: MediasoupTypes.MediaKind,
     rtpParameters: MediasoupTypes.RtpParameters
 };
+
+export const enum VideoCodec
+{
+    VP9 = 'VP9',
+    VP8 = 'VP8',
+    H264 = 'H264'
+}

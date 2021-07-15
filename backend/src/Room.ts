@@ -8,7 +8,8 @@ import
     JoinInfo,
     NewWebRtcTransportInfo,
     ConnectWebRtcTransportInfo,
-    NewProducerInfo
+    NewProducerInfo,
+    VideoCodec
 } from "shared/RoomTypes";
 
 export { RoomId };
@@ -58,18 +59,18 @@ export class Room
 
     public static async create(
         roomId: RoomId,
-        name: string, password: string,
+        name: string, password: string, videoCodec: VideoCodec,
         mediasoup: Mediasoup,
         socketHandler: SocketHandler
     )
     {
         // для каждой комнаты свой mediasoup router
-        const router = await mediasoup.createRouter();
+        const router = await mediasoup.createRouter(videoCodec);
 
         return new Room(
             roomId,
             name, password,
-            mediasoup, router,
+            mediasoup, router, videoCodec,
             socketHandler
         );
     }
@@ -77,11 +78,11 @@ export class Room
     private constructor(
         roomId: RoomId,
         name: string, password: string,
-        mediasoup: Mediasoup, mediasoupRouter: MediasoupTypes.Router,
+        mediasoup: Mediasoup, mediasoupRouter: MediasoupTypes.Router, videoCodec: VideoCodec,
         socketHandler: SocketHandler
     )
     {
-        console.log(`creating a new Room [${roomId}, ${name}]`);
+        console.log(`[Room] creating a new Room [#${roomId}, ${name}, ${videoCodec}]`);
 
         this._id = roomId;
         this._name = name;

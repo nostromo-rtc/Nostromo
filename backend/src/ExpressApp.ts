@@ -93,7 +93,8 @@ export class ExpressApp
         // открываем доступ к статике, т.е к css, js, картинки
         this.app.use('/admin', (req, res, next) =>
         {
-            if (req.ip == process.env.ALLOW_ADMIN_IP)
+            if ((req.ip == process.env.ALLOW_ADMIN_IP)
+                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
             {
                 express.static(frontend_dirname + "/static/admin/")(req, res, next);
             }
@@ -119,7 +120,8 @@ export class ExpressApp
 
     private adminRoute(req: express.Request, res: express.Response): void
     {
-        if (req.ip == process.env.ALLOW_ADMIN_IP)
+        if ((req.ip == process.env.ALLOW_ADMIN_IP)
+            || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
         {
             if (!req.session.admin)
             {
