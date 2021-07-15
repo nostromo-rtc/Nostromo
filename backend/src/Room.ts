@@ -103,7 +103,7 @@ export class Room
     // пользователь заходит в комнату
     public join(socket: SocketWrapper): void
     {
-        console.log(`[${this._id}, ${this._name}]: ${socket.id} user connected`);
+        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} user connected`);
         this._users.set(socket.id, new User(socket.id));
 
         let user: User = this.users.get(socket.id)!;
@@ -242,7 +242,7 @@ export class Room
     )
     {
         if (!user.transports.has(transportId))
-            throw new Error(`transport with id "${transportId}" not found`);
+            throw new Error(`[Room] transport with id "${transportId}" not found`);
 
         const transport = user.transports.get(transportId)!;
         const iceParameters = await transport.restartIce();
@@ -329,7 +329,7 @@ export class Room
         }
         catch (error)
         {
-            console.error('> createConsumer() error | ', error);
+            console.error('[Room] createConsumer() error | ', error);
         }
     }
 
@@ -391,7 +391,7 @@ export class Room
         const { transportId, dtlsParameters } = connectWebRtcTransportInfo;
 
         if (!user.transports.has(transportId))
-            throw new Error(`transport with id "${transportId}" not found`);
+            throw new Error(`[Room] transport with id "${transportId}" not found`);
 
         const transport = user.transports.get(transportId)!;
         await transport.connect({ dtlsParameters });
@@ -423,7 +423,7 @@ export class Room
         }
         catch (error)
         {
-            console.error('> createWebRtcTransport error: ', error);
+            console.error('[Room] createWebRtcTransport error: ', error);
         }
     }
 
@@ -432,7 +432,7 @@ export class Room
     {
         if (this._users.has(userId))
         {
-            console.log(`[${this._id}, ${this._name}]: ${userId} user disconnected`, reason);
+            console.log(`[#${this._id}, ${this._name}]: ${userId} user disconnected`, reason);
 
             const transports = this._users.get(userId)!.transports;
             for (const transport of transports.values())
@@ -447,7 +447,7 @@ export class Room
     // комната закрывается
     public close(): void
     {
-        console.log(`closing Room [${this._id}]`);
+        console.log(`[Room] closing Room [${this._id}]`);
         this.mediasoupRouter.close();
     }
 }

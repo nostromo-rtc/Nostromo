@@ -146,7 +146,7 @@ export class Mediasoup
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
         {
-            console.debug('[Mediasoup] WebRtcTransport - icestatechange event: ', transport.iceSelectedTuple?.remoteIp, state);
+            console.log('[Mediasoup] WebRtcTransport - icestatechange event: ', transport.iceSelectedTuple?.remoteIp, state);
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>

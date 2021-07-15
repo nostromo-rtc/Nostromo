@@ -83,7 +83,7 @@ async function main()
 
     // -- инициализация приложения -- //
     process.title = `WebRTC Server ${process.env.npm_package_version}`;
-    console.debug(`Version: ${process.env.npm_package_version}`);
+    console.log(`Version: ${process.env.npm_package_version}`);
 
     // создание класса-обработчика mediasoup
     const mediasoup = await Mediasoup.create(1);
