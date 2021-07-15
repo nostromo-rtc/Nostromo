@@ -49,6 +49,7 @@
     font-size: 1.2vw;
     opacity: 85%;
     max-width: 95%;
+    z-index: 1;
 }
 
 .videoItem {
