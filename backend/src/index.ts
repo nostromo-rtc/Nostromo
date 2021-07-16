@@ -82,7 +82,7 @@ async function main()
     addTimestampsToConsoleLogs();
 
     // -- инициализация приложения -- //
-    process.title = `WebRTC Server ${process.env.npm_package_version}`;
+    process.title = `webrtc-server-${process.env.npm_package_version}`;
     console.log(`Version: ${process.env.npm_package_version}`);
 
     // создание класса-обработчика mediasoup
