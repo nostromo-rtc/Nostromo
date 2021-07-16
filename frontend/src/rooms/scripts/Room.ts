@@ -18,7 +18,8 @@ import
     NewWebRtcTransportInfo,
     ConnectWebRtcTransportInfo,
     NewProducerInfo,
-    CloseConsumerInfo
+    CloseConsumerInfo,
+    ChatMsgInfo
 } from "shared/RoomTypes";
 
 // класс - комната
@@ -146,6 +147,14 @@ export class Room
             this.ui.updateChatOption(id, name);
         });
 
+        // сообщение в чат
+        this.socket.on('chatMsg', ({ name, msg }: ChatMsgInfo) =>
+        {
+            const timestamp = this.getTimestamp();
+            this.ui.chat.innerHTML += `[${timestamp}] (Общий) Собеседник ${name}: ${msg}` + "\n";
+            this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
+        });
+
         // новый consumer (новый входящий медиапоток)
         this.socket.on('newConsumer', async (newConsumerInfo: NewConsumerInfo) =>
         {
@@ -181,27 +190,47 @@ export class Room
             this.users.clear();
         });
 
-        // обработка личных чатов
+        // обработка чатов
         this.ui.buttons.get('sendMessage')!.addEventListener('click', () =>
         {
-            if (this.ui.currentChatOption != "default")
+            /*if (this.ui.currentChatOption != "default")
             {
                 const receiverId = this.ui.currentChatOption;
+            }*/
+            const message: string = this.ui.messageText.value.toString().trim();
+
+            if (message)
+            {
+                const timestamp = this.getTimestamp();
+                this.ui.chat.innerHTML += `[${timestamp}] (Общий) Я: ${message}` + "\n";
+                this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
+                this.socket.emit('chatMsg', message);
             }
         });
 
-        this.ui.buttons.get('sendFile')!.addEventListener('click', () =>
+        /*this.ui.buttons.get('sendFile')!.addEventListener('click', () =>
         {
             if (this.ui.currentChatOption != "default")
             {
                 const receiverId = this.ui.currentChatOption;
             }
-        });
+        });*/
 
         document.addEventListener('beforeunload', () =>
         {
             this.socket.close();
         });
+    }
+
+    private getTimestamp()
+    {
+        const timestamp = (new Date).toLocaleString("en-us", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false
+        });
+        return timestamp;
     }
 
     // обработка нажатий на кнопки

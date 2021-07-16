@@ -45,6 +45,11 @@ export type CloseConsumerInfo = {
     producerUserId: SocketId
 };
 
+export type ChatMsgInfo = {
+    name: string,
+    msg: string
+}
+
 export const enum VideoCodec
 {
     VP9 = 'VP9',

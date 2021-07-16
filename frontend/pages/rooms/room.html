@@ -38,7 +38,7 @@
         <section id="chatSection">
             <span>Чат:</span>
             <textarea id="chat" readonly></textarea>
-            <p>Выбор собеседника:
+            <p hidden>Выбор собеседника:
                 <select id="chatOptions">
                     <option disabled selected value="default">не выбрано...</option>
                 </select>
@@ -48,7 +48,7 @@
                 <button id="btn_sendMessage" accesskey="enter" autofocus>Отправить</button>
             </div>
         </section>
-        <section id="fileSection">
+        <section id="fileSection" hidden>
             <span>Отправка файлов:</span>
             <form id="fileInfo">
                 <input type="file" id="fileInput" name="files" />

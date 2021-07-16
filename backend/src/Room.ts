@@ -10,7 +10,8 @@ import
     ConnectWebRtcTransportInfo,
     NewProducerInfo,
     VideoCodec,
-    CloseConsumerInfo
+    CloseConsumerInfo,
+    ChatMsgInfo
 } from "shared/RoomTypes";
 
 export { RoomId };
@@ -202,6 +203,15 @@ export class Room
         socket.on('newUsername', (username: string) =>
         {
             this.joinEvNewUsername(socket, session, username);
+        });
+
+        socket.on('chatMsg', (msg: string) =>
+        {
+            const chatMsgInfo: ChatMsgInfo = {
+                name: socket.handshake.session!.username!,
+                msg: msg.trim()
+            };
+            socket.to(this.id).emit('chatMsg', chatMsgInfo);
         });
 
         // пользователь отсоединился
