@@ -17,7 +17,8 @@ import
     NewConsumerInfo,
     NewWebRtcTransportInfo,
     ConnectWebRtcTransportInfo,
-    NewProducerInfo
+    NewProducerInfo,
+    CloseConsumerInfo
 } from "shared/RoomTypes";
 
 // класс - комната
@@ -77,6 +78,49 @@ export class Room
             this.createSendTransport(transport);
         });
 
+        // на сервере закрылся транспорт, поэтому надо закрыть его и здесь
+        this.socket.on('closeTransport', (transportId: string) =>
+        {
+            if (this.mediasoup.sendTransport?.id == transportId)
+                this.mediasoup.sendTransport.close();
+
+            if (this.mediasoup.recvTransport?.id == transportId)
+                this.mediasoup.recvTransport.close();
+        });
+
+        // на сервере закрылся producer (так как закрылся транспорт),
+        // поэтому надо закрыть его и здесь
+        this.socket.on('closeProducer', (producerId: string) =>
+        {
+            const producer = this.mediasoup.producers.get(producerId);
+
+            if (producer)
+            {
+                producer.close();
+                this.mediasoup.producers.delete(producerId);
+            }
+        });
+
+        // на сервере закрылся consumer (так как закрылся транспорт или producer на сервере),
+        // поэтому надо закрыть его и здесь
+        this.socket.on('closeConsumer', ({ consumerId, producerUserId }: CloseConsumerInfo) =>
+        {
+            const consumer = this.mediasoup.consumers.get(consumerId);
+
+            if (consumer)
+            {
+
+                this.users.get(producerUserId)?.removeTrack(consumer.track);
+
+                if (consumer.track.kind == 'video')
+                    this.ui.allVideos.get(producerUserId)?.load();
+
+                consumer.close();
+
+                this.mediasoup.consumers.delete(consumerId);
+            }
+        });
+
         // получаем название комнаты
         this.socket.on('roomName', (roomName: string) =>
         {
@@ -131,7 +175,9 @@ export class Room
             {
                 this.ui.removeVideo(userId);
             }
-            this.ui.localVideo!.srcObject = null;
+
+            this.mediasoup.closeAll();
+
             this.users.clear();
         });
 
@@ -290,8 +336,8 @@ export class Room
         // если consumer не удалось создать
         if (!consumer) return;
 
-        // если удалось, то сообщаем об этом серверу
-        this.socket.emit('consumerReady', consumer.id);
+        // если удалось, то сообщаем об этом серверу, чтобы он снял с паузы consumer
+        this.socket.emit('resumeConsumer', consumer.id);
 
         const media: MediaStream = this.users.get(newConsumerInfo.producerUserId)!;
 
@@ -319,5 +365,45 @@ export class Room
             .find((producer) => producer.track!.id == oldTrackId);
 
         if (producer) producer.replaceTrack({ track });
+    }
+
+    // удалить медиапоток (дорожку) из подключения
+    public async removeMediaStreamTrack(trackId: string): Promise<void>
+    {
+        const producer = Array.from(this.mediasoup.producers.values())
+            .find((producer) => producer.track!.id == trackId);
+
+        if (producer)
+        {
+            producer.close();
+            this.mediasoup.producers.delete(producer.id);
+            this.socket.emit('closeProducer', producer.id);
+        }
+    }
+
+    // поставить медиапоток (дорожку) на паузу
+    public async pauseMediaStreamTrack(trackId: string): Promise<void>
+    {
+        const producer = Array.from(this.mediasoup.producers.values())
+            .find((producer) => producer.track!.id == trackId);
+
+        if (producer)
+        {
+            producer.pause();
+            this.socket.emit('pauseProducer', producer.id);
+        }
+    }
+
+    // снять медиапоток (дорожку) с паузы
+    public async resumeMediaStreamTrack(trackId: string): Promise<void>
+    {
+        const producer = Array.from(this.mediasoup.producers.values())
+            .find((producer) => producer.track!.id == trackId);
+
+        if (producer)
+        {
+            producer.resume();
+            this.socket.emit('resumeProducer', producer.id);
+        }
     }
 }

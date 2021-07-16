@@ -9,7 +9,8 @@ import
     NewWebRtcTransportInfo,
     ConnectWebRtcTransportInfo,
     NewProducerInfo,
-    VideoCodec
+    VideoCodec,
+    CloseConsumerInfo
 } from "shared/RoomTypes";
 
 export { RoomId };
@@ -115,13 +116,6 @@ export class Room
         // сообщаем пользователю RTP возможности (кодеки) сервера
         socket.emit('routerRtpCapabilities', this.routerRtpCapabilities);
 
-        // пользователь заходит в комнату (т.е уже создал транспортные каналы)
-        // и готов к получению потоков (готов к получению consumers)
-        socket.once('join', async (joinInfo: JoinInfo) =>
-        {
-            await this.joinEvJoin(user, socket, session, joinInfo);
-        });
-
         // создание транспортного канала на сервере (с последующей отдачей информации о канале клиенту)
         socket.on('createWebRtcTransport', async (consuming: boolean) =>
         {
@@ -136,19 +130,66 @@ export class Room
             await this.joinEvConnectWebRtcTransport(user, connectWebRtcTransportInfo);
         });
 
+        // пользователь заходит в комнату (т.е уже создал транспортные каналы)
+        // и готов к получению потоков (готов к получению consumers)
+        socket.once('join', async (joinInfo: JoinInfo) =>
+        {
+            await this.joinEvJoin(user, socket, session, joinInfo);
+        });
+
+        // потребитель (Consumer) готов к работе у клиента
+        // и его необходимо снять с паузы на сервере
+        socket.on('resumeConsumer', async (consumerId: string) =>
+        {
+            const consumer = user.consumers.get(consumerId);
+
+            if (!consumer)
+                throw new Error(`[Room] producer with id "${consumerId}" not found`);
+
+            await consumer.resume();
+        });
+
+
         // создание нового producer
         socket.on('newProducer', async (newProducerInfo: NewProducerInfo) =>
         {
             await this.createProducer(user, socket, newProducerInfo);
         });
 
-        // потребитель (Consumer) готов к работе у клиента
-        // и его необходимо снять с паузы на сервере
-        socket.on('consumerReady', async (consumerId: string) =>
+        // клиент закрывает producer
+        socket.on('closeProducer', async (producerId: string) =>
         {
-            await this.users.get(socket.id)
-                ?.consumers.get(consumerId)
-                ?.resume();
+            const producer = user.producers.get(producerId);
+
+            if (!producer)
+                throw new Error(`[Room] producer with id "${producerId}" not found`);
+
+            producer.close();
+
+            // удаляем из контейнера
+            user.producers.delete(producerId);
+        });
+
+        // клиент ставит producer на паузу (например, временно выключает микрофон)
+        socket.on('pauseProducer', async (producerId: string) =>
+        {
+            const producer = user.producers.get(producerId);
+
+            if (!producer)
+                throw new Error(`[Room] producer with id "${producerId}" not found`);
+
+            await producer.pause();
+        });
+
+        // клиент снимает producer с паузы (например, включает микрофон обратно)
+        socket.on('resumeProducer', async (producerId: string) =>
+        {
+            const producer = user.producers.get(producerId);
+
+            if (!producer)
+                throw new Error(`[Room] producer with id "${producerId}" not found`);
+
+            await producer.resume();
         });
 
         // перезапуск ICE слоя (генерирование новых локальных ICE параметров и отдача их клиенту)
@@ -170,83 +211,56 @@ export class Room
         });
     }
 
-    private async createProducer(
+    // обработка события 'createWebRtcTransport' в методе join
+    private async joinEvCreateWebRtcTransport(
         user: User,
         socket: SocketWrapper,
-        newProducerInfo: NewProducerInfo
+        consuming: boolean
     )
     {
-        const producer = await this.mediasoup.createProducer(user, newProducerInfo);
-
-        // RTP stream score (от 0 до 10) означает качество передачи
-        producer.on('score', (score: MediasoupTypes.ProducerScore) =>
+        try
         {
-            socket.emit('producerScore', { producerId: producer.id, score });
-        });
+            const transport = await this.mediasoup.createWebRtcTransport(
+                user,
+                consuming,
+                this.mediasoupRouter
+            );
 
-        // перебираем всех пользователей, кроме текущего
-        // и создадим для них consumer
-        for (const anotherUser of this.users)
-        {
-            if (anotherUser[0] != socket.id)
+            transport.on('routerclose', () =>
             {
-                await this.createConsumer(
-                    anotherUser[1],
-                    socket.id,
-                    producer,
-                    this.socketHandler.getSocketById(anotherUser[0])
-                );
-            }
+                user.transports.delete(transport.id);
+
+                socket.emit('closeTransport', transport.id);
+            });
+
+            const info: NewWebRtcTransportInfo = {
+                id: transport.id,
+                iceParameters: transport.iceParameters,
+                iceCandidates: transport.iceCandidates as NewWebRtcTransportInfo['iceCandidates'],
+                dtlsParameters: transport.dtlsParameters
+            };
+
+            socket.emit(consuming ? 'createRecvTransport' : 'createSendTransport', info);
         }
-
-        socket.emit('newProducer', producer.id);
+        catch (error)
+        {
+            console.error('[Room] createWebRtcTransport error: ', error);
+        }
     }
 
-    // обработка события 'disconnect' в методе join
-    private joinEvDisconnect(
-        socket: SocketWrapper,
-        session: HandshakeSession,
-        reason: string
-    )
-    {
-        session.joined = false;
-        session.save();
-
-        this.leave(socket.id, reason);
-
-        this.socketHandler.emitTo(this.id, 'userDisconnected', socket.id);
-    }
-
-    // обработка события 'newUsername' в методе join
-    private joinEvNewUsername(
-        socket: SocketWrapper,
-        session: HandshakeSession,
-        username: string
-    )
-    {
-        session.username = username;
-
-        const userInfo: NewUserInfo = {
-            id: socket.id,
-            name: username
-        };
-
-        socket.to(this.id).emit('newUsername', userInfo);
-    }
-
-    // обработка события 'restartIce' в методе join
-    private async joinEvRestartIce(
+    // обработка события 'connectWebRtcTransport' в методе join
+    private async joinEvConnectWebRtcTransport(
         user: User,
-        socket: SocketWrapper,
-        transportId: string
+        connectWebRtcTransportInfo: ConnectWebRtcTransportInfo
     )
     {
+        const { transportId, dtlsParameters } = connectWebRtcTransportInfo;
+
         if (!user.transports.has(transportId))
             throw new Error(`[Room] transport with id "${transportId}" not found`);
 
         const transport = user.transports.get(transportId)!;
-        const iceParameters = await transport.restartIce();
-        socket.emit('restartIce', iceParameters);
+        await transport.connect({ dtlsParameters });
     }
 
     // обработка события 'join' в методе join
@@ -314,7 +328,7 @@ export class Room
             );
 
             // обрабатываем события у Consumer
-            this.handleConsumerEvents(consumer, user, socket);
+            this.handleConsumerEvents(consumer, user, producerUserId, socket);
 
             // сообщаем клиенту всю информацию об этом потребителе
             const newConsumer: NewConsumerInfo = {
@@ -337,30 +351,27 @@ export class Room
     private handleConsumerEvents(
         consumer: MediasoupTypes.Consumer,
         user: User,
+        producerUserId: SocketId,
         socket: SocketWrapper
     ): void
     {
         consumer.on('transportclose', () =>
         {
-            // удаляем у юзера Consumer
             user.consumers.delete(consumer.id);
+
+            socket.emit('closeConsumer', consumer.id);
         });
 
         consumer.on('producerclose', () =>
         {
             user.consumers.delete(consumer.id);
 
-            socket.emit('consumerClosed', consumer.id);
-        });
+            const closeConsumerInfo: CloseConsumerInfo = {
+                consumerId: consumer.id,
+                producerUserId
+            };
 
-        consumer.on('producerpause', () =>
-        {
-            socket.emit('consumerPaused', consumer.id);
-        });
-
-        consumer.on('producerresume', () =>
-        {
-            socket.emit('consumerResumed', consumer.id);
+            socket.emit('closeConsumer', closeConsumerInfo);
         });
 
         // RTP stream score (от 0 до 10) означает качество передачи
@@ -382,49 +393,91 @@ export class Room
         });
     }
 
-    // обработка события 'connectWebRtcTransport' в методе join
-    private async joinEvConnectWebRtcTransport(
+    private async createProducer(
         user: User,
-        connectWebRtcTransportInfo: ConnectWebRtcTransportInfo
+        socket: SocketWrapper,
+        newProducerInfo: NewProducerInfo
     )
     {
-        const { transportId, dtlsParameters } = connectWebRtcTransportInfo;
+        const producer = await this.mediasoup.createProducer(user, newProducerInfo);
 
+        // RTP stream score (от 0 до 10) означает качество передачи
+        producer.on('score', (score: MediasoupTypes.ProducerScore) =>
+        {
+            socket.emit('producerScore', { producerId: producer.id, score });
+        });
+
+        producer.on('transportclose', () =>
+        {
+
+            user.producers.delete(producer.id);
+
+            socket.emit('closeProducer', producer.id);
+        });
+
+        // перебираем всех пользователей, кроме текущего
+        // и создадим для них consumer
+        for (const anotherUser of this.users)
+        {
+            if (anotherUser[0] != socket.id)
+            {
+                await this.createConsumer(
+                    anotherUser[1],
+                    socket.id,
+                    producer,
+                    this.socketHandler.getSocketById(anotherUser[0])
+                );
+            }
+        }
+
+        socket.emit('newProducer', producer.id);
+    }
+
+    // обработка события 'disconnect' в методе join
+    private joinEvDisconnect(
+        socket: SocketWrapper,
+        session: HandshakeSession,
+        reason: string
+    )
+    {
+        session.joined = false;
+        session.save();
+
+        this.leave(socket.id, reason);
+
+        this.socketHandler.emitTo(this.id, 'userDisconnected', socket.id);
+    }
+
+    // обработка события 'newUsername' в методе join
+    private joinEvNewUsername(
+        socket: SocketWrapper,
+        session: HandshakeSession,
+        username: string
+    )
+    {
+        session.username = username;
+
+        const userInfo: NewUserInfo = {
+            id: socket.id,
+            name: username
+        };
+
+        socket.to(this.id).emit('newUsername', userInfo);
+    }
+
+    // обработка события 'restartIce' в методе join
+    private async joinEvRestartIce(
+        user: User,
+        socket: SocketWrapper,
+        transportId: string
+    )
+    {
         if (!user.transports.has(transportId))
             throw new Error(`[Room] transport with id "${transportId}" not found`);
 
         const transport = user.transports.get(transportId)!;
-        await transport.connect({ dtlsParameters });
-    }
-
-    // обработка события 'createWebRtcTransport' в методе join
-    private async joinEvCreateWebRtcTransport(
-        user: User,
-        socket: SocketWrapper,
-        consuming: boolean
-    )
-    {
-        try
-        {
-            const transport = await this.mediasoup.createWebRtcTransport(
-                user,
-                consuming,
-                this.mediasoupRouter
-            );
-
-            const info: NewWebRtcTransportInfo = {
-                id: transport.id,
-                iceParameters: transport.iceParameters,
-                iceCandidates: transport.iceCandidates as NewWebRtcTransportInfo['iceCandidates'],
-                dtlsParameters: transport.dtlsParameters
-            };
-
-            socket.emit(consuming ? 'createRecvTransport' : 'createSendTransport', info);
-        }
-        catch (error)
-        {
-            console.error('[Room] createWebRtcTransport error: ', error);
-        }
+        const iceParameters = await transport.restartIce();
+        socket.emit('restartIce', iceParameters);
     }
 
     // пользователь покидает комнату

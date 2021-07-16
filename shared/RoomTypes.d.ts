@@ -40,6 +40,11 @@ export type NewConsumerInfo = {
     rtpParameters: MediasoupTypes.RtpParameters
 };
 
+export type CloseConsumerInfo = {
+    consumerId: MediasoupTypes.Consumer['id'],
+    producerUserId: SocketId
+};
+
 export const enum VideoCodec
 {
     VP9 = 'VP9',

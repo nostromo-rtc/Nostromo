@@ -23,6 +23,9 @@ export class Mediasoup
     private _recvTransport?: MediasoupTypes.Transport | undefined;
     public get recvTransport(): MediasoupTypes.Transport | undefined { return this._recvTransport; }
 
+    private _consumers = new Map<string, MediasoupTypes.Consumer>();
+    public get consumers() { return this._consumers; };
+
     private _producers = new Map<string, MediasoupTypes.Producer>();
     public get producers() { return this._producers; }
 
@@ -95,6 +98,8 @@ export class Mediasoup
                 kind,
                 rtpParameters
             });
+
+            this.consumers.set(consumer.id, consumer);
         }
         catch (error)
         {
@@ -104,4 +109,24 @@ export class Mediasoup
         return consumer;
     }
 
+    public closeAll(): void
+    {
+        // удаляем producers
+        for (const producer of this.producers.values())
+        {
+            producer.close();
+        }
+        this.producers.clear();
+
+        // удаляем consumers
+        for (const consumer of this.consumers.values())
+        {
+            consumer.close();
+        }
+        this.consumers.clear();
+
+        // закрываем транспортные каналы
+        this._sendTransport?.close();
+        this._recvTransport?.close();
+    }
 }

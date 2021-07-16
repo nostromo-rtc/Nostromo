@@ -79,6 +79,7 @@ export class UI
         let buttons = new Map<string, HTMLButtonElement>();
 
         buttons.set('getUserMediaMic',  document.getElementById('btn_getUserMediaMic')  as HTMLButtonElement);
+        buttons.set('toggleMic',        document.getElementById('btn_toggleMic')        as HTMLButtonElement);
         buttons.set('getUserMediaCam',  document.getElementById('btn_getUserMediaCam')  as HTMLButtonElement);
         buttons.set('getDisplayMedia',  document.getElementById('btn_getDisplayMedia')  as HTMLButtonElement);
         buttons.set('sendMessage',      document.getElementById('btn_sendMessage')      as HTMLButtonElement);
