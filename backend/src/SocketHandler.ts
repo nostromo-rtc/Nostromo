@@ -54,12 +54,12 @@ export class SocketWrapper
         return this.socket.emit(ev, ...args);
     }
 
-    public on(event: string | symbol, listener: (...args: any[]) => void): SocketIO.Socket
+    public on(event: string, listener: (...args: any[]) => void): SocketIO.Socket
     {
         return this.socket.on(event, listener);
     }
 
-    public once(event: string | symbol, listener: (...args: any[]) => void): SocketIO.Socket
+    public once(event: string, listener: (...args: any[]) => void): SocketIO.Socket
     {
         return this.socket.once(event, listener);
     }
@@ -84,7 +84,7 @@ export class SocketHandler
         return new SocketIO.Server(server, {
             transports: ['websocket'],
             pingInterval: 2000,
-            pingTimeout: 14000,
+            pingTimeout: 20000,
             serveClient: false
         });
     }
@@ -294,7 +294,7 @@ export class SocketHandler
         return new SocketWrapper(this.io.of('/room').sockets.get(id)!);
     }
 
-    public emitTo(name: string, ev: string | symbol, ...args: any[]): boolean
+    public emitTo(name: string, ev: string, ...args: any[]): boolean
     {
         return this.io.of('/room').to(name).emit(ev, ...args);
     }
