@@ -45,10 +45,10 @@ export default class adminSocketHandler
 
         if (!this.onAuthPage())
         {
-            this.socket.on('roomList', (roomList: Room[], roomsIdCount: number) =>
+            this.socket.on('roomList', (roomList: Room[], roomIndex: number) =>
             {
                 this.setRoomList(roomList);
-                this.latestRoomId = roomsIdCount;
+                this.latestRoomId = roomIndex;
             });
             const btn_createRoom = document.getElementById('btn_createRoom')! as HTMLButtonElement;
             const btn_deleteRoom = document.getElementById('btn_deleteRoom')! as HTMLButtonElement;

@@ -81,6 +81,7 @@ export class Room
         this.socket.on('roomName', (roomName: string) =>
         {
             this.ui.roomName = roomName;
+            document.title += ' - ' + roomName;
         });
 
         // новый пользователь (т.е другой)

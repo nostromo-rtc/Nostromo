@@ -115,7 +115,11 @@ async function main()
         console.log(`Https server running on port: ${port}`);
     });
 
-    const socketHandlerInstance = new SocketHandler(server, Express.sessionMiddleware, mediasoup, rooms);
+    const socketHandlerInstance = new SocketHandler(
+        server,
+        Express.sessionMiddleware,
+        mediasoup, rooms, 0
+    );
 
     // создаем тестовую комнату
     await initTestRoom(mediasoup, socketHandlerInstance, rooms);

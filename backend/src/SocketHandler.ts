@@ -79,6 +79,8 @@ export class SocketHandler
     private mediasoup: Mediasoup;
     private rooms: Map<RoomId, Room>;
 
+    private roomIndex: number;
+
     private createSocketServer(server: https.Server): SocketIO.Server
     {
         return new SocketIO.Server(server, {
@@ -89,13 +91,19 @@ export class SocketHandler
         });
     }
 
-    constructor(server: https.Server, sessionMiddleware: RequestHandler, mediasoup: Mediasoup, rooms: Map<RoomId, Room>)
+    constructor(
+        server: https.Server,
+        sessionMiddleware: RequestHandler,
+        mediasoup: Mediasoup,
+        rooms: Map<RoomId, Room>,
+        roomIndex: number)
     {
         this.io = this.createSocketServer(server);
 
         this.sessionMiddleware = sessionMiddleware;
         this.mediasoup = mediasoup;
         this.rooms = rooms;
+        this.roomIndex = roomIndex;
 
         // [Главная страница]
         this.io.of('/').on('connection', (socket: Socket) =>
@@ -162,17 +170,25 @@ export class SocketHandler
             }
             else
             {
-                socket.emit('roomList', this.getRoomList(), this.rooms.size);
+                socket.emit('roomList', this.getRoomList(), this.roomIndex);
 
                 socket.on('deleteRoom', (id: RoomId) =>
                 {
                     this.removeRoom(id);
+                    this.io.of('/').emit('deletedRoom', id);
                 });
 
                 socket.on('createRoom', async (info: NewRoomInfo) =>
                 {
-                    const roomId: RoomId = String(this.rooms.size);
+                    const roomId: RoomId = String(++this.roomIndex);
                     await this.createRoom(roomId, info);
+
+                    const roomInfo: RoomForUser = {
+                        id: roomId,
+                        name: info.name
+                    };
+
+                    this.io.of('/').emit('newRoom', roomInfo);
                 });
             }
         });
