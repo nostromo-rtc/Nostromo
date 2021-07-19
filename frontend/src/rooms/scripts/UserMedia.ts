@@ -36,20 +36,14 @@ export class UserMedia
         this.parent = _parent;  // родительский класс
         this.captureConstraints = this.prepareCaptureConstraints();
 
-        // подключаем медиапоток к HTML-элементу <video> (localVideo)
-        this.ui.localVideo!.srcObject = this.stream;
-
-        this.ui.buttons.get('getUserMediaMic')!.addEventListener('click', () =>
-        {
-            this.getUserMedia(this.streamConstraintsMic);
-            this.ui.buttons.get('toggleMic')!.hidden = false;
-        });
+        this.ui.buttons.get('getUserMediaMic')!.addEventListener('click',
+            async () => await this.getUserMedia(this.streamConstraintsMic));
 
         this.ui.buttons.get('getUserMediaCam')!.addEventListener('click',
-            () => this.getUserMedia(this.streamConstraintsCam));
+            async () => await this.getUserMedia(this.streamConstraintsCam));
 
         this.ui.buttons.get('getDisplayMedia')!.addEventListener('click',
-            () => this.getDisplayMedia());
+            async () => await this.getDisplayMedia());
 
         this.ui.buttons.get('toggleMic')!.addEventListener('click',
             () => this.toggleMic());
@@ -67,6 +61,7 @@ export class UserMedia
             console.debug("> [UserMedia] getUserMedia success:", mediaStream);
 
             await this.handleMediaStream(mediaStream);
+            this.ui.buttons.get('toggleMic')!.hidden = false;
         }
         catch (error) // -- в случае ошибки -- //
         {
@@ -112,6 +107,10 @@ export class UserMedia
             }
 
             this.stream.addTrack(newTrack);
+
+            // подключаем медиапоток к HTML-элементу <video> (localVideo)
+            if (!this.ui.localVideo!.srcObject)
+                this.ui.localVideo!.srcObject = this.stream;
 
             // если не было
             if (!presentMedia)

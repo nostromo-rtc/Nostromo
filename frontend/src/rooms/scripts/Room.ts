@@ -158,7 +158,7 @@ export class Room
         // новый consumer (новый входящий медиапоток)
         this.socket.on('newConsumer', async (newConsumerInfo: NewConsumerInfo) =>
         {
-            this.newConsumer(newConsumerInfo);
+            await this.newConsumer(newConsumerInfo);
         });
 
         // ошибка при соединении нашего веб-сокета
@@ -170,7 +170,7 @@ export class Room
         // другой пользователь отключился
         this.socket.on('userDisconnected', (remoteUserId: SocketId) =>
         {
-            console.info("SocketHandler > remoteUser disconnected:", `[${remoteUserId}]`);
+            console.info("[Room] > remoteUser disconnected:", `[${remoteUserId}]`);
             this.ui.removeVideo(remoteUserId);
             this.users.delete(remoteUserId);
         });
@@ -222,7 +222,7 @@ export class Room
         });
     }
 
-    private getTimestamp()
+    private getTimestamp() : string
     {
         const timestamp = (new Date).toLocaleString("en-us", {
             hour: "2-digit",
@@ -244,7 +244,7 @@ export class Room
     }
 
     // получение rtpCapabilities сервера и инициализация ими mediasoup device
-    private async routerRtpCapabilities(routerRtpCapabilities: MediasoupTypes.RtpCapabilities)
+    private async routerRtpCapabilities(routerRtpCapabilities: MediasoupTypes.RtpCapabilities): Promise<void>
     {
         await this.mediasoup.loadDevice(routerRtpCapabilities);
 
@@ -257,7 +257,7 @@ export class Room
     }
 
     // обработка общих событий для входящего и исходящего транспортных каналов
-    private handleCommonTransportEvents(localTransport: MediasoupTypes.Transport)
+    private handleCommonTransportEvents(localTransport: MediasoupTypes.Transport): void
     {
         localTransport.on('connect', (
             { dtlsParameters }, callback, errback
@@ -326,7 +326,7 @@ export class Room
     }
 
     // обработка событий исходящего транспортного канала
-    private handleSendTransportEvents(localTransport: MediasoupTypes.Transport)
+    private handleSendTransportEvents(localTransport: MediasoupTypes.Transport): void
     {
         localTransport.on('produce', (
             parameters: TransportProduceParameters, callback, errback
@@ -358,7 +358,7 @@ export class Room
     }
 
     // новый входящий медиапоток
-    private async newConsumer(newConsumerInfo: NewConsumerInfo)
+    private async newConsumer(newConsumerInfo: NewConsumerInfo): Promise<void>
     {
         const consumer = await this.mediasoup.newConsumer(newConsumerInfo);
 
@@ -393,11 +393,11 @@ export class Room
         const producer = Array.from(this.mediasoup.producers.values())
             .find((producer) => producer.track!.id == oldTrackId);
 
-        if (producer) producer.replaceTrack({ track });
+        if (producer) await producer.replaceTrack({ track });
     }
 
     // удалить медиапоток (дорожку) из подключения
-    public async removeMediaStreamTrack(trackId: string): Promise<void>
+    public removeMediaStreamTrack(trackId: string): void
     {
         const producer = Array.from(this.mediasoup.producers.values())
             .find((producer) => producer.track!.id == trackId);
@@ -411,7 +411,7 @@ export class Room
     }
 
     // поставить медиапоток (дорожку) на паузу
-    public async pauseMediaStreamTrack(trackId: string): Promise<void>
+    public pauseMediaStreamTrack(trackId: string): void
     {
         const producer = Array.from(this.mediasoup.producers.values())
             .find((producer) => producer.track!.id == trackId);
@@ -424,7 +424,7 @@ export class Room
     }
 
     // снять медиапоток (дорожку) с паузы
-    public async resumeMediaStreamTrack(trackId: string): Promise<void>
+    public resumeMediaStreamTrack(trackId: string): void
     {
         const producer = Array.from(this.mediasoup.producers.values())
             .find((producer) => producer.track!.id == trackId);
