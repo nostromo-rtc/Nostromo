@@ -61,7 +61,9 @@ export class UserMedia
             console.debug("> [UserMedia] getUserMedia success:", mediaStream);
 
             await this.handleMediaStream(mediaStream);
-            this.ui.buttons.get('toggleMic')!.hidden = false;
+
+            if (streamConstraints.audio)
+                this.ui.buttons.get('toggleMic')!.hidden = false;
         }
         catch (error) // -- в случае ошибки -- //
         {
