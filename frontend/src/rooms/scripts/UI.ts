@@ -1,3 +1,4 @@
+import videojs from 'video.js';
 // Класс для работы с интерфейсом (веб-страница)
 export class UI
 {
@@ -48,7 +49,7 @@ export class UI
 
     // поле для ввода имени пользователя
     private _usernameInput = document.getElementById('usernameInput') as HTMLInputElement;
-    public get usernameInputValue() : string { return this._usernameInput.value; }
+    public get usernameInputValue(): string { return this._usernameInput.value; }
 
     // количество строк и столбцов в раскладке
     private videoRows = 2;
@@ -60,8 +61,8 @@ export class UI
     constructor()
     {
         console.debug('UI ctor');
-        this.prepareLocalVideo();
         this.prepareMessageText();
+        this.prepareLocalVideo();
         this.resizeVideos();
         window.addEventListener('resize', () => this.resizeVideos());
         this._buttons.get('enableSounds')!.addEventListener('click', () => this.enableSounds());
@@ -130,7 +131,7 @@ export class UI
     }
 
     // добавить новый видеоэлемент собеседника
-    public addVideo(remoteVideoId: string, name: string, mediaStream : MediaStream): void
+    public addVideo(remoteVideoId: string, name: string, mediaStream: MediaStream): void
     {
         let newVideoItem = document.createElement('div');
         newVideoItem.classList.add('videoItem');
@@ -141,17 +142,26 @@ export class UI
         videoLabel.id = `remoteVideoLabel-${remoteVideoId}`;
         newVideoItem.appendChild(videoLabel);
 
-        let newVideoContainer = document.createElement('div');
-        newVideoContainer.classList.add('videoContainer');
-        newVideoItem.appendChild(newVideoContainer);
 
         let newVideo = document.createElement('video');
         newVideo.id = `remoteVideo-${remoteVideoId}`;
+        newVideo.classList.add('video-js');
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
         newVideo.poster = './images/novideodata.jpg';
         newVideo.srcObject = mediaStream;
-        newVideoContainer.appendChild(newVideo);
+
+        newVideoItem.appendChild(newVideo);
+
+        setTimeout(videojs, 0, `remoteVideo-${remoteVideoId}`, {
+            controls: true,
+            aspectRatio: '16:9',
+            fluid: true
+        }, () =>
+        {
+            let playerDiv = document.getElementById(`remoteVideo-${remoteVideoId}`)!;
+            playerDiv.classList.add('videoContainer');
+        });
 
         document.getElementById('videos')!.appendChild(newVideoItem);
         this._allVideos.set(remoteVideoId, newVideo);
@@ -252,23 +262,31 @@ export class UI
         let localVideoItem = document.createElement('div');
         localVideoItem.classList.add('videoItem');
 
-        let localVideoContainer = document.createElement('div');
-        localVideoContainer.classList.add('videoContainer');
-        localVideoItem.appendChild(localVideoContainer);
         localVideoItem.appendChild(this.localVideoLabel);
 
         let localVideo = document.createElement('video');
-        localVideo.id = `localVideo`;
+        localVideo.id = 'localVideo';
+        localVideo.classList.add('video-js');
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.poster = './images/novideodata.jpg';
-        localVideoContainer.appendChild(localVideo);
 
+        localVideoItem.appendChild(localVideo);
+
+        setTimeout(videojs, 0, 'localVideo', {
+            controls: true,
+            fluid: true,
+            aspectRatio: '16:9'
+        }, () =>
+        {
+            let playerDiv = document.getElementById('localVideo')!;
+            playerDiv.classList.add('videoContainer');
+        });
         document.getElementById('videos')!.appendChild(localVideoItem);
         this._allVideos.set('localVideo', localVideo);
     }
 
-    private prepareLocalVideoLabel() : HTMLSpanElement
+    private prepareLocalVideoLabel(): HTMLSpanElement
     {
         let label = document.createElement('span');
         label.classList.add('videoLabel');
