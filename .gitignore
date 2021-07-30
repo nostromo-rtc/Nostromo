@@ -19,3 +19,4 @@ frontend/static/**/*.js
 # other
 *.bat
 *.exe
+log.txt

@@ -105,11 +105,13 @@ export class Room
     // пользователь заходит в комнату
     public join(socket: SocketWrapper): void
     {
-        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} user connected`);
+        let session = socket.handshake.session;
+        if (!session) throw `[Room] Error: session is missing (${socket.id})`;
+
+        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} (${session.username}) user connected`);
         this._users.set(socket.id, new User(socket.id));
 
         let user: User = this.users.get(socket.id)!;
-        let session = socket.handshake.session!;
 
         // сообщаем пользователю название комнаты
         socket.emit('roomName', this.name);
@@ -135,7 +137,7 @@ export class Room
         // и готов к получению потоков (готов к получению consumers)
         socket.once('join', async (joinInfo: JoinInfo) =>
         {
-            await this.joinEvJoin(user, socket, session, joinInfo);
+            await this.joinEvJoin(user, socket, session!, joinInfo);
         });
 
         // потребитель (Consumer) готов к работе у клиента
@@ -202,7 +204,7 @@ export class Room
         // новый ник пользователя
         socket.on('newUsername', (username: string) =>
         {
-            this.joinEvNewUsername(socket, session, username);
+            this.joinEvNewUsername(socket, session!, username);
         });
 
         socket.on('chatMsg', (msg: string) =>
@@ -217,7 +219,7 @@ export class Room
         // пользователь отсоединился
         socket.on('disconnect', (reason: string) =>
         {
-            this.joinEvDisconnect(socket, session, reason);
+            this.joinEvDisconnect(socket, session!, reason);
         });
     }
 
@@ -453,7 +455,7 @@ export class Room
         session.joined = false;
         session.save();
 
-        this.leave(socket.id, reason);
+        this.leave(socket, reason);
 
         this.socketHandler.emitTo(this.id, 'userDisconnected', socket.id);
     }
@@ -491,19 +493,19 @@ export class Room
     }
 
     // пользователь покидает комнату
-    public leave(userId: SocketId, reason: string): void
+    public leave(userSocket: SocketWrapper, reason: string): void
     {
-        if (this._users.has(userId))
+        if (this._users.has(userSocket.id))
         {
-            console.log(`[#${this._id}, ${this._name}]: ${userId} user disconnected`, reason);
+            console.log(`[Room] [#${this._id}, ${this._name}]: ${userSocket.id} (${userSocket.handshake.session!.username}) user disconnected > ${reason}`);
 
-            const transports = this._users.get(userId)!.transports;
+            const transports = this._users.get(userSocket.id)!.transports;
             for (const transport of transports.values())
             {
                 transport.close();
             }
 
-            this._users.delete(userId);
+            this._users.delete(userSocket.id);
         }
     }
 

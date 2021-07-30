@@ -59,19 +59,23 @@ function addTimestampsToConsoleLogs(): void
         else
         {
             placeholders.unshift(obj);
-            placeholders.unshift(`[${timestamp} %j`);
+            placeholders.unshift(`[${timestamp}] %j`);
         }
         return placeholders;
     };
 
     console.log = function (obj, ...placeholders)
     {
-        origlog.apply(this, consoleFuncExtending(obj, ...placeholders));
+        let data: any[];
+        origlog.apply(this, data = consoleFuncExtending(obj, ...placeholders));
+        fs.writeFileSync(process.env.LOG_FILENAME || 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
     };
 
     console.error = function (obj, ...placeholders)
     {
-        origerror.apply(this, consoleFuncExtending(obj, ...placeholders));
+        let data: any[];
+        origerror.apply(this, data = consoleFuncExtending(obj, ...placeholders));
+        fs.writeFileSync(process.env.LOG_FILENAME || 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
     };
 }
 
