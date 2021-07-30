@@ -85,8 +85,8 @@ export class SocketHandler
     {
         return new SocketIO.Server(server, {
             transports: ['websocket'],
-            pingInterval: 2000,
-            pingTimeout: 20000,
+            pingInterval: 25000,
+            pingTimeout: 60000,
             serveClient: false
         });
     }
