@@ -180,14 +180,7 @@ export class Room
         {
             console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
 
-            for (const userId of this.users.keys())
-            {
-                this.ui.removeVideo(userId);
-            }
-
-            this.mediasoup.closeAll();
-
-            this.users.clear();
+            location.reload();
         });
 
         // обработка чатов

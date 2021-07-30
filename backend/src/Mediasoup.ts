@@ -136,8 +136,8 @@ export class Mediasoup
     {
         const transport = await router.createWebRtcTransport({
             listenIps: [
-                { ip: "192.168.1.4" },
-                { ip: "192.168.1.4", announcedIp: "62.220.53.229" }
+                { ip: process.env.MEDIASOUP_LOCAL_IP! },
+                { ip: process.env.MEDIASOUP_LOCAL_IP!, announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP! }
             ],
             initialAvailableOutgoingBitrate: 1000000,
             enableUdp: true,
@@ -146,13 +146,13 @@ export class Mediasoup
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
         {
-            console.log('[Mediasoup] WebRtcTransport - icestatechange event: ', transport.iceSelectedTuple?.remoteIp, state);
+            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${transport.iceSelectedTuple?.remoteIp} ${state}`);
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
         {
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
-                console.error('[Mediasoup] WebRtcTransport - dtlsstatechange event: ', transport.iceSelectedTuple?.remoteIp, dtlsstate);
+                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${transport.iceSelectedTuple?.remoteIp} ${dtlsstate}`);
         });
 
         user.transports.set(transport.id, transport);
@@ -197,7 +197,7 @@ export class Mediasoup
         )
         {
             throw new Error(`[Mediasoup] User ${user} can't consume`);
-        }
+        };
 
         // берем Transport пользователя, предназначенный для потребления
         const transport = Array.from(user.transports.values())
