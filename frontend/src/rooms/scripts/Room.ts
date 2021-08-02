@@ -176,11 +176,21 @@ export class Room
         });
 
         // наше веб-сокет соединение разорвано
-        this.socket.on('disconnect', () =>
+        this.socket.on('disconnect', (reason) =>
         {
-            console.warn("Вы были отсоединены от веб-сервера (websocket disconnect)");
+            console.warn("[Room] Вы были отсоединены от веб-сервера (websocket disconnect)", reason);
 
             location.reload();
+        });
+
+        this.socket.io.on("error", (error) =>
+        {
+            console.error("[Room] >", error.message);
+        });
+
+        this.socket.io.on("ping", () =>
+        {
+            console.debug("[Room] get ping packet from server");
         });
 
         // обработка чатов
@@ -208,14 +218,9 @@ export class Room
                 const receiverId = this.ui.currentChatOption;
             }
         });*/
-
-        document.addEventListener('beforeunload', () =>
-        {
-            this.socket.close();
-        });
     }
 
-    private getTimestamp() : string
+    private getTimestamp(): string
     {
         const timestamp = (new Date).toLocaleString("en-us", {
             hour: "2-digit",
