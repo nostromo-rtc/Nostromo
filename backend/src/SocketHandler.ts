@@ -314,4 +314,14 @@ export class SocketHandler
     {
         return this.io.of('/room').to(name).emit(ev, ...args);
     }
+
+    public emitToAll(ev: string, ...args: any[])
+    {
+        return this.io.of('/room').emit(ev, ...args);
+    }
+
+    public getSocketsCount() : number
+    {
+        return this.io.of('/room').sockets.size;
+    }
 }

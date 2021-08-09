@@ -102,6 +102,23 @@ export class Room
         return this.mediasoupRouter.rtpCapabilities;
     }
 
+    // рассчитываем новый максимальный видео битрейт
+    private calculateAndEmitNewMaxVideoBitrate()
+    {
+        const MEGA: number = 1024 * 1024;
+        const consumersCount: number = (this.mediasoup.consumersCount != 0) ? this.mediasoup.consumersCount : 1;
+        const producersCount: number = this.mediasoup.producersCount;
+        if (producersCount > 0)
+        {
+            let maxVideoBitrate: number = Math.min(
+                this.mediasoup.networkIncomingCapability / producersCount,
+                this.mediasoup.networkOutcomingCapability / consumersCount
+            ) * MEGA;
+
+            this.socketHandler.emitToAll('maxVideoBitrate', maxVideoBitrate);
+        }
+    }
+
     // пользователь заходит в комнату
     public join(socket: SocketWrapper): void
     {
@@ -169,8 +186,7 @@ export class Room
 
             producer.close();
 
-            // удаляем из контейнера
-            user.producers.delete(producerId);
+            this.removeProducer(user, producer.id);
         });
 
         // клиент ставит producer на паузу (например, временно выключает микрофон)
@@ -256,7 +272,7 @@ export class Room
         }
         catch (error)
         {
-            console.error('[Room] createWebRtcTransport error: ', error);
+            console.error(`[Room] createWebRtcTransport for User ${user.userId} error: `, (error as Error).message);
         }
     }
 
@@ -339,6 +355,10 @@ export class Room
                 this.mediasoupRouter
             );
 
+            user.consumers.set(consumer.id, consumer);
+            ++this.mediasoup.consumersCount;
+            this.calculateAndEmitNewMaxVideoBitrate();
+
             // обрабатываем события у Consumer
             this.handleConsumerEvents(consumer, user, producerUserId, socket);
 
@@ -355,7 +375,7 @@ export class Room
         }
         catch (error)
         {
-            console.error('[Room] createConsumer() error | ', error);
+            console.error(`[Room] createConsumer error for User ${user.userId} | `, (error as Error).message);
         }
     }
 
@@ -367,16 +387,11 @@ export class Room
         socket: SocketWrapper
     ): void
     {
-        consumer.on('transportclose', () =>
+        let closeConsumer = () =>
         {
             user.consumers.delete(consumer.id);
-
-            socket.emit('closeConsumer', consumer.id);
-        });
-
-        consumer.on('producerclose', () =>
-        {
-            user.consumers.delete(consumer.id);
+            --this.mediasoup.consumersCount;
+            this.calculateAndEmitNewMaxVideoBitrate();
 
             const closeConsumerInfo: CloseConsumerInfo = {
                 consumerId: consumer.id,
@@ -384,25 +399,10 @@ export class Room
             };
 
             socket.emit('closeConsumer', closeConsumerInfo);
-        });
+        };
 
-        // RTP stream score (от 0 до 10) означает качество передачи
-        consumer.on('score', (score: MediasoupTypes.ConsumerScore) =>
-        {
-            socket.emit('consumerScore', { consumerId: consumer.id, score });
-        });
-
-        // для simulcast или SVC consumers
-        consumer.on('layerschange', (layers: MediasoupTypes.ConsumerLayers) =>
-        {
-            socket.emit(
-                'consumerLayersChanged',
-                {
-                    consumerId: consumer.id,
-                    spatialLayer: layers ? layers.spatialLayer : null,
-                    temporalLayer: layers ? layers.temporalLayer : null
-                });
-        });
+        consumer.on('transportclose', closeConsumer);
+        consumer.on('producerclose', closeConsumer);
     }
 
     private async createProducer(
@@ -411,38 +411,48 @@ export class Room
         newProducerInfo: NewProducerInfo
     )
     {
-        const producer = await this.mediasoup.createProducer(user, newProducerInfo);
-
-        // RTP stream score (от 0 до 10) означает качество передачи
-        producer.on('score', (score: MediasoupTypes.ProducerScore) =>
+        try
         {
-            socket.emit('producerScore', { producerId: producer.id, score });
-        });
+            const producer = await this.mediasoup.createProducer(user, newProducerInfo);
 
-        producer.on('transportclose', () =>
-        {
+            user.producers.set(producer.id, producer);
+            ++this.mediasoup.producersCount;
+            this.calculateAndEmitNewMaxVideoBitrate();
 
-            user.producers.delete(producer.id);
-
-            socket.emit('closeProducer', producer.id);
-        });
-
-        // перебираем всех пользователей, кроме текущего
-        // и создадим для них consumer
-        for (const anotherUser of this.users)
-        {
-            if (anotherUser[0] != socket.id)
+            producer.on('transportclose', () =>
             {
-                await this.createConsumer(
-                    anotherUser[1],
-                    socket.id,
-                    producer,
-                    this.socketHandler.getSocketById(anotherUser[0])
-                );
-            }
-        }
+                this.removeProducer(user, producer.id);
+                socket.emit('closeProducer', producer.id);
+            });
 
-        socket.emit('newProducer', producer.id);
+            // перебираем всех пользователей, кроме текущего
+            // и создадим для них consumer
+            for (const anotherUser of this.users)
+            {
+                if (anotherUser[0] != socket.id)
+                {
+                    await this.createConsumer(
+                        anotherUser[1],
+                        socket.id,
+                        producer,
+                        this.socketHandler.getSocketById(anotherUser[0])
+                    );
+                }
+            }
+
+            socket.emit('newProducer', producer.id);
+        }
+        catch (error)
+        {
+            console.error(`[Room] createProducer error for User ${user.userId} | `, (error as Error).message);
+        }
+    }
+
+    private removeProducer(user: User, producerId: string)
+    {
+        user.producers.delete(producerId);
+        --this.mediasoup.producersCount;
+        this.calculateAndEmitNewMaxVideoBitrate();
     }
 
     // обработка события 'disconnect' в методе join
