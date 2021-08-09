@@ -37,33 +37,18 @@ export class Mediasoup
         }
     };
     // H264
-    private videoCodecsH264Conf: MediasoupTypes.RtpCodecCapability[] =
-        [
-            {
-                kind: 'video',
-                mimeType: 'video/h264',
-                clockRate: 90000,
-                parameters:
-                {
-                    'packetization-mode': 1,
-                    'profile-level-id': '4d0032',
-                    'level-asymmetry-allowed': 1,
-                    'x-google-start-bitrate': 1000
-                }
-            },
-            {
-                kind: 'video',
-                mimeType: 'video/h264',
-                clockRate: 90000,
-                parameters:
-                {
-                    'packetization-mode': 1,
-                    'profile-level-id': '42e01f',
-                    'level-asymmetry-allowed': 1,
-                    'x-google-start-bitrate': 1000
-                }
-            }
-        ];
+    private videoCodecH264Conf: MediasoupTypes.RtpCodecCapability = {
+        kind: 'video',
+        mimeType: 'video/h264',
+        clockRate: 90000,
+        parameters:
+        {
+            'packetization-mode': 1,
+            'profile-level-id': '42e01f',
+            'level-asymmetry-allowed': 1,
+            'x-google-start-bitrate': 1000
+        }
+    };
 
     // создаем экземпляр класса (внутри которого создаются Workers)
     public static async create(numWorkers: number): Promise<Mediasoup>
@@ -116,7 +101,7 @@ export class Mediasoup
         // теперь определяемся с кодеками для видео
         if (codecChoice == VideoCodec.VP9) mediaCodecs.push(this.videoCodecVp9Conf);
         else if (codecChoice == VideoCodec.VP8) mediaCodecs.push(this.videoCodecVp8Conf);
-        else if (codecChoice == VideoCodec.H264) mediaCodecs = mediaCodecs.concat(this.videoCodecsH264Conf);
+        else if (codecChoice == VideoCodec.H264) mediaCodecs.push(this.videoCodecH264Conf);
 
         const routerOptions: MediasoupTypes.RouterOptions = { mediaCodecs };
 

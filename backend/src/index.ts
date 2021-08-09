@@ -28,6 +28,7 @@ async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, 
             '0',
             process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
             process.env.DEV_TESTROOM_PASS ?? 'testik1',
+            VideoCodec.VP8,
             mediasoup,
             socketHandler
         )
