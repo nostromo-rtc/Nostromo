@@ -26,9 +26,8 @@ async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, 
     rooms.set('0',
         await Room.create(
             '0',
-            process.env.DEV_TESTROOM_NAME || 'Тестовая',
-            process.env.DEV_TESTROOM_PASS || 'testik1',
-            VideoCodec.VP9,
+            process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
+            process.env.DEV_TESTROOM_PASS ?? 'testik1',
             mediasoup,
             socketHandler
         )
@@ -68,14 +67,14 @@ function addTimestampsToConsoleLogs(): void
     {
         let data: any[];
         origlog.apply(this, data = consoleFuncExtending(obj, ...placeholders));
-        fs.writeFileSync(process.env.LOG_FILENAME || 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
+        fs.writeFileSync(process.env.LOG_FILENAME ?? 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
     };
 
     console.error = function (obj, ...placeholders)
     {
         let data: any[];
         origerror.apply(this, data = consoleFuncExtending(obj, ...placeholders));
-        fs.writeFileSync(process.env.LOG_FILENAME || 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
+        fs.writeFileSync(process.env.LOG_FILENAME ?? 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
     };
 }
 
