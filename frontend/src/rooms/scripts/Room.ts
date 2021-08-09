@@ -36,6 +36,10 @@ export class Room
     // для захватов медиапотоков пользователя
     private userMedia: UserMedia;
 
+    // максимальный битрейт для видео
+    static MEGA = 1024 * 1024;
+    private maxVideoBitrate = 10 * Room.MEGA;
+
     // для работы с mediasoup-client
     private mediasoup: Mediasoup;
 
@@ -161,10 +165,25 @@ export class Room
             await this.newConsumer(newConsumerInfo);
         });
 
-        // ошибка при соединении нашего веб-сокета
-        this.socket.on('connect_error', (err: Error) =>
+        // новое значение макс. битрейта видео
+        this.socket.on('maxVideoBitrate', (bitrate: number) =>
         {
-            console.log(err.message); // скорее всего not authorized
+            // если битрейт изменился
+            if (this.maxVideoBitrate != bitrate)
+            {
+                this.maxVideoBitrate = bitrate;
+                console.debug('[Room] New maxVideoBitrate in Mbit', bitrate / Room.MEGA);
+
+                for (const producer of this.mediasoup.producers.values())
+                {
+                    if (producer.kind == 'video')
+                    {
+                        let params = producer.rtpSender!.getParameters();
+                        params.encodings[0].maxBitrate = bitrate;
+                        producer.rtpSender!.setParameters(params);
+                    }
+                }
+            }
         });
 
         // другой пользователь отключился
@@ -173,6 +192,12 @@ export class Room
             console.info("[Room] > remoteUser disconnected:", `[${remoteUserId}]`);
             this.ui.removeVideo(remoteUserId);
             this.users.delete(remoteUserId);
+        });
+
+        // ошибка при соединении нашего веб-сокета
+        this.socket.on('connect_error', (err: Error) =>
+        {
+            console.log(err.message); // скорее всего not authorized
         });
 
         // наше веб-сокет соединение разорвано
@@ -186,11 +211,6 @@ export class Room
         this.socket.io.on("error", (error) =>
         {
             console.error("[Room] >", error.message);
-        });
-
-        this.socket.io.on("ping", () =>
-        {
-            console.debug("[Room] get ping packet from server");
         });
 
         // обработка чатов
@@ -379,7 +399,12 @@ export class Room
             codecOptions:
             {
                 videoGoogleStartBitrate: 1000
-            }
+            },
+            encodings: [
+                {
+                    maxBitrate: this.maxVideoBitrate
+                }
+            ]
         });
 
         this.mediasoup.producers.set(producer.id, producer);

@@ -9,6 +9,23 @@ export class Mediasoup
 {
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
+    // сетевые возможности сервера (в мегабитах Mbit)
+    // для расчета максимального битрейта видеопотока клиента
+    private _networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
+    public get networkIncomingCapability(): number { return this._networkIncomingCapability; }
+
+    private _networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
+    public get networkOutcomingCapability(): number { return this._networkOutcomingCapability; }
+
+    // количество потребителей и производителей на сервере
+    private _consumersCount: number = 0;
+    public get consumersCount() { return this._consumersCount; }
+    public set consumersCount(value: number) { this._consumersCount = value; }
+
+    private _producersCount: number = 0;
+    public get producersCount() { return this._producersCount; }
+    public set producersCount(value: number) { this._producersCount = value; }
+
     // аудио кодек
     private audioCodecConf: MediasoupTypes.RtpCodecCapability = {
         kind: 'audio',
@@ -37,38 +54,23 @@ export class Mediasoup
         }
     };
     // H264
-    private videoCodecsH264Conf: MediasoupTypes.RtpCodecCapability[] =
-        [
-            {
-                kind: 'video',
-                mimeType: 'video/h264',
-                clockRate: 90000,
-                parameters:
-                {
-                    'packetization-mode': 1,
-                    'profile-level-id': '4d0032',
-                    'level-asymmetry-allowed': 1,
-                    'x-google-start-bitrate': 1000
-                }
-            },
-            {
-                kind: 'video',
-                mimeType: 'video/h264',
-                clockRate: 90000,
-                parameters:
-                {
-                    'packetization-mode': 1,
-                    'profile-level-id': '42e01f',
-                    'level-asymmetry-allowed': 1,
-                    'x-google-start-bitrate': 1000
-                }
-            }
-        ];
+    private videoCodecH264Conf: MediasoupTypes.RtpCodecCapability = {
+        kind: 'video',
+        mimeType: 'video/h264',
+        clockRate: 90000,
+        parameters:
+        {
+            'packetization-mode': 1,
+            'profile-level-id': '42e01f',
+            'level-asymmetry-allowed': 1,
+            'x-google-start-bitrate': 1000
+        }
+    };
 
     // создаем экземпляр класса (внутри которого создаются Workers)
     public static async create(numWorkers: number): Promise<Mediasoup>
     {
-        console.log('[Mediasoup] running %d mediasoup Workers...', numWorkers);
+        console.log(`[Mediasoup] running ${numWorkers} mediasoup Workers...`);
 
         let workers = new Array<MediasoupTypes.Worker>();
 
@@ -116,7 +118,7 @@ export class Mediasoup
         // теперь определяемся с кодеками для видео
         if (codecChoice == VideoCodec.VP9) mediaCodecs.push(this.videoCodecVp9Conf);
         else if (codecChoice == VideoCodec.VP8) mediaCodecs.push(this.videoCodecVp8Conf);
-        else if (codecChoice == VideoCodec.H264) mediaCodecs = mediaCodecs.concat(this.videoCodecsH264Conf);
+        else if (codecChoice == VideoCodec.H264) mediaCodecs.push(this.videoCodecH264Conf);
 
         const routerOptions: MediasoupTypes.RouterOptions = { mediaCodecs };
 
@@ -139,7 +141,7 @@ export class Mediasoup
                 { ip: process.env.MEDIASOUP_LOCAL_IP! },
                 { ip: process.env.MEDIASOUP_LOCAL_IP!, announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP! }
             ],
-            initialAvailableOutgoingBitrate: 1000000,
+            initialAvailableOutgoingBitrate: 600000,
             enableUdp: true,
             appData: { consuming }
         });
@@ -175,8 +177,6 @@ export class Mediasoup
 
         const producer = await transport.produce({ kind, rtpParameters });
 
-        user.producers.set(producer.id, producer);
-
         return producer;
     }
 
@@ -196,7 +196,7 @@ export class Mediasoup
                 })
         )
         {
-            throw new Error(`[Mediasoup] User ${user} can't consume`);
+            throw new Error(`[Mediasoup] User can't consume`);
         };
 
         // берем Transport пользователя, предназначенный для потребления
@@ -205,7 +205,7 @@ export class Mediasoup
 
         if (!transport)
         {
-            throw new Error('[Mediasoup] Transport for consuming not found');
+            throw new Error(`[Mediasoup] Transport for consuming not found`);
         }
 
         // создаем Consumer в режиме паузы
@@ -221,11 +221,8 @@ export class Mediasoup
         }
         catch (error)
         {
-            throw new Error(`[Mediasoup] transport.consume(): ${error}`);
+            throw new Error(`[Mediasoup] transport.consume() error: ${error}`);
         }
-
-        // сохраняем Consumer у пользователя
-        user.consumers.set(consumer.id, consumer);
 
         return consumer;
     }
