@@ -37,8 +37,10 @@ export class Room
     private userMedia: UserMedia;
 
     // максимальный битрейт для видео
+    static KILO = 1024;
     static MEGA = 1024 * 1024;
     private maxVideoBitrate = 10 * Room.MEGA;
+    private maxAudioBitrate = 64 * Room.KILO;
 
     // для работы с mediasoup-client
     private mediasoup: Mediasoup;
@@ -131,6 +133,12 @@ export class Room
         {
             this.ui.roomName = roomName;
             document.title += ' - ' + roomName;
+        });
+
+        // получаем макс. битрейт для аудио
+        this.socket.on('maxAudioBitrate', (bitrate: number) =>
+        {
+            this.maxAudioBitrate = bitrate;
         });
 
         // новый пользователь (т.е другой)
@@ -394,6 +402,8 @@ export class Room
     // добавить медиапоток (одну дорожку) в подключение
     public async addMediaStreamTrack(track: MediaStreamTrack): Promise<void>
     {
+        const maxBitrate = (track.kind == 'video') ? this.maxVideoBitrate : this.maxAudioBitrate;
+
         const producer = await this.mediasoup.sendTransport!.produce({
             track,
             codecOptions:
@@ -402,7 +412,7 @@ export class Room
             },
             encodings: [
                 {
-                    maxBitrate: this.maxVideoBitrate
+                    maxBitrate
                 }
             ]
         });

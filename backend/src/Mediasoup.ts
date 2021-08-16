@@ -12,20 +12,22 @@ export class Mediasoup
 
     // сетевые возможности сервера (в мегабитах Mbit)
     // для расчета максимального битрейта видеопотока клиента
-    private _networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
-    public get networkIncomingCapability(): number { return this._networkIncomingCapability; }
+    public readonly networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
+    public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
 
-    private _networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
-    public get networkOutcomingCapability(): number { return this._networkOutcomingCapability; }
+    // количество потребителей на сервере
+    private _videoConsumersCount: number = 0;
+    public get videoConsumersCount(): number { return this._videoConsumersCount; }
 
-    // количество потребителей и производителей на сервере
-    private _consumersCount: number = 0;
-    public get consumersCount() { return this._consumersCount; }
-    public set consumersCount(value: number) { this._consumersCount = value; }
+    private _audioConsumersCount: number = 0;
+    public get audioConsumersCount(): number { return this._audioConsumersCount; }
 
-    private _producersCount: number = 0;
-    public get producersCount() { return this._producersCount; }
-    public set producersCount(value: number) { this._producersCount = value; }
+    // количество производителей на сервере
+    private _videoProducersCount: number = 0;
+    public get videoProducersCount(): number { return this._videoProducersCount; }
+
+    private _audioProducersCount: number = 0;
+    public get audioProducersCount(): number { return this._audioProducersCount; }
 
     // аудио кодек
     private audioCodecConf: MediasoupTypes.RtpCodecCapability = {
@@ -227,5 +229,35 @@ export class Mediasoup
         }
 
         return consumer;
+    }
+
+    public increaseConsumersCount(kind: MediasoupTypes.MediaKind)
+    {
+        if (kind == 'video')
+            ++this._videoConsumersCount;
+        else
+            ++this._audioConsumersCount;
+    }
+    public decreaseConsumersCount(kind: MediasoupTypes.MediaKind)
+    {
+        if (kind == 'video')
+            --this._videoConsumersCount;
+        else
+            --this._audioConsumersCount;
+    }
+
+    public increaseProducersCount(kind: MediasoupTypes.MediaKind)
+    {
+        if (kind == 'video')
+            ++this._videoProducersCount;
+        else
+            ++this._audioProducersCount;
+    }
+    public decreaseProducersCount(kind: MediasoupTypes.MediaKind)
+    {
+        if (kind == 'video')
+            --this._videoProducersCount;
+        else
+            --this._audioProducersCount;
     }
 }

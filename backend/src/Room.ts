@@ -59,6 +59,10 @@ export class Room
     private _users = new Map<SocketId, User>();
     public get users() { return this._users; }
 
+    // максимальный битрейт (Кбит) для аудио в этой комнате
+    // 1024 - kilo
+    private maxAudioBitrate = 64 * 1024;
+
     public static async create(
         roomId: RoomId,
         name: string, password: string, videoCodec: VideoCodec,
@@ -105,17 +109,26 @@ export class Room
     // рассчитываем новый максимальный видео битрейт
     private calculateAndEmitNewMaxVideoBitrate()
     {
-        const MEGA: number = 1024 * 1024;
-        const consumersCount: number = (this.mediasoup.consumersCount != 0) ? this.mediasoup.consumersCount : 1;
-        const producersCount: number = this.mediasoup.producersCount;
+        const MEGA = 1024 * 1024;
+
+        // макс. аудиобитрейт в мегабитах
+        const maxAudioBitrateMbs = this.maxAudioBitrate / MEGA;
+
+        const networkIncomingCapability = this.mediasoup.networkIncomingCapability - (maxAudioBitrateMbs * this.mediasoup.audioProducersCount);
+        const networkOutcomingCapability = this.mediasoup.networkOutcomingCapability - (maxAudioBitrateMbs * this.mediasoup.audioConsumersCount);
+
+        const consumersCount: number = (this.mediasoup.videoConsumersCount != 0) ? this.mediasoup.videoConsumersCount : 1;
+        const producersCount: number = this.mediasoup.videoProducersCount;
+
         if (producersCount > 0)
         {
             let maxVideoBitrate: number = Math.min(
-                this.mediasoup.networkIncomingCapability / producersCount,
-                this.mediasoup.networkOutcomingCapability / consumersCount
+                networkIncomingCapability / producersCount,
+                networkOutcomingCapability / consumersCount
             ) * MEGA;
 
-            this.socketHandler.emitToAll('maxVideoBitrate', maxVideoBitrate);
+            if (maxVideoBitrate > 0)
+                this.socketHandler.emitToAll('maxVideoBitrate', maxVideoBitrate);
         }
     }
 
@@ -132,6 +145,9 @@ export class Room
 
         // сообщаем пользователю название комнаты
         socket.emit('roomName', this.name);
+
+        // сообщаем пользователю макс. битрейт аудио в комнате
+        socket.emit('maxAudioBitrate', this.maxAudioBitrate);
 
         // сообщаем пользователю RTP возможности (кодеки) сервера
         socket.emit('routerRtpCapabilities', this.routerRtpCapabilities);
@@ -166,9 +182,20 @@ export class Room
             if (!consumer)
                 throw new Error(`[Room] producer with id "${consumerId}" not found`);
 
-            await consumer.resume();
+            if (!consumer.producerPaused)
+                await this.resumeConsumer(consumer);
         });
 
+        // клиент поставил consumer на паузу
+        socket.on('pauseConsumer', async (consumerId: string) =>
+        {
+            const consumer = user.consumers.get(consumerId);
+
+            if (!consumer)
+                throw new Error(`[Room] producer with id "${consumerId}" not found`);
+
+            await this.pauseConsumer(consumer);
+        });
 
         // создание нового producer
         socket.on('newProducer', async (newProducerInfo: NewProducerInfo) =>
@@ -186,7 +213,7 @@ export class Room
 
             producer.close();
 
-            this.removeProducer(user, producer.id);
+            this.closeProducer(user, producer);
         });
 
         // клиент ставит producer на паузу (например, временно выключает микрофон)
@@ -197,7 +224,7 @@ export class Room
             if (!producer)
                 throw new Error(`[Room] producer with id "${producerId}" not found`);
 
-            await producer.pause();
+            await this.pauseProducer(producer);
         });
 
         // клиент снимает producer с паузы (например, включает микрофон обратно)
@@ -208,7 +235,7 @@ export class Room
             if (!producer)
                 throw new Error(`[Room] producer with id "${producerId}" not found`);
 
-            await producer.resume();
+            await this.resumeProducer(producer);
         });
 
         // перезапуск ICE слоя (генерирование новых локальных ICE параметров и отдача их клиенту)
@@ -237,6 +264,26 @@ export class Room
         {
             this.joinEvDisconnect(socket, session!, reason);
         });
+    }
+
+    private async pauseConsumer(consumer: MediasoupTypes.Consumer)
+    {
+        await consumer.pause();
+
+        // поскольку consumer поставлен на паузу,
+        // то уменьшаем счетчик и перерасчитываем битрейт
+        this.mediasoup.decreaseConsumersCount(consumer.kind);
+        this.calculateAndEmitNewMaxVideoBitrate();
+    }
+
+    private async resumeConsumer(consumer: MediasoupTypes.Consumer)
+    {
+        await consumer.resume();
+
+        // поскольку consumer снят с паузы,
+        // то увеличиваем счетчик и перерасчитываем битрейт
+        this.mediasoup.increaseConsumersCount(consumer.kind);
+        this.calculateAndEmitNewMaxVideoBitrate();
     }
 
     // обработка события 'createWebRtcTransport' в методе join
@@ -356,8 +403,9 @@ export class Room
             );
 
             user.consumers.set(consumer.id, consumer);
-            ++this.mediasoup.consumersCount;
-            this.calculateAndEmitNewMaxVideoBitrate();
+
+            // так как изначально consumer создается на паузе
+            // не будем пока увеличивать счетчик consumersCount в классе mediasoup
 
             // обрабатываем события у Consumer
             this.handleConsumerEvents(consumer, user, producerUserId, socket);
@@ -390,8 +438,14 @@ export class Room
         let closeConsumer = () =>
         {
             user.consumers.delete(consumer.id);
-            --this.mediasoup.consumersCount;
-            this.calculateAndEmitNewMaxVideoBitrate();
+
+            // если он и так был на паузе, то не учитывать его удаление
+            // в расчете битрейта
+            if (!consumer.paused)
+            {
+                this.mediasoup.decreaseConsumersCount(consumer.kind);
+                this.calculateAndEmitNewMaxVideoBitrate();
+            }
 
             const closeConsumerInfo: CloseConsumerInfo = {
                 consumerId: consumer.id,
@@ -403,6 +457,8 @@ export class Room
 
         consumer.on('transportclose', closeConsumer);
         consumer.on('producerclose', closeConsumer);
+        consumer.on('producerpause', async () => { await this.pauseConsumer(consumer); });
+        consumer.on('producerresume', async () => { await this.resumeConsumer(consumer); });
     }
 
     private async createProducer(
@@ -416,12 +472,13 @@ export class Room
             const producer = await this.mediasoup.createProducer(user, newProducerInfo);
 
             user.producers.set(producer.id, producer);
-            ++this.mediasoup.producersCount;
+
+            this.mediasoup.increaseProducersCount(producer.kind);
             this.calculateAndEmitNewMaxVideoBitrate();
 
             producer.on('transportclose', () =>
             {
-                this.removeProducer(user, producer.id);
+                this.closeProducer(user, producer);
                 socket.emit('closeProducer', producer.id);
             });
 
@@ -448,10 +505,30 @@ export class Room
         }
     }
 
-    private removeProducer(user: User, producerId: string)
+    private closeProducer(user: User, producer: MediasoupTypes.Producer)
     {
-        user.producers.delete(producerId);
-        --this.mediasoup.producersCount;
+        user.producers.delete(producer.id);
+
+        if (!producer.paused)
+        {
+            this.mediasoup.decreaseProducersCount(producer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
+    }
+
+    private async pauseProducer(producer: MediasoupTypes.Producer)
+    {
+        await producer.pause();
+
+        this.mediasoup.decreaseProducersCount(producer.kind);
+        this.calculateAndEmitNewMaxVideoBitrate();
+    }
+
+    private async resumeProducer(producer: MediasoupTypes.Producer)
+    {
+        await producer.resume();
+
+        this.mediasoup.increaseProducersCount(producer.kind);
         this.calculateAndEmitNewMaxVideoBitrate();
     }
 
