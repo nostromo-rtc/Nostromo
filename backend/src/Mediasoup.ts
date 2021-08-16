@@ -7,6 +7,7 @@ export { MediasoupTypes };
 
 export class Mediasoup
 {
+    // массив workers, задел под многопоточность
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
     // сетевые возможности сервера (в мегабитах Mbit)
@@ -83,10 +84,11 @@ export class Mediasoup
                     rtcMaxPort: 50000
                 });
 
-            worker.on('died', () =>
+            worker.on('died', (error) =>
             {
                 console.error(
-                    '[Mediasoup] mediasoup Worker died, exiting in 3 seconds... [pid:%d]', worker.pid);
+                    `[Mediasoup] mediasoup Worker died, exiting in 3 seconds... [pid: ${worker.pid}]`, (error as Error).message
+                );
 
                 setTimeout(() => process.exit(1), 3000);
             });
