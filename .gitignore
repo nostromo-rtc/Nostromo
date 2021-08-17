@@ -15,6 +15,7 @@ frontend/temp-build/**/*.js
 
 # bundled (webpack) and vendor .js files of frontend
 frontend/static/**/*.js
+frontend/static/**/vendor.css
 
 # other
 *.bat

@@ -1,4 +1,5 @@
-import videojs from 'video.js';
+import Plyr from 'plyr';
+
 // Класс для работы с интерфейсом (веб-страница)
 export class UI
 {
@@ -153,18 +154,20 @@ export class UI
 
         newVideoItem.appendChild(newVideo);
 
-        setTimeout(videojs, 0, `remoteVideo-${remoteVideoId}`, {
-            controls: true,
-            aspectRatio: '16:9',
-            fluid: true
-        }, () =>
-        {
-            let playerDiv = document.getElementById(`remoteVideo-${remoteVideoId}`)!;
-            playerDiv.classList.add('videoContainer');
-        });
-
         document.getElementById('videos')!.appendChild(newVideoItem);
         this._allVideos.set(remoteVideoId, newVideo);
+
+        const player = new Plyr(newVideo, {
+            ratio: '16:9',
+            disableContextMenu: false,
+            resetOnEnd: true,
+            controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
+        });
+
+        // добавляем стиль (чтобы было как fluid у videojs)
+        player.elements.container!.classList.add('videoContainer');
+        // убираем ненужный div с постером
+        player.elements.wrapper!.children[1].remove();
 
         // перестроим раскладку
         this.calculateLayout();
@@ -266,24 +269,32 @@ export class UI
 
         let localVideo = document.createElement('video');
         localVideo.id = 'localVideo';
-        localVideo.classList.add('video-js');
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.poster = './images/novideodata.jpg';
 
         localVideoItem.appendChild(localVideo);
 
-        setTimeout(videojs, 0, 'localVideo', {
-            controls: true,
-            fluid: true,
-            aspectRatio: '16:9'
-        }, () =>
-        {
-            let playerDiv = document.getElementById('localVideo')!;
-            playerDiv.classList.add('videoContainer');
-        });
         document.getElementById('videos')!.appendChild(localVideoItem);
         this._allVideos.set('localVideo', localVideo);
+
+        const player = new Plyr(localVideo, {
+            ratio: '16:9',
+            disableContextMenu: false,
+            resetOnEnd: true,
+            controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
+        });
+
+        // добавляем стиль (чтобы было как fluid у videojs)
+        player.elements.container!.classList.add('videoContainer');
+        // убираем ненужный div с постером
+        player.elements.wrapper!.children[1].remove();
+        // скрыть все controls
+        /*
+            player.elements.controls!.hidden = true;
+            for (const btn of player.elements.buttons.play! as HTMLButtonElement[])
+                btn.hidden = true;
+        */
     }
 
     private prepareLocalVideoLabel(): HTMLSpanElement
