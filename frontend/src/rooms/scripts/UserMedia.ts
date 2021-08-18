@@ -110,6 +110,11 @@ export class UserMedia
 
             this.stream.addTrack(newTrack);
 
+            // так как добавили новую дорожку, включаем отображение элементов управления
+            // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
+            const hasAudio: boolean = this.stream.getAudioTracks().length > 0;
+            this.ui.showControls(this.ui.localVideo!.plyr, hasAudio);
+
             // подключаем медиапоток к HTML-элементу <video> (localVideo)
             if (!this.ui.localVideo!.srcObject)
                 this.ui.localVideo!.srcObject = this.stream;
@@ -158,6 +163,19 @@ export class UserMedia
         {
             // сбрасываем видео объект
             this.ui.localVideo!.load();
+        }
+
+        const hasAudio: boolean = this.stream.getAudioTracks().length > 0;
+        // если дорожек не осталось, выключаем элементы управления плеера
+        if (this.stream.getTracks().length == 0)
+        {
+            this.ui.hideControls(this.ui.localVideo!.plyr);
+        }
+        // предусматриваем случай, когда звуковых дорожек не осталось
+        // и убираем кнопку регулирования звука
+        else if (!hasAudio)
+        {
+            this.ui.hideVolumeControl(this.ui.localVideo!.plyr);
         }
     }
 

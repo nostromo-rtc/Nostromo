@@ -1,5 +1,14 @@
 import Plyr from 'plyr';
 
+// Plyr добавляет поле с плеером в класс HTMLVideoElement
+declare global
+{
+    interface HTMLVideoElement
+    {
+        plyr: Plyr;
+    }
+}
+
 // Класс для работы с интерфейсом (веб-страница)
 export class UI
 {
@@ -135,6 +144,7 @@ export class UI
     public addVideo(remoteVideoId: string, name: string, mediaStream: MediaStream): void
     {
         let newVideoItem = document.createElement('div');
+        newVideoItem.id = `remoteVideoItem-${remoteVideoId}`;
         newVideoItem.classList.add('videoItem');
 
         let videoLabel = document.createElement('span');
@@ -157,17 +167,7 @@ export class UI
         document.getElementById('videos')!.appendChild(newVideoItem);
         this._allVideos.set(remoteVideoId, newVideo);
 
-        const player = new Plyr(newVideo, {
-            ratio: '16:9',
-            disableContextMenu: false,
-            resetOnEnd: true,
-            controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
-        });
-
-        // добавляем стиль (чтобы было как fluid у videojs)
-        player.elements.container!.classList.add('videoContainer');
-        // убираем ненужный div с постером
-        player.elements.wrapper!.children[1].remove();
+        this.prepareVideoPlayer(newVideo);
 
         // перестроим раскладку
         this.calculateLayout();
@@ -204,10 +204,11 @@ export class UI
     // удалить видео собеседника (и опцию для чата/файлов тоже)
     public removeVideo(remoteVideoId: string): void
     {
-        if (this._allVideos.has(remoteVideoId))
+        const videoItem = document.getElementById(`remoteVideoItem-${remoteVideoId}`);
+        if (videoItem)
         {
-            const video = this._allVideos.get(remoteVideoId)!;
-            video.parentElement!.parentElement!.remove(); // video > videoContainer > videoItem.remove()
+            // удаляем videoItem с этим id
+            videoItem.remove();
             this._allVideos.delete(remoteVideoId);
             this.removeChatOption(remoteVideoId);
             this.calculateLayout();
@@ -278,10 +279,17 @@ export class UI
         document.getElementById('videos')!.appendChild(localVideoItem);
         this._allVideos.set('localVideo', localVideo);
 
-        const player = new Plyr(localVideo, {
+        this.prepareVideoPlayer(localVideo);
+    }
+
+    private prepareVideoPlayer(video: HTMLVideoElement)
+    {
+        const player = new Plyr(video, {
             ratio: '16:9',
             disableContextMenu: false,
             resetOnEnd: true,
+            storage: { enabled: false },
+            muted: (video.id == 'localVideo') ? true : this.mutePolicy,
             controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
         });
 
@@ -289,12 +297,35 @@ export class UI
         player.elements.container!.classList.add('videoContainer');
         // убираем ненужный div с постером
         player.elements.wrapper!.children[1].remove();
-        // скрыть все controls
-        /*
-            player.elements.controls!.hidden = true;
-            for (const btn of player.elements.buttons.play! as HTMLButtonElement[])
-                btn.hidden = true;
-        */
+        // скрываем элементы управления
+        this.hideControls(player);
+    }
+
+    // скрыть элементы управления у плеера
+    public hideControls(player: Plyr, hide: boolean = true): void
+    {
+        player.elements.controls!.hidden = hide;
+
+        const btns_play = player.elements.buttons.play! as HTMLButtonElement[];
+        btns_play[0].hidden = hide;
+    }
+
+    // скрыть регулировку звука у плеера
+    public hideVolumeControl(player: Plyr, hide: boolean = true): void
+    {
+        const volumeDiv: HTMLDivElement = player.elements.controls!.querySelector('.plyr__volume')!;
+        volumeDiv.hidden = hide;
+    }
+
+    // показать элементы управления у плеера
+    public showControls(player: Plyr, hasAudio: boolean)
+    {
+        // не скрывать элементы управления
+        this.hideControls(player, false);
+
+        // если есть аудио, то не скрывать регулировку звука
+        // если аудио нет, то скрыть регулировку
+        this.hideVolumeControl(player, !hasAudio);
     }
 
     private prepareLocalVideoLabel(): HTMLSpanElement

@@ -45,9 +45,6 @@ export class Room
     // для работы с mediasoup-client
     private mediasoup: Mediasoup;
 
-    // контейнер с медиастримами других собеседников
-    private users = new Map<SocketId, MediaStream>();
-
     constructor(ui: UI)
     {
         console.debug("Room ctor");
@@ -113,14 +110,30 @@ export class Room
         this.socket.on('closeConsumer', ({ consumerId, producerUserId }: CloseConsumerInfo) =>
         {
             const consumer = this.mediasoup.consumers.get(consumerId);
+            const remoteVideo = this.ui.allVideos.get(producerUserId);
 
-            if (consumer)
+            if (consumer && remoteVideo)
             {
+                const stream = remoteVideo.srcObject as MediaStream;
+                stream.removeTrack(consumer.track);
 
-                this.users.get(producerUserId)?.removeTrack(consumer.track);
-
+                // перезагружаем видеоэлемент,
+                // чтобы не висел последний кадр удаленной видеодорожки
                 if (consumer.track.kind == 'video')
-                    this.ui.allVideos.get(producerUserId)?.load();
+                    remoteVideo.load();
+
+                const hasAudio: boolean = stream.getAudioTracks().length > 0;
+                // если дорожек не осталось, выключаем элементы управления плеера
+                if (stream.getTracks().length == 0)
+                {
+                    this.ui.hideControls(remoteVideo.plyr);
+                }
+                // предусматриваем случай, когда звуковых дорожек не осталось
+                // и убираем кнопку регулирования звука
+                else if (!hasAudio)
+                {
+                    this.ui.hideVolumeControl(remoteVideo.plyr);
+                }
 
                 consumer.close();
 
@@ -146,8 +159,6 @@ export class Room
         {
             // создаем пустой mediastream
             const media = new MediaStream();
-            // запоминаем его
-            this.users.set(id, media);
             // создаем видеоэлемент и привязываем mediastream к нему
             this.ui.addVideo(id, name, media);
         });
@@ -199,7 +210,6 @@ export class Room
         {
             console.info("[Room] > remoteUser disconnected:", `[${remoteUserId}]`);
             this.ui.removeVideo(remoteUserId);
-            this.users.delete(remoteUserId);
         });
 
         // ошибка при соединении нашего веб-сокета
@@ -394,9 +404,16 @@ export class Room
         // если удалось, то сообщаем об этом серверу, чтобы он снял с паузы consumer
         this.socket.emit('resumeConsumer', consumer.id);
 
-        const media: MediaStream = this.users.get(newConsumerInfo.producerUserId)!;
+        const remoteVideo: HTMLVideoElement = this.ui.allVideos.get(newConsumerInfo.producerUserId)!;
 
-        media.addTrack(consumer.track);
+        const stream: MediaStream = remoteVideo.srcObject as MediaStream;
+
+        stream.addTrack(consumer.track);
+
+        // так как добавили новую дорожку, включаем отображение элементов управления
+        // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
+        const hasAudio: boolean = stream.getAudioTracks().length > 0;
+        this.ui.showControls(remoteVideo.plyr, hasAudio);
     }
 
     // добавить медиапоток (одну дорожку) в подключение
