@@ -287,6 +287,7 @@ export class UI
             ratio: '16:9',
             disableContextMenu: false,
             storage: { enabled: false },
+            clickToPlay: false,
             muted: (video.id == 'localVideo') ? true : this.mutePolicy,
             controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
         });
