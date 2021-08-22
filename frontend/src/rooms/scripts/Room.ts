@@ -115,6 +115,7 @@ export class Room
             if (consumer && remoteVideo)
             {
                 const stream = remoteVideo.srcObject as MediaStream;
+                consumer.track.stop();
                 stream.removeTrack(consumer.track);
 
                 // перезагружаем видеоэлемент,
@@ -157,10 +158,7 @@ export class Room
         // новый пользователь (т.е другой)
         this.socket.on('newUser', ({ id, name }: NewUserInfo) =>
         {
-            // создаем пустой mediastream
-            const media = new MediaStream();
-            // создаем видеоэлемент и привязываем mediastream к нему
-            this.ui.addVideo(id, name, media);
+            this.ui.addVideo(id, name);
         });
 
         // другой пользователь поменял имя
@@ -406,11 +404,29 @@ export class Room
 
         const remoteVideo: HTMLVideoElement = this.ui.allVideos.get(newConsumerInfo.producerUserId)!;
 
-        const stream: MediaStream = remoteVideo.srcObject as MediaStream;
+        let stream = remoteVideo.srcObject as MediaStream | null;
 
-        stream.addTrack(consumer.track);
+        // если MediaStream нет, то создадим его и инициализируем этим треком
+        if (!stream)
+        {
+            stream = new MediaStream([consumer.track]);
+            remoteVideo.srcObject = stream;
+        }
+        else // иначе добавим новый трек
+        {
+            const streamWasActive = stream.active;
+            stream.addTrack(consumer.track);
 
-        // так как добавили новую дорожку, включаем отображение элементов управления
+            // перезагружаем видеоэлемент. Это необходимо, на тот случай,
+            // если до этого из стрима удалили все дорожки и стрим стал неактивным,
+            // а при удалении видеодорожки (и она была последней при удалении) вызывали load(),
+            // чтобы убрать зависнувший последний кадр.
+            // Иначе баг на Chrome: если в стриме только аудиодорожка,
+            // то play/pause на видеоэлементе не будут работать, а звук будет все равно идти.
+            if (!streamWasActive) remoteVideo.load();
+        }
+
+        // включаем отображение элементов управления
         // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
         const hasAudio: boolean = stream.getAudioTracks().length > 0;
         this.ui.showControls(remoteVideo.plyr, hasAudio);

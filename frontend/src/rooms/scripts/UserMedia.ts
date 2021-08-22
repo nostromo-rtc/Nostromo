@@ -96,19 +96,28 @@ export class UserMedia
         {
             this.handleEndedTrack(newTrack);
 
-            // проверяем, было ли от нас что-то до этого
-            let presentMedia = false;
+            // проверяем, было ли от нас что-то до этого такого же типа (аудио или видео)
+            let presentSameKindMedia = false;
             for (const oldTrack of this.stream.getTracks())
             {
                 if (oldTrack.kind == newTrack.kind)
                 {
-                    presentMedia = true;
+                    presentSameKindMedia = true;
                     this.stopTrack(oldTrack);
                     await this.parent.updateMediaStreamTrack(oldTrack.id, newTrack);
                 }
             }
 
+            const streamWasActive = this.stream.active;
             this.stream.addTrack(newTrack);
+
+            // перезагружаем видеоэлемент. Это необходимо, на тот случай,
+            // если до этого из стрима удалили все дорожки и стрим стал неактивным,
+            // а при удалении видеодорожки (и она была последней при удалении) вызывали load(),
+            // чтобы убрать зависнувший последний кадр.
+            // Иначе баг на Chrome: если в стриме только аудиодорожка,
+            // то play/pause на видеоэлементе не будут работать, а звук будет все равно идти.
+            if (!streamWasActive) this.ui.localVideo!.load();
 
             // так как добавили новую дорожку, включаем отображение элементов управления
             // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
@@ -120,7 +129,7 @@ export class UserMedia
                 this.ui.localVideo!.srcObject = this.stream;
 
             // если не было
-            if (!presentMedia)
+            if (!presentSameKindMedia)
             {
                 await this.parent.addMediaStreamTrack(newTrack);
             }

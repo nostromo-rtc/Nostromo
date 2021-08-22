@@ -141,7 +141,7 @@ export class UI
     }
 
     // добавить новый видеоэлемент собеседника
-    public addVideo(remoteVideoId: string, name: string, mediaStream: MediaStream): void
+    public addVideo(remoteVideoId: string, name: string): void
     {
         let newVideoItem = document.createElement('div');
         newVideoItem.id = `remoteVideoItem-${remoteVideoId}`;
@@ -160,7 +160,6 @@ export class UI
         newVideo.autoplay = true;
         newVideo.muted = this.mutePolicy;
         newVideo.poster = './images/novideodata.jpg';
-        newVideo.srcObject = mediaStream;
 
         newVideoItem.appendChild(newVideo);
 
@@ -287,7 +286,6 @@ export class UI
         const player = new Plyr(video, {
             ratio: '16:9',
             disableContextMenu: false,
-            resetOnEnd: true,
             storage: { enabled: false },
             muted: (video.id == 'localVideo') ? true : this.mutePolicy,
             controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
