@@ -63,9 +63,20 @@
 }
 .videoContainer {
     width: 100%;
-    padding-top: 56.25%;
     position: relative;
 }
+
+/*
+    изменим градиент затемнения и
+    ускорим анимацию панели управления видео
+*/
+.plyr--video .plyr__controls
+{
+    --plyr-video-controls-background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 30%, rgba(0, 0, 0, 0) 100%);
+    padding-top: 15px;
+    transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+}
+
 /* оформление для видео */
 video {
     width: 100%;

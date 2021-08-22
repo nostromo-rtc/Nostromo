@@ -9,6 +9,7 @@
         "sourceMap": false,
         "noEmitOnError": true,
         "moduleResolution": "Node",
+        "allowSyntheticDefaultImports": true,
         "paths": {
             "shared/*" : ["../../shared/*"]
         }

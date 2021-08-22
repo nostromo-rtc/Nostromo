@@ -45,9 +45,6 @@ export class Room
     // для работы с mediasoup-client
     private mediasoup: Mediasoup;
 
-    // контейнер с медиастримами других собеседников
-    private users = new Map<SocketId, MediaStream>();
-
     constructor(ui: UI)
     {
         console.debug("Room ctor");
@@ -113,14 +110,31 @@ export class Room
         this.socket.on('closeConsumer', ({ consumerId, producerUserId }: CloseConsumerInfo) =>
         {
             const consumer = this.mediasoup.consumers.get(consumerId);
+            const remoteVideo = this.ui.allVideos.get(producerUserId);
 
-            if (consumer)
+            if (consumer && remoteVideo)
             {
+                const stream = remoteVideo.srcObject as MediaStream;
+                consumer.track.stop();
+                stream.removeTrack(consumer.track);
 
-                this.users.get(producerUserId)?.removeTrack(consumer.track);
-
+                // перезагружаем видеоэлемент,
+                // чтобы не висел последний кадр удаленной видеодорожки
                 if (consumer.track.kind == 'video')
-                    this.ui.allVideos.get(producerUserId)?.load();
+                    remoteVideo.load();
+
+                const hasAudio: boolean = stream.getAudioTracks().length > 0;
+                // если дорожек не осталось, выключаем элементы управления плеера
+                if (stream.getTracks().length == 0)
+                {
+                    this.ui.hideControls(remoteVideo.plyr);
+                }
+                // предусматриваем случай, когда звуковых дорожек не осталось
+                // и убираем кнопку регулирования звука
+                else if (!hasAudio)
+                {
+                    this.ui.hideVolumeControl(remoteVideo.plyr);
+                }
 
                 consumer.close();
 
@@ -144,12 +158,7 @@ export class Room
         // новый пользователь (т.е другой)
         this.socket.on('newUser', ({ id, name }: NewUserInfo) =>
         {
-            // создаем пустой mediastream
-            const media = new MediaStream();
-            // запоминаем его
-            this.users.set(id, media);
-            // создаем видеоэлемент и привязываем mediastream к нему
-            this.ui.addVideo(id, name, media);
+            this.ui.addVideo(id, name);
         });
 
         // другой пользователь поменял имя
@@ -199,7 +208,12 @@ export class Room
         {
             console.info("[Room] > remoteUser disconnected:", `[${remoteUserId}]`);
             this.ui.removeVideo(remoteUserId);
-            this.users.delete(remoteUserId);
+        });
+
+        // ошибка при соединении нашего веб-сокета
+        this.socket.on('connect_error', (err: Error) =>
+        {
+            console.log(err.message); // скорее всего not authorized
         });
 
         // ошибка при соединении нашего веб-сокета
@@ -394,9 +408,34 @@ export class Room
         // если удалось, то сообщаем об этом серверу, чтобы он снял с паузы consumer
         this.socket.emit('resumeConsumer', consumer.id);
 
-        const media: MediaStream = this.users.get(newConsumerInfo.producerUserId)!;
+        const remoteVideo: HTMLVideoElement = this.ui.allVideos.get(newConsumerInfo.producerUserId)!;
 
-        media.addTrack(consumer.track);
+        let stream = remoteVideo.srcObject as MediaStream | null;
+
+        // если MediaStream нет, то создадим его и инициализируем этим треком
+        if (!stream)
+        {
+            stream = new MediaStream([consumer.track]);
+            remoteVideo.srcObject = stream;
+        }
+        else // иначе добавим новый трек
+        {
+            const streamWasActive = stream.active;
+            stream.addTrack(consumer.track);
+
+            // перезагружаем видеоэлемент. Это необходимо, на тот случай,
+            // если до этого из стрима удалили все дорожки и стрим стал неактивным,
+            // а при удалении видеодорожки (и она была последней при удалении) вызывали load(),
+            // чтобы убрать зависнувший последний кадр.
+            // Иначе баг на Chrome: если в стриме только аудиодорожка,
+            // то play/pause на видеоэлементе не будут работать, а звук будет все равно идти.
+            if (!streamWasActive) remoteVideo.load();
+        }
+
+        // включаем отображение элементов управления
+        // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
+        const hasAudio: boolean = stream.getAudioTracks().length > 0;
+        this.ui.showControls(remoteVideo.plyr, hasAudio);
     }
 
     // добавить медиапоток (одну дорожку) в подключение
