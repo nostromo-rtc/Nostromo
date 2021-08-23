@@ -1,4 +1,5 @@
 import Plyr from 'plyr';
+import { Howl } from 'howler';
 
 // Plyr добавляет поле с плеером в класс HTMLVideoElement
 declare global
@@ -67,6 +68,10 @@ export class UI
 
     // текущая политика Mute для видео (свойство muted)
     private mutePolicy = true;
+
+    // звуки-оповещения
+    public joinedSound = new Howl({ src: '/rooms/sounds/joined.mp3' });
+    public leftSound = new Howl({ src: '/rooms/sounds/left.mp3' });
 
     constructor()
     {

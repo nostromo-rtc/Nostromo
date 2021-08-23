@@ -20,6 +20,7 @@
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "express-session": "^1.17.2",
+    "howler": "^2.2.3",
     "mediasoup": "^3.7.17",
     "mediasoup-client": "gitlab:sgakerru/mediasoup-client#3.6.36-patched",
     "plyr": "^3.6.8",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@types/express": "^4.17.12",
     "@types/express-session": "^1.17.3",
+    "@types/howler": "^2.2.3",
     "@types/node": "^14.17.1",
     "css-loader": "^6.2.0",
     "mini-css-extract-plugin": "^2.2.0",

@@ -42,6 +42,9 @@ export class Room
     private maxVideoBitrate = 10 * Room.MEGA;
     private maxAudioBitrate = 64 * Room.KILO;
 
+    // задержка после входа на воспроизведение звуковых оповещений
+    private soundDelayAfterJoin = true;
+
     // для работы с mediasoup-client
     private mediasoup: Mediasoup;
 
@@ -56,10 +59,16 @@ export class Room
         // обработка кнопок
         this.handleButtons();
 
+        // через X миллисекунд разрешаем включать звуковые оповещения
+        setTimeout(() => this.soundDelayAfterJoin = false, 2000);
+
         this.socket.on('connect', () =>
         {
             console.info("Создано веб-сокет подключение");
             console.info("Client id:", this.socket.id);
+
+            // включим звук, что зашли в комнату
+            this.ui.joinedSound.play();
         });
 
         // получаем RTP возможности сервера
@@ -159,6 +168,9 @@ export class Room
         this.socket.on('newUser', ({ id, name }: NewUserInfo) =>
         {
             this.ui.addVideo(id, name);
+
+            if (!this.soundDelayAfterJoin)
+                this.ui.joinedSound.play();
         });
 
         // другой пользователь поменял имя
@@ -208,6 +220,7 @@ export class Room
         {
             console.info("[Room] > remoteUser disconnected:", `[${remoteUserId}]`);
             this.ui.removeVideo(remoteUserId);
+            this.ui.leftSound.play();
         });
 
         // ошибка при соединении нашего веб-сокета
