@@ -8,7 +8,7 @@ node_modules/
 backend/dist
 
 # folder with SSL files
-backend/ssl
+config/ssl
 
 # compiled .js files of frontend
 frontend/temp-build/**/*.js

@@ -2,7 +2,7 @@ import path = require('path');
 import fs = require('fs');
 import http = require('http');
 import https = require('https');
-require('dotenv').config();
+import dotenv = require('dotenv');
 
 // Express
 import { ExpressApp } from './ExpressApp';
@@ -82,6 +82,9 @@ function addTimestampsToConsoleLogs(): void
 // главная функция
 async function main()
 {
+    // загрузка значений из конфигурационного файла
+    dotenv.config({path: path.resolve(process.cwd(), 'config', 'server.conf')});
+
     // добавление временных меток в лог
     addTimestampsToConsoleLogs();
 
@@ -107,8 +110,8 @@ async function main()
 
     // настройки https-сервера (сертификаты)
     const httpsOptions: https.ServerOptions = {
-        key: fs.readFileSync(path.join(__dirname, '../ssl', process.env.SSL_PRIVATE_KEY!), 'utf8'),
-        cert: fs.readFileSync(path.join(__dirname, '../ssl', process.env.SSL_PUBLIC_CERT!), 'utf8')
+        key: fs.readFileSync(path.resolve(process.cwd(), 'config', 'ssl', process.env.SSL_PRIVATE_KEY!), 'utf8'),
+        cert: fs.readFileSync(path.resolve(process.cwd(), 'config', 'ssl', process.env.SSL_PUBLIC_CERT!), 'utf8')
     };
 
     const server: https.Server = https.createServer(httpsOptions, Express.app);
