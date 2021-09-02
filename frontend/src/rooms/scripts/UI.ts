@@ -80,8 +80,30 @@ export class UI
         this.prepareLocalVideo();
         this.resizeVideos();
         window.addEventListener('resize', () => this.resizeVideos());
-        this._buttons.get('enableSounds')!.addEventListener('click', () => this.enableSounds());
+
+        const btn_toggleSounds = this.buttons.get('toggleSounds');
+        btn_toggleSounds!.addEventListener('click', () =>
+        { this.handleBtnToggleSounds(btn_toggleSounds!); });
+
         this.showUserName();
+    }
+
+    private handleBtnToggleSounds(btn_toggleSounds: HTMLButtonElement)
+    {
+        if (this.mutePolicy)
+        {
+            this.enableSounds();
+            btn_toggleSounds.innerText = 'Выключить звуки собеседников';
+            btn_toggleSounds.classList.replace('background-green', 'background-red');
+            document.getElementById('attention')!.hidden = true;
+        }
+        else
+        {
+            this.disableSounds();
+            btn_toggleSounds.innerText = 'Включить звуки собеседников';
+            btn_toggleSounds.classList.replace('background-red', 'background-green');
+            document.getElementById('attention')!.hidden = false;
+        }
     }
 
     public addCaptureSetting(label: string, value: string): void
@@ -100,7 +122,7 @@ export class UI
         buttons.set('getDisplayMedia',  document.getElementById('btn_getDisplayMedia')  as HTMLButtonElement);
         buttons.set('sendMessage',      document.getElementById('btn_sendMessage')      as HTMLButtonElement);
         buttons.set('sendFile',         document.getElementById('btn_sendFile')         as HTMLButtonElement);
-        buttons.set('enableSounds',     document.getElementById('btn_enableSounds')     as HTMLButtonElement);
+        buttons.set('toggleSounds',     document.getElementById('btn_toggleSounds')     as HTMLButtonElement);
         buttons.set('setNewUsername',   document.getElementById('btn_setNewUsername')   as HTMLButtonElement);
 
         return buttons;
@@ -135,14 +157,20 @@ export class UI
     // включить звук для всех видео
     private enableSounds(): void
     {
+        this.disableSounds(false);
+    }
+
+    // выключить звук для всех видео
+    private disableSounds(disable: boolean = true): void
+    {
         for (const video of this._allVideos)
         {
             if (video[0] != 'localVideo')
             {
-                video[1].muted = false;
+                video[1].muted = disable;
             }
         }
-        this.mutePolicy = false;
+        this.mutePolicy = disable;
     }
 
     // добавить новый видеоэлемент собеседника

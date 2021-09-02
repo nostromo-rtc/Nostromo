@@ -25,16 +25,19 @@
             <button id="btn_setNewUsername">Сохранить имя</button>
         </div>
         <div id="inroomMenu">
-            <button id="btn_enableSounds" style="font-weight: bold; background-color: lightgreen;">Включить звуки собеседников</button>
-            <span style="margin-left: 5px; margin-right: 5px;">|</span>
+            <span id="attention" class="vl">&#9888;</span>
+            <button id="btn_toggleSounds" class="bold background-green">Включить звуки собеседников</button>
+            <span class="vl">|</span>
             <button id="btn_getUserMediaMic">Захватить микрофон</button>
-            <button hidden id="btn_toggleMic" style="font-weight: bold; background-color: lightcoral;">Выключить микрофон</button>
+            <button hidden id="btn_toggleMic" class="bold background-red">Выключить микрофон</button>
+            <span class="vl">|</span>
             <button id="btn_getUserMediaCam">Захватить веб-камеру</button>
+            <span class="vl">|</span>
             <button id="btn_getDisplayMedia">Демонстрация экрана компьютера</button>
+            <span class="vl">&larr;</span>
             <select id="captureSettings">
                 <option disabled selected value="default">Выберите разрешение</option>
             </select>
-            <br>
         </div>
         <div id="videos"></div>
         <section id="chatSection">

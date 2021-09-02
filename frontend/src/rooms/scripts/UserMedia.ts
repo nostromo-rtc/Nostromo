@@ -161,6 +161,7 @@ export class UserMedia
                 // должна быть не на паузе
                 const toggleMicButton = this.ui.buttons.get('toggleMic')!;
                 toggleMicButton.innerText = 'Выключить микрофон';
+                toggleMicButton.classList.replace('background-green', 'background-red');
                 toggleMicButton.hidden = true;
                 this.micPaused = false;
             }
@@ -195,16 +196,19 @@ export class UserMedia
     {
         const audioTrack: MediaStreamTrack = this.stream.getAudioTracks()[0];
 
+        const btn_toggleMic = this.ui.buttons.get('toggleMic');
         if (!this.micPaused)
         {
             this.parent.pauseMediaStreamTrack(audioTrack.id);
-            this.ui.buttons.get('toggleMic')!.innerText = 'Включить микрофон';
+            btn_toggleMic!.innerText = 'Включить микрофон';
+            btn_toggleMic!.classList.replace('background-red', 'background-green');
             this.micPaused = true;
         }
         else
         {
             this.parent.resumeMediaStreamTrack(audioTrack.id);
-            this.ui.buttons.get('toggleMic')!.innerText = 'Выключить микрофон';
+            btn_toggleMic!.innerText = 'Выключить микрофон';
+            btn_toggleMic!.classList.replace('background-green', 'background-red');
             this.micPaused = false;
         }
     }
