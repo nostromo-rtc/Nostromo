@@ -120,9 +120,12 @@ export class UserMedia
             if (!streamWasActive) this.ui.localVideo!.load();
 
             // так как добавили новую дорожку, включаем отображение элементов управления
-            // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
-            const hasAudio: boolean = this.stream.getAudioTracks().length > 0;
-            this.ui.showControls(this.ui.localVideo!.plyr, hasAudio);
+            // регулятор громкости не показываем
+
+            /* TODO: перенести регулятор громкости локального видео куда-нибудь в настройки
+                чтобы было возможно проверять микрофон */
+
+            this.ui.showControls(this.ui.localVideo!.plyr, false);
 
             // подключаем медиапоток к HTML-элементу <video> (localVideo)
             if (!this.ui.localVideo!.srcObject)
