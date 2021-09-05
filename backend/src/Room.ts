@@ -173,20 +173,7 @@ export class Room
             await this.joinEvJoin(user, socket, session!, joinInfo);
         });
 
-        // потребитель (Consumer) готов к работе у клиента
-        // и его необходимо снять с паузы на сервере
-        socket.on('resumeConsumer', async (consumerId: string) =>
-        {
-            const consumer = user.consumers.get(consumerId);
-
-            if (!consumer)
-                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
-
-            if (!consumer.producerPaused)
-                await this.resumeConsumer(consumer);
-        });
-
-        // клиент поставил consumer на паузу
+        // клиент ставит consumer на паузу
         socket.on('pauseConsumer', async (consumerId: string) =>
         {
             const consumer = user.consumers.get(consumerId);
@@ -194,9 +181,25 @@ export class Room
             if (!consumer)
                 throw new Error(`[Room] consumer with id "${consumerId}" not found`);
 
+            // запоминаем, что клиент поставил на паузу вручную
+            consumer.appData.clientPaused = true;
+
             await this.pauseConsumer(consumer);
         });
 
+        // клиент снимает consumer с паузы
+        socket.on('resumeConsumer', async (consumerId: string) =>
+        {
+            const consumer = user.consumers.get(consumerId);
+
+            if (!consumer)
+                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
+
+            // клиент хотел снять с паузы consumer, поэтому выключаем флаг ручной паузы
+            consumer.appData.clientPaused = false;
+
+            await this.resumeConsumer(consumer);
+        });
         // создание нового producer
         socket.on('newProducer', async (newProducerInfo: NewProducerInfo) =>
         {
@@ -266,24 +269,46 @@ export class Room
         });
     }
 
-    private async pauseConsumer(consumer: MediasoupTypes.Consumer)
+    private async pauseConsumer(consumer: MediasoupTypes.Consumer, socket?: SocketWrapper)
     {
-        await consumer.pause();
+        // если уже не на паузе
+        if (!consumer.paused)
+        {
+            await consumer.pause();
 
-        // поскольку consumer поставлен на паузу,
-        // то уменьшаем счетчик и перерасчитываем битрейт
-        this.mediasoup.decreaseConsumersCount(consumer.kind);
-        this.calculateAndEmitNewMaxVideoBitrate();
+            // поскольку consumer поставлен на паузу,
+            // то уменьшаем счетчик и перерасчитываем битрейт
+            this.mediasoup.decreaseConsumersCount(consumer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
+        // Сообщаем клиенту, чтобы он тоже поставил на паузу, если только это не он попросил.
+        // То есть сообщаем клиенту, что сервер поставил или хотел поставить на паузу. Хотел в том случае,
+        // если до этого клиент уже поставил на паузу, а после соответствующий producer был поставлен на паузу.
+        // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер НЕ ГОТОВ снимать с паузы consumer.
+        if (socket) socket.emit('pauseConsumer', consumer.id);
     }
 
-    private async resumeConsumer(consumer: MediasoupTypes.Consumer)
+    private async resumeConsumer(consumer: MediasoupTypes.Consumer, socket?: SocketWrapper)
     {
-        await consumer.resume();
+        // проверяем чтобы:
+        // 1) consumer был на паузе,
+        // 2) соответствующий producer был не на паузе
+        // 3) клиент ГОТОВ к снятию паузы у этого consumer
+        if (consumer.paused
+            && !consumer.producerPaused
+            && !consumer.appData.clientPaused)
+        {
+            await consumer.resume();
 
-        // поскольку consumer снят с паузы,
-        // то увеличиваем счетчик и перерасчитываем битрейт
-        this.mediasoup.increaseConsumersCount(consumer.kind);
-        this.calculateAndEmitNewMaxVideoBitrate();
+            // поскольку consumer снят с паузы,
+            // то увеличиваем счетчик и перерасчитываем битрейт
+            this.mediasoup.increaseConsumersCount(consumer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
+        // Сообщаем клиенту, чтобы он тоже снял с паузы, если только это не он попросил.
+        // То есть сообщаем клиенту, что сервер снял или хотел снять паузу.
+        // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер ГОТОВ снимать с паузы consumer.
+        if (socket) socket.emit('resumeConsumer', consumer.id);
     }
 
     // обработка события 'createWebRtcTransport' в методе join
@@ -457,8 +482,8 @@ export class Room
 
         consumer.on('transportclose', closeConsumer);
         consumer.on('producerclose', closeConsumer);
-        consumer.on('producerpause', async () => { await this.pauseConsumer(consumer); });
-        consumer.on('producerresume', async () => { await this.resumeConsumer(consumer); });
+        consumer.on('producerpause', async () => { await this.pauseConsumer(consumer, socket); });
+        consumer.on('producerresume', async () => { await this.resumeConsumer(consumer, socket); });
     }
 
     private async createProducer(
@@ -518,18 +543,24 @@ export class Room
 
     private async pauseProducer(producer: MediasoupTypes.Producer)
     {
-        await producer.pause();
+        if (!producer.paused)
+        {
+            await producer.pause();
 
-        this.mediasoup.decreaseProducersCount(producer.kind);
-        this.calculateAndEmitNewMaxVideoBitrate();
+            this.mediasoup.decreaseProducersCount(producer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
     }
 
     private async resumeProducer(producer: MediasoupTypes.Producer)
     {
-        await producer.resume();
+        if (producer.paused)
+        {
+            await producer.resume();
 
-        this.mediasoup.increaseProducersCount(producer.kind);
-        this.calculateAndEmitNewMaxVideoBitrate();
+            this.mediasoup.increaseProducersCount(producer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
     }
 
     // обработка события 'disconnect' в методе join

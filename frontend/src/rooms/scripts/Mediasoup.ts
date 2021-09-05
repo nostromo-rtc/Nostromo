@@ -24,10 +24,10 @@ export class Mediasoup
     public get recvTransport(): MediasoupTypes.Transport | undefined { return this._recvTransport; }
 
     private _consumers = new Map<string, MediasoupTypes.Consumer>();
-    public get consumers() { return this._consumers; };
-
     private _producers = new Map<string, MediasoupTypes.Producer>();
-    public get producers() { return this._producers; }
+
+    /** @key trackId @value consumerId */
+    private _linkMapTrackConsumer = new Map<string, string>();
 
     constructor()
     {
@@ -63,8 +63,8 @@ export class Mediasoup
             });
         }
         catch (error)
+        {
             console.error('[Mediasoup] > createRecvTransport | error', error);
-            console.error('> [Mediasoup] createRecvTransport | error', error);
         }
     }
 
@@ -85,7 +85,7 @@ export class Mediasoup
         }
     }
 
-    public async newConsumer(newConsumerInfo: NewConsumerInfo)
+    public async createConsumer(newConsumerInfo: NewConsumerInfo)
     {
         const { id, producerId, kind, rtpParameters } = newConsumerInfo;
 
@@ -100,7 +100,8 @@ export class Mediasoup
                 rtpParameters
             });
 
-            this.consumers.set(consumer.id, consumer);
+            this._consumers.set(consumer.id, consumer);
+            this._linkMapTrackConsumer.set(consumer.track.id, consumer.id);
         }
         catch (error)
         {
@@ -111,24 +112,92 @@ export class Mediasoup
         return consumer;
     }
 
+    public async createProducer(track: MediaStreamTrack, maxBitrate: number)
+    {
+        let producer;
+
+        try
+        {
+            producer = await this.sendTransport!.produce({
+                track,
+                zeroRtpOnPause: true,
+                codecOptions:
+                {
+                    videoGoogleStartBitrate: 1000
+                },
+                encodings: [
+                    {
+                        maxBitrate
+                    }
+                ]
+            });
+
+            this._producers.set(producer.id, producer);
+        }
+        catch (error)
+        {
+            console.error('[Mediasoup] > produce | error', error);
+            alert("produce error");
+        }
+
+        return producer;
+    }
+
     public closeAll(): void
     {
         // удаляем producers
-        for (const producer of this.producers.values())
+        for (const producer of this._producers.values())
         {
             producer.close();
         }
-        this.producers.clear();
+        this._producers.clear();
 
         // удаляем consumers
-        for (const consumer of this.consumers.values())
+        for (const consumer of this._consumers.values())
         {
             consumer.close();
         }
-        this.consumers.clear();
+        this._consumers.clear();
 
         // закрываем транспортные каналы
         this._sendTransport?.close();
         this._recvTransport?.close();
+    }
+
+    // получить consumer по id
+    public getConsumer(consumerId: string): MediasoupTypes.Consumer | undefined
+    {
+        return this._consumers.get(consumerId);
+    }
+
+    // получить consumer по id его track'а
+    public getConsumerByTrackId(trackId: string): string | undefined
+    {
+        return this._linkMapTrackConsumer.get(trackId);
+    }
+
+    // удалить consumer
+    public deleteConsumer(consumer: MediasoupTypes.Consumer): boolean
+    {
+        const res1 = this._consumers.delete(consumer.id);
+        const res2 = this._linkMapTrackConsumer.delete(consumer.track.id);
+        return (res1 && res2);
+    }
+
+    // получить producer по id
+    public getProducer(producerId: string): MediasoupTypes.Producer | undefined
+    {
+        return this._producers.get(producerId);
+    }
+
+    // получить всех producers (итератор)
+    public getProducers()
+    {
+        return this._producers.values();
+    }
+    // удалить producer
+    public deleteProducer(producer: MediasoupTypes.Producer): boolean
+    {
+        return this._producers.delete(producer.id);
     }
 }

@@ -22,6 +22,18 @@ import
     ChatMsgInfo
 } from "shared/RoomTypes";
 
+interface ConsumerAppData
+{
+    /** Consumer был поставлен на паузу со стороны клиента (плеер на паузе) */
+    localPaused: boolean;
+
+    /**
+     * Consumer был поставлен на паузу со стороны сервера
+     * (соответствующий producer на сервере был поставлен на паузу)
+     */
+    serverPaused: boolean;
+}
+
 // класс - комната
 export class Room
 {
@@ -104,12 +116,12 @@ export class Room
         // поэтому надо закрыть его и здесь
         this.socket.on('closeProducer', (producerId: string) =>
         {
-            const producer = this.mediasoup.producers.get(producerId);
+            const producer = this.mediasoup.getProducer(producerId);
 
             if (producer)
             {
                 producer.close();
-                this.mediasoup.producers.delete(producerId);
+                this.mediasoup.deleteProducer(producer);
             }
         });
 
@@ -117,10 +129,13 @@ export class Room
         // поэтому надо закрыть его и здесь
         this.socket.on('closeConsumer', ({ consumerId, producerUserId }: CloseConsumerInfo) =>
         {
-            const consumer = this.mediasoup.consumers.get(consumerId);
+            const consumer = this.mediasoup.getConsumer(consumerId);
+
+            if (!consumer) return;
+
             const remoteVideo = this.ui.allVideos.get(producerUserId);
 
-            if (consumer && remoteVideo)
+            if (remoteVideo)
             {
                 const stream = remoteVideo.srcObject as MediaStream;
                 consumer.track.stop();
@@ -143,11 +158,10 @@ export class Room
                 {
                     this.ui.hideVolumeControl(remoteVideo.plyr);
                 }
-
-                consumer.close();
-
-                this.mediasoup.consumers.delete(consumerId);
             }
+
+            consumer.close();
+            this.mediasoup.deleteConsumer(consumer);
         });
 
         // получаем название комнаты
@@ -168,6 +182,8 @@ export class Room
         {
             this.ui.addVideo(id, name);
 
+            this.pauseAndPlayEventsPlayerHandler(id);
+
             if (!this.soundDelayAfterJoin)
                 this.ui.joinedSound.play();
         });
@@ -176,7 +192,6 @@ export class Room
         this.socket.on('newUsername', ({ id, name }: NewUserInfo) =>
         {
             this.ui.updateVideoLabel(id, name);
-            this.ui.updateChatOption(id, name);
         });
 
         // сообщение в чат
@@ -193,6 +208,37 @@ export class Room
             await this.newConsumer(newConsumerInfo);
         });
 
+        // на сервере consumer был поставлен на паузу, сделаем тоже самое и на клиенте
+        this.socket.on('pauseConsumer', (consumerId) =>
+        {
+            const consumer = this.mediasoup.getConsumer(consumerId);
+            if (!consumer) return;
+
+            // запоминаем, что сервер поставил на паузу (по крайней мере хотел)
+            (consumer.appData as ConsumerAppData).serverPaused = true;
+
+            if (!consumer.paused) consumer.pause();
+        });
+
+        // на сервере consumer был снят с паузы, сделаем тоже самое и на клиенте
+        this.socket.on('resumeConsumer', (consumerId) =>
+        {
+            const consumer = this.mediasoup.getConsumer(consumerId);
+            if (!consumer) return;
+
+            // запоминаем, что сервер снял с паузы (по крайней мере хотел)
+            (consumer.appData as ConsumerAppData).serverPaused = false;
+
+            // проверяем чтобы:
+            // 1) consumer был на паузе,
+            // 2) мы ГОТОВЫ к снятию паузы у этого consumer
+            if (consumer.paused
+                && !(consumer.appData as ConsumerAppData).localPaused)
+            {
+                consumer.resume();
+            }
+        });
+
         // новое значение макс. битрейта видео
         this.socket.on('maxVideoBitrate', (bitrate: number) =>
         {
@@ -202,7 +248,7 @@ export class Room
                 this.maxVideoBitrate = bitrate;
                 console.debug('[Room] > New maxVideoBitrate in Mbit', bitrate / Room.MEGA);
 
-                for (const producer of this.mediasoup.producers.values())
+                for (const producer of this.mediasoup.getProducers())
                 {
                     if (producer.kind == 'video')
                     {
@@ -255,14 +301,68 @@ export class Room
                 this.socket.emit('chatMsg', message);
             }
         });
+    }
 
-        /*this.ui.buttons.get('sendFile')!.addEventListener('click', () =>
+    // обрабатываем паузу и снятие паузы на плеере
+    private pauseAndPlayEventsPlayerHandler(id: string)
+    {
+        const remoteVideo = this.ui.allVideos.get(id);
+        if (!remoteVideo) return;
+
+        const listenerFunc = (playerPause: boolean) =>
         {
-            if (this.ui.currentChatOption != "default")
+            const stream = remoteVideo.srcObject as MediaStream | null;
+            if (!stream) return;
+
+            if (playerPause)
             {
-                const receiverId = this.ui.currentChatOption;
+                console.debug(`[Room] > Плеер (${remoteVideo.id}) был поставлен на паузу`);
             }
-        });*/
+            else
+            {
+                console.debug(`[Room] > Плеер (${remoteVideo.id}) был снят с паузы`);
+            }
+
+            for (const track of stream.getTracks())
+            {
+                const consumerId = this.mediasoup.getConsumerByTrackId(track.id)!;
+                const consumer = this.mediasoup.getConsumer(consumerId)!;
+
+                if (playerPause)
+                {
+                    // запоминаем, что поставили / хотели поставить на паузу
+                    (consumer.appData as ConsumerAppData).localPaused = true;
+
+                    // ставим на паузу consumer у клиента
+                    if (!consumer.paused) consumer.pause();
+
+                    // просим поставить на паузу consumer на сервере
+                    // т.е сообщаем о нашем намерении поставить на паузу
+                    this.socket.emit('pauseConsumer', consumer.id);
+                }
+                else
+                {
+                    // запоминаем, что сняли / хотели снять с паузы
+                    (consumer.appData as ConsumerAppData).localPaused = false;
+
+                    // снимаем с паузы consumer у клиента, если:
+                    // 1) consumer на паузе
+                    // 2) сервер готов
+                    if (consumer.paused
+                        && !(consumer.appData as ConsumerAppData).serverPaused)
+                    {
+                        consumer.resume();
+                    }
+
+                    // просим снять с паузы consumer на сервере
+                    // т.е сообщаем о нашем намерении снять с паузы
+                    this.socket.emit('resumeConsumer', consumer.id);
+                }
+            }
+        };
+
+        remoteVideo.addEventListener('pause', () => listenerFunc(true));
+        remoteVideo.addEventListener('play', () => listenerFunc(false));
     }
 
     private getTimestamp(): string
@@ -407,13 +507,10 @@ export class Room
     // новый входящий медиапоток
     private async newConsumer(newConsumerInfo: NewConsumerInfo): Promise<void>
     {
-        const consumer = await this.mediasoup.newConsumer(newConsumerInfo);
+        const consumer = await this.mediasoup.createConsumer(newConsumerInfo);
 
         // если consumer не удалось создать
         if (!consumer) return;
-
-        // если удалось, то сообщаем об этом серверу, чтобы он снял с паузы consumer
-        this.socket.emit('resumeConsumer', consumer.id);
 
         const remoteVideo: HTMLVideoElement = this.ui.allVideos.get(newConsumerInfo.producerUserId)!;
 
@@ -443,6 +540,18 @@ export class Room
         // также обрабатываем в плеере случаи когда в stream нет звуковых дорожек и когда они есть
         const hasAudio: boolean = stream.getAudioTracks().length > 0;
         this.ui.showControls(remoteVideo.plyr, hasAudio);
+
+        // если видеоэлемент на паузе, ставим новый consumer на паузу
+        // на сервере он изначально на паузе
+        if (remoteVideo.paused)
+        {
+            consumer.pause();
+            (consumer.appData as ConsumerAppData).localPaused = true;
+        }
+        else // иначе сообщаем серверу, чтобы он снял с паузы consumer
+        {
+            this.socket.emit('resumeConsumer', consumer.id);
+        }
     }
 
     // добавить медиапоток (одну дорожку) в подключение
@@ -450,26 +559,14 @@ export class Room
     {
         const maxBitrate = (track.kind == 'video') ? this.maxVideoBitrate : this.maxAudioBitrate;
 
-        const producer = await this.mediasoup.sendTransport!.produce({
-            track,
-            codecOptions:
-            {
-                videoGoogleStartBitrate: 1000
-            },
-            encodings: [
-                {
-                    maxBitrate
-                }
-            ]
-        });
-
-        this.mediasoup.producers.set(producer.id, producer);
+        // создаем producer
+        this.mediasoup.createProducer(track, maxBitrate);
     }
 
     // обновить существующее медиа
     public async updateMediaStreamTrack(oldTrackId: string, track: MediaStreamTrack): Promise<void>
     {
-        const producer = Array.from(this.mediasoup.producers.values())
+        const producer = Array.from(this.mediasoup.getProducers())
             .find((producer) => producer.track!.id == oldTrackId);
 
         if (producer) await producer.replaceTrack({ track });
@@ -478,13 +575,13 @@ export class Room
     // удалить медиапоток (дорожку) из подключения
     public removeMediaStreamTrack(trackId: string): void
     {
-        const producer = Array.from(this.mediasoup.producers.values())
+        const producer = Array.from(this.mediasoup.getProducers())
             .find((producer) => producer.track!.id == trackId);
 
         if (producer)
         {
             producer.close();
-            this.mediasoup.producers.delete(producer.id);
+            this.mediasoup.deleteProducer(producer);
             this.socket.emit('closeProducer', producer.id);
         }
     }
@@ -492,7 +589,7 @@ export class Room
     // поставить медиапоток (дорожку) на паузу
     public pauseMediaStreamTrack(trackId: string): void
     {
-        const producer = Array.from(this.mediasoup.producers.values())
+        const producer = Array.from(this.mediasoup.getProducers())
             .find((producer) => producer.track!.id == trackId);
 
         if (producer)
@@ -505,7 +602,7 @@ export class Room
     // снять медиапоток (дорожку) с паузы
     public resumeMediaStreamTrack(trackId: string): void
     {
-        const producer = Array.from(this.mediasoup.producers.values())
+        const producer = Array.from(this.mediasoup.getProducers())
             .find((producer) => producer.track!.id == trackId);
 
         if (producer)

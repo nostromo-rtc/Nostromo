@@ -222,6 +222,10 @@ export class Mediasoup
                 rtpCapabilities: user.rtpCapabilities,
                 paused: true
             });
+            // поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
+            // когда клиент запросит снятие consumer с паузы, этот флаг сменится на false
+            // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне
+            consumer.appData.clientPaused = true;
         }
         catch (error)
         {

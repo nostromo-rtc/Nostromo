@@ -197,15 +197,19 @@ export class UI
     }
 
     // удалить видео собеседника (и опцию для чата/файлов тоже)
-    public removeVideo(remoteVideoId: string): void
+    public removeVideo(id: string): void
     {
-        const videoItem = document.getElementById(`remoteVideoItem-${remoteVideoId}`);
+        const videoItem = document.getElementById(`remoteVideoItem-${id}`);
         if (videoItem)
         {
+            // отвязываем стрим от UI видеоэлемента
+            const videoElement = this._allVideos.get(id)!;
+            videoElement.srcObject = null;
             // удаляем videoItem с этим id
             videoItem.remove();
-            this._allVideos.delete(remoteVideoId);
-            this.removeChatOption(remoteVideoId);
+            // удаляем видеоэлемент контейнера всех видеоэлементов
+            this._allVideos.delete(id);
+            // обновляем раскладку
             this.calculateLayout();
             this.resizeVideos();
         }
