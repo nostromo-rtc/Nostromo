@@ -45,7 +45,8 @@ export class Mediasoup
         {
             if (error.name === 'UnsupportedError')
             {
-                console.error('> [Mediasoup] Browser not supported', error);
+                console.error('[Mediasoup] > Browser not supported', error);
+                alert("Browser not supported");
             }
         }
     }
@@ -62,7 +63,7 @@ export class Mediasoup
             });
         }
         catch (error)
-        {
+            console.error('[Mediasoup] > createRecvTransport | error', error);
             console.error('> [Mediasoup] createRecvTransport | error', error);
         }
     }
@@ -80,7 +81,7 @@ export class Mediasoup
         }
         catch (error)
         {
-            console.error('> [Mediasoup] createSendTransport | error', error);
+            console.error('[Mediasoup] > createSendTransport | error', error);
         }
     }
 
@@ -103,7 +104,8 @@ export class Mediasoup
         }
         catch (error)
         {
-            console.error('> [Mediasoup] consume | error', error);
+            console.error('[Mediasoup] > consume | error', error);
+            alert("consume error");
         }
 
         return consumer;

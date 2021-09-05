@@ -30,7 +30,7 @@ export class UserMedia
 
     constructor(_ui: UI, _parent: Room)
     {
-        console.debug("UserMedia ctor");
+        console.debug("[UserMedia] > ctor");
 
         this.ui = _ui;          // интерфейс
         this.parent = _parent;  // родительский класс
@@ -58,7 +58,7 @@ export class UserMedia
         {
             const mediaStream: MediaStream = await navigator.mediaDevices.getUserMedia(streamConstraints);
 
-            console.debug("> [UserMedia] getUserMedia success:", mediaStream);
+            console.debug("[UserMedia] > getUserMedia success:", mediaStream);
 
             await this.handleMediaStream(mediaStream);
 
@@ -67,7 +67,7 @@ export class UserMedia
         }
         catch (error) // -- в случае ошибки -- //
         {
-            console.error("> [UserMedia] getUserMedia error:", error as DOMException);
+            console.error("[UserMedia] > getUserMedia error:", error as DOMException);
         }
     }
 
@@ -80,13 +80,13 @@ export class UserMedia
             const mediaStream: MediaStream = await navigator.mediaDevices
                 .getDisplayMedia(this.captureConstraints.get(this.ui.currentCaptureSetting));
 
-            console.debug("> [UserMedia] getDisplayMedia success:", mediaStream.getTracks());
+            console.debug("[UserMedia] > getDisplayMedia success:", mediaStream.getTracks());
 
             await this.handleMediaStream(mediaStream);
         }
         catch (error)
         {
-            console.error("> [UserMedia] getDisplayMedia error:", error as DOMException);
+            console.error("[UserMedia] > getDisplayMedia error:", error as DOMException);
         }
     }
 
@@ -144,7 +144,7 @@ export class UserMedia
         // stop не вызывает событие ended,
         // поэтому удаляем трек из стрима сами
         oldVideoTrack.stop();
-        console.debug("stopTrack", oldVideoTrack);
+        console.debug("[UserMedia] > stopTrack", oldVideoTrack);
         this.removeTrackFromStream(oldVideoTrack);
     }
 

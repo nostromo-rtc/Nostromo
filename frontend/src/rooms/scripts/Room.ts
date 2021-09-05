@@ -50,7 +50,7 @@ export class Room
 
     constructor(ui: UI)
     {
-        console.debug("Room ctor");
+        console.debug("[Room] > ctor");
 
         this.ui = ui;
         this.mediasoup = new Mediasoup();
@@ -64,8 +64,7 @@ export class Room
 
         this.socket.on('connect', () =>
         {
-            console.info("Создано веб-сокет подключение");
-            console.info("Client id:", this.socket.id);
+            console.info("[Room] > Создано веб-сокет подключение:", this.socket.id);
 
             // включим звук, что зашли в комнату
             this.ui.joinedSound.play();
@@ -201,7 +200,7 @@ export class Room
             if (this.maxVideoBitrate != bitrate)
             {
                 this.maxVideoBitrate = bitrate;
-                console.debug('[Room] New maxVideoBitrate in Mbit', bitrate / Room.MEGA);
+                console.debug('[Room] > New maxVideoBitrate in Mbit', bitrate / Room.MEGA);
 
                 for (const producer of this.mediasoup.producers.values())
                 {
@@ -219,6 +218,7 @@ export class Room
         this.socket.on('userDisconnected', (remoteUserId: SocketId) =>
         {
             console.info("[Room] > remoteUser disconnected:", `[${remoteUserId}]`);
+
             this.ui.removeVideo(remoteUserId);
             this.ui.leftSound.play();
         });
@@ -226,35 +226,25 @@ export class Room
         // ошибка при соединении нашего веб-сокета
         this.socket.on('connect_error', (err: Error) =>
         {
-            console.log(err.message); // скорее всего not authorized
-        });
-
-        // ошибка при соединении нашего веб-сокета
-        this.socket.on('connect_error', (err: Error) =>
-        {
-            console.log(err.message); // скорее всего not authorized
+            console.error("[Room] > ", err.message); // скорее всего not authorized
         });
 
         // наше веб-сокет соединение разорвано
         this.socket.on('disconnect', (reason) =>
         {
-            console.warn("[Room] Вы были отсоединены от веб-сервера (websocket disconnect)", reason);
+            console.warn("[Room] > Вы были отсоединены от веб-сервера (websocket disconnect)", reason);
 
             location.reload();
         });
 
         this.socket.io.on("error", (error) =>
         {
-            console.error("[Room] >", error.message);
+            console.error("[Room] > ", error.message);
         });
 
         // обработка чатов
         this.ui.buttons.get('sendMessage')!.addEventListener('click', () =>
         {
-            /*if (this.ui.currentChatOption != "default")
-            {
-                const receiverId = this.ui.currentChatOption;
-            }*/
             const message: string = this.ui.messageText.value.toString().trim();
 
             if (message)
@@ -292,6 +282,9 @@ export class Room
         this.ui.buttons.get('setNewUsername')!.addEventListener('click', () =>
         {
             this.ui.setNewUsername();
+
+            console.debug('[Room] > Ник был изменен на', this.ui.usernameInputValue);
+
             this.socket.emit('newUsername', this.ui.usernameInputValue);
         });
     }
@@ -336,7 +329,7 @@ export class Room
 
         localTransport.on('connectionstatechange', async (state) =>
         {
-            console.debug("connectionstatechange: ", state);
+            console.debug("[Room] > connectionstatechange: ", state);
         });
     }
 
@@ -359,6 +352,7 @@ export class Room
             rtpCapabilities: this.mediasoup.device.rtpCapabilities
         };
 
+        console.info('[Room] > Входим в комнату...');
         this.socket.emit('join', info);
     }
 

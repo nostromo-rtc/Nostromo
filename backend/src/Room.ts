@@ -180,7 +180,7 @@ export class Room
             const consumer = user.consumers.get(consumerId);
 
             if (!consumer)
-                throw new Error(`[Room] producer with id "${consumerId}" not found`);
+                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
 
             if (!consumer.producerPaused)
                 await this.resumeConsumer(consumer);
@@ -192,7 +192,7 @@ export class Room
             const consumer = user.consumers.get(consumerId);
 
             if (!consumer)
-                throw new Error(`[Room] producer with id "${consumerId}" not found`);
+                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
 
             await this.pauseConsumer(consumer);
         });

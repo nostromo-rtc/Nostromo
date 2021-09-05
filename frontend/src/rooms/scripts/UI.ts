@@ -34,25 +34,9 @@ export class UI
     private _chat = document.getElementById('chat') as HTMLTextAreaElement;
     public get chat() { return this._chat; }
 
-    // выбор собеседника-адресата
-    private chatOptions = document.getElementById('chatOptions') as HTMLSelectElement;
-    public get currentChatOption(): string { return this.chatOptions.value; }
-
-    // сообщение пользователя, отправляемое собеседнику
+    // сообщение пользователя, отправляемое в чат
     private _messageText = document.getElementById('messageText') as HTMLTextAreaElement;
     public get messageText() { return this._messageText; }
-
-    // поле для выбора файла для отправления
-    private _fileInput = document.getElementById('fileInput') as HTMLInputElement;
-    public get fileInput() { return this._fileInput; }
-
-    // ссылка на скачивание файла
-    private _downloadLink = document.getElementById('downloadLink') as HTMLAnchorElement;
-    public get downloadLink() { return this._downloadLink; }
-
-    // прогресс скачивания
-    private _receiveProgress = document.getElementById('receiveProgress') as HTMLProgressElement;
-    public get receiveProgress() { return this._receiveProgress; }
 
     // настройки захвата видео
     private captureSettings = document.getElementById('captureSettings') as HTMLSelectElement;
@@ -75,7 +59,7 @@ export class UI
 
     constructor()
     {
-        console.debug('UI ctor');
+        console.debug('[UI] > ctor');
         this.prepareMessageText();
         this.prepareLocalVideo();
         this.resizeVideos();
@@ -149,7 +133,7 @@ export class UI
 
     private showUserName(): void
     {
-        if (localStorage['username'] == undefined) localStorage['username'] = 'noname';
+        if (localStorage['username'] == undefined) localStorage['username'] = 'Гость';
         this._usernameInput.value = localStorage['username'];
         this.localVideoLabel.innerText = localStorage['username'];
     }
@@ -210,27 +194,6 @@ export class UI
     public updateVideoLabel(remoteVideoId: string, newName: string): void
     {
         document.getElementById(`remoteVideoLabel-${remoteVideoId}`)!.innerText = newName;
-    }
-
-    // изменить элемент выбора собеседника-адресата в виджете chatOption
-    public updateChatOption(remoteUserId: string, name: string): void
-    {
-        let chatOption = document.querySelector(`option[value='${remoteUserId}']`) as HTMLOptionElement;
-        if (chatOption) chatOption.innerText = `собеседник ${name}`;
-    }
-
-    // добавить выбор собеседника-адресата в виджет chatOption
-    public addChatOption(remoteUserId: string, remoteUsername: string): void
-    {
-        let newChatOption = new Option(`собеседник ${remoteUsername}`, remoteUserId);
-        this.chatOptions.appendChild(newChatOption);
-    }
-
-    // удалить выбор собеседника-адресата из виджета chatOption
-    public removeChatOption(remoteUserId: string): void
-    {
-        let chatOption = document.querySelector(`option[value='${remoteUserId}']`) as HTMLOptionElement;
-        if (chatOption) chatOption.remove();
     }
 
     // удалить видео собеседника (и опцию для чата/файлов тоже)
