@@ -21,6 +21,12 @@ module.exports = {
             {
                 "checksVoidReturn": false
             }
+        ],
+        "@typescript-eslint/unbound-method": [
+            "error",
+            {
+                "ignoreStatic": true
+            }
         ]
     }
 };

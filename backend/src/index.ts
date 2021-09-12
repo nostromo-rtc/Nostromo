@@ -3,6 +3,7 @@ import fs = require('fs');
 import http = require('http');
 import https = require('https');
 import dotenv = require('dotenv');
+import util = require('util');
 
 // Express
 import { ExpressApp } from './ExpressApp';
@@ -35,13 +36,18 @@ async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, 
     );
 }
 
-// добавление временных в меток в лог
-function addTimestampsToConsoleLogs(): void
+// добавление временных в меток в лог и сохранение логов в файл
+function prepareLogs(): void
 {
-    let origlog = console.log;
-    let origerror = console.error;
+    // создадим файл с логом
+    const outputFile = fs.createWriteStream(process.env.LOG_FILENAME ?? 'log.txt', { flags: 'a+', encoding: "utf8" });
 
-    let consoleFuncExtending = (obj: any, ...placeholders: any[]) =>
+    // оригинальные функции
+    const origLog = console.log;
+    const origError = console.error;
+
+    // добавляем временные метки
+    const addTimestamps = (message: unknown, ...optionalParams: unknown[]) =>
     {
         const timestamp = (new Date).toLocaleString("en-GB", {
             day: "2-digit",
@@ -52,30 +58,35 @@ function addTimestampsToConsoleLogs(): void
             second: "numeric"
         }) + '.' + ((new Date).getUTCMilliseconds() / 1000).toFixed(3).slice(2, 5);
 
-        if (typeof obj === 'string')
+        if (typeof message === 'string')
         {
-            placeholders.unshift(`[${timestamp}] ${obj}`);
+            // вставляем первым параметром строку с временной меткой
+            optionalParams.unshift(`[${timestamp}] ${message}`);
         }
         else
         {
-            placeholders.unshift(obj);
-            placeholders.unshift(`[${timestamp}] %j`);
+            // вставляем вторым параметром объект
+            optionalParams.unshift(message);
+            // а первым временную метку и placeholder,
+            // который отобразит второй параметр как объект
+            optionalParams.unshift(`[${timestamp}] %o`);
         }
-        return placeholders;
+        return optionalParams;
     };
 
-    console.log = function (obj, ...placeholders)
+    console.log = function (message: unknown, ...optionalParams: unknown[])
     {
-        let data: any[];
-        origlog.apply(this, data = consoleFuncExtending(obj, ...placeholders));
-        fs.writeFileSync(process.env.LOG_FILENAME ?? 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
+        const data: unknown[] = addTimestamps(message, ...optionalParams);
+        origLog.apply(this, data);
+        // конец строки в стиле CRLF (знак переноса каретки и новой строки)
+        outputFile.write((util.format.apply(this, data) + "\r\n"));
     };
 
-    console.error = function (obj, ...placeholders)
+    console.error = function (message: unknown, ...optionalParams: unknown[])
     {
-        let data: any[];
-        origerror.apply(this, data = consoleFuncExtending(obj, ...placeholders));
-        fs.writeFileSync(process.env.LOG_FILENAME ?? 'log.txt', data.toString() + '\n', { flag: 'a+', encoding: "utf8" });
+        const data: unknown[] = addTimestamps(message, ...optionalParams);
+        origError.apply(this, data);
+        outputFile.write((util.format.apply(this, data) + "\r\n"));
     };
 }
 
@@ -83,20 +94,21 @@ function addTimestampsToConsoleLogs(): void
 async function main()
 {
     // загрузка значений из конфигурационного файла
-    dotenv.config({path: path.resolve(process.cwd(), 'config', 'server.conf')});
+    dotenv.config({ path: path.resolve(process.cwd(), 'config', 'server.conf') });
 
     // добавление временных меток в лог
-    addTimestampsToConsoleLogs();
+    // и сохранения лога в файл
+    prepareLogs();
 
     // -- инициализация приложения -- //
-    process.title = `webrtc-server-${process.env.npm_package_version}`;
-    console.log(`Version: ${process.env.npm_package_version}`);
+    process.title = `webrtc-server-${process.env.npm_package_version!}`;
+    console.log(`Version: ${process.env.npm_package_version!}`);
 
     // создание класса-обработчика mediasoup
     const mediasoup = await Mediasoup.create(1);
 
     // комнаты
-    let rooms = new Map<RoomId, Room>();
+    const rooms = new Map<RoomId, Room>();
 
     const Express = new ExpressApp(rooms);
 
@@ -105,7 +117,7 @@ async function main()
 
     httpServer.listen(httpPort, () =>
     {
-        console.log(`Http server running on port: ${httpPort}`);
+        console.log(`Http server running on port: ${httpPort!}`);
     });
 
     // настройки https-сервера (сертификаты)
@@ -119,7 +131,7 @@ async function main()
 
     server.listen(port, () =>
     {
-        console.log(`Https server running on port: ${port}`);
+        console.log(`Https server running on port: ${port!}`);
     });
 
     const socketHandlerInstance = new SocketHandler(
@@ -148,4 +160,4 @@ async function main()
 }
 
 // вызов главной функции
-main();
+main().catch((reason) => console.error(reason));
