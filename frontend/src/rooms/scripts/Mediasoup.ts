@@ -1,26 +1,27 @@
 import * as mediasoup from 'mediasoup-client';
 import { NewConsumerInfo, NewWebRtcTransportInfo } from 'shared/RoomTypes';
+import { HandleCriticalError } from "./AppError";
 import MediasoupTypes = mediasoup.types;
 export { MediasoupTypes };
 
 export type TransportProduceParameters = {
     kind: MediasoupTypes.MediaKind,
     rtpParameters: MediasoupTypes.RtpParameters,
-    appData: Object;
+    appData: unknown;
 };
 
 // Класс, получающий медиапотоки пользователя
 export class Mediasoup
 {
-    private _device: MediasoupTypes.Device;
+    private _device!: MediasoupTypes.Device;
     public get device(): MediasoupTypes.Device { return this._device; }
 
     // транспортный канал для отправки потоков
-    private _sendTransport?: MediasoupTypes.Transport | undefined;
+    private _sendTransport?: MediasoupTypes.Transport;
     public get sendTransport(): MediasoupTypes.Transport | undefined { return this._sendTransport; }
 
     // транспортный канал для приема потоков
-    private _recvTransport?: MediasoupTypes.Transport | undefined;
+    private _recvTransport?: MediasoupTypes.Transport;
     public get recvTransport(): MediasoupTypes.Transport | undefined { return this._recvTransport; }
 
     private _consumers = new Map<string, MediasoupTypes.Consumer>();
@@ -31,137 +32,79 @@ export class Mediasoup
 
     constructor()
     {
-        this._device = new mediasoup.Device();
+        try
+        {
+            this._device = new mediasoup.Device();
+        }
+        catch (error)
+        {
+            HandleCriticalError(error as Error);
+        }
     }
 
     // загружаем mediasoup device от rtpCapabilities с сервера
     public async loadDevice(routerRtpCapabilities: MediasoupTypes.RtpCapabilities): Promise<void>
     {
-        try
-        {
-            await this.device.load({ routerRtpCapabilities });
-        }
-        catch (error)
-        {
-            if (error.name === 'UnsupportedError')
-            {
-                console.error('[Mediasoup] > Browser not supported', error);
-                alert("Browser not supported");
-            }
-        }
+        await this.device.load({ routerRtpCapabilities });
     }
-
     public createRecvTransport(transport: NewWebRtcTransportInfo): void
     {
-        try
-        {
-            this._recvTransport = this.device.createRecvTransport({
-                id: transport.id,
-                iceParameters: transport.iceParameters,
-                iceCandidates: transport.iceCandidates,
-                dtlsParameters: transport.dtlsParameters
-            });
-        }
-        catch (error)
-        {
-            console.error('[Mediasoup] > createRecvTransport | error', error);
-        }
-    }
+        const { id, iceParameters, iceCandidates, dtlsParameters } = transport;
 
+        this._recvTransport = this.device.createRecvTransport({
+            id,
+            iceParameters,
+            iceCandidates,
+            dtlsParameters
+        });
+    }
     public createSendTransport(transport: NewWebRtcTransportInfo): void
     {
-        try
-        {
-            this._sendTransport = this.device.createSendTransport({
-                id: transport.id,
-                iceParameters: transport.iceParameters,
-                iceCandidates: transport.iceCandidates,
-                dtlsParameters: transport.dtlsParameters
-            });
-        }
-        catch (error)
-        {
-            console.error('[Mediasoup] > createSendTransport | error', error);
-        }
-    }
+        const { id, iceParameters, iceCandidates, dtlsParameters } = transport;
 
-    public async createConsumer(newConsumerInfo: NewConsumerInfo)
+        this._sendTransport = this.device.createSendTransport({
+            id,
+            iceParameters,
+            iceCandidates,
+            dtlsParameters
+        });
+    }
+    public async createConsumer(newConsumerInfo: NewConsumerInfo): Promise<MediasoupTypes.Consumer>
     {
         const { id, producerId, kind, rtpParameters } = newConsumerInfo;
 
-        let consumer;
+        const consumer = await this.recvTransport!.consume({
+            id,
+            producerId,
+            kind,
+            rtpParameters
+        });
 
-        try
-        {
-            consumer = await this.recvTransport!.consume({
-                id,
-                producerId,
-                kind,
-                rtpParameters
-            });
-
-            this._consumers.set(consumer.id, consumer);
-            this._linkMapTrackConsumer.set(consumer.track.id, consumer.id);
-        }
-        catch (error)
-        {
-            console.error('[Mediasoup] > consume | error', error);
-            alert("consume error");
-        }
+        this._consumers.set(consumer.id, consumer);
+        this._linkMapTrackConsumer.set(consumer.track.id, consumer.id);
 
         return consumer;
     }
 
-    public async createProducer(track: MediaStreamTrack, maxBitrate: number)
+    public async createProducer(track: MediaStreamTrack, maxBitrate: number): Promise<MediasoupTypes.Producer>
     {
-        let producer;
-
-        try
-        {
-            producer = await this.sendTransport!.produce({
-                track,
-                zeroRtpOnPause: true,
-                codecOptions:
+        const producer = await this.sendTransport!.produce({
+            track,
+            zeroRtpOnPause: true,
+            codecOptions:
+            {
+                videoGoogleStartBitrate: 1000
+            },
+            encodings: [
                 {
-                    videoGoogleStartBitrate: 1000
-                },
-                encodings: [
-                    {
-                        maxBitrate
-                    }
-                ]
-            });
+                    maxBitrate
+                }
+            ]
+        });
 
-            this._producers.set(producer.id, producer);
-        }
-        catch (error)
-        {
-            console.error('[Mediasoup] > produce | error', error);
-            alert("produce error");
-        }
+        this._producers.set(producer.id, producer);
 
         return producer;
-    }
-
-    public closeAll(): void
-    {
-        // удаляем producers
-        for (const producer of this._producers.values())
-        {
-            producer.close();
-        }
-        this._producers.clear();
-
-        // удаляем consumers
-        for (const consumer of this._consumers.values())
-        {
-            consumer.close();
-        }
-        this._consumers.clear();
-
-        // закрываем транспортные каналы
-        this._sendTransport?.close();
-        this._recvTransport?.close();
     }
 
     // получить consumer по id
@@ -191,7 +134,7 @@ export class Mediasoup
     }
 
     // получить всех producers (итератор)
-    public getProducers()
+    public getProducers(): IterableIterator<MediasoupTypes.Producer>
     {
         return this._producers.values();
     }

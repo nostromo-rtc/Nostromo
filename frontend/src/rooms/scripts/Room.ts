@@ -1,6 +1,8 @@
-import { UI } from "./UI.js";
-import { UserMedia } from './UserMedia.js';
+import { UI } from "./UI";
+import { UserMedia } from './UserMedia';
 import { io, Socket } from "socket.io-client";
+
+import { HandleCriticalError, TransportFailedError } from "./AppError";
 
 import
 {
@@ -21,6 +23,20 @@ import
     CloseConsumerInfo,
     ChatMsgInfo
 } from "shared/RoomTypes";
+
+// callback при transport.on("connect")
+type CallbackOnConnect = {
+    (): void;
+};
+
+// callback при transport.on("produce")
+type CallbackOnProduce = {
+    ({ id }: { id: string; }): void;
+};
+
+type Errback = {
+    (error?: unknown): void;
+};
 
 interface ConsumerAppData
 {
@@ -74,6 +90,25 @@ export class Room
         // через X миллисекунд разрешаем включать звуковые оповещения
         setTimeout(() => this.soundDelayAfterJoin = false, 2000);
 
+        this.handleSocketEvents();
+
+        // обработка чатов
+        this.ui.buttons.get('sendMessage')!.addEventListener('click', () =>
+        {
+            const message: string = this.ui.messageText.value.toString().trim();
+
+            if (message)
+            {
+                const timestamp = this.getTimestamp();
+                this.ui.chat.innerHTML += `[${timestamp}] (Общий) Я: ${message}` + "\n";
+                this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
+                this.socket.emit('chatMsg', message);
+            }
+        });
+    }
+
+    private handleSocketEvents()
+    {
         this.socket.on('connect', () =>
         {
             console.info("[Room] > Создано веб-сокет подключение:", this.socket.id);
@@ -152,6 +187,7 @@ export class Room
                 {
                     this.ui.hideControls(remoteVideo.plyr);
                 }
+
                 // предусматриваем случай, когда звуковых дорожек не осталось
                 // и убираем кнопку регулирования звука
                 else if (!hasAudio)
@@ -240,7 +276,7 @@ export class Room
         });
 
         // новое значение макс. битрейта видео
-        this.socket.on('maxVideoBitrate', (bitrate: number) =>
+        this.socket.on('maxVideoBitrate', async (bitrate: number) =>
         {
             // если битрейт изменился
             if (this.maxVideoBitrate != bitrate)
@@ -252,9 +288,9 @@ export class Room
                 {
                     if (producer.kind == 'video')
                     {
-                        let params = producer.rtpSender!.getParameters();
+                        const params = producer.rtpSender!.getParameters();
                         params.encodings[0].maxBitrate = bitrate;
-                        producer.rtpSender!.setParameters(params);
+                        await producer.rtpSender!.setParameters(params);
                     }
                 }
             }
@@ -286,20 +322,6 @@ export class Room
         this.socket.io.on("error", (error) =>
         {
             console.error("[Room] > ", error.message);
-        });
-
-        // обработка чатов
-        this.ui.buttons.get('sendMessage')!.addEventListener('click', () =>
-        {
-            const message: string = this.ui.messageText.value.toString().trim();
-
-            if (message)
-            {
-                const timestamp = this.getTimestamp();
-                this.ui.chat.innerHTML += `[${timestamp}] (Общий) Я: ${message}` + "\n";
-                this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
-                this.socket.emit('chatMsg', message);
-            }
         });
     }
 
@@ -395,7 +417,7 @@ export class Room
         await this.mediasoup.loadDevice(routerRtpCapabilities);
 
         // запрашиваем создание транспортного канала на сервере для приема потоков
-        let consuming: boolean = true;
+        const consuming = true;
         this.socket.emit('createWebRtcTransport', consuming);
 
         // и для отдачи наших потоков
@@ -406,7 +428,7 @@ export class Room
     private handleCommonTransportEvents(localTransport: MediasoupTypes.Transport): void
     {
         localTransport.on('connect', (
-            { dtlsParameters }, callback, errback
+            { dtlsParameters }: { dtlsParameters: MediasoupTypes.DtlsParameters; }, callback: CallbackOnConnect, errback: Errback
         ) =>
         {
             try
@@ -427,9 +449,15 @@ export class Room
             }
         });
 
-        localTransport.on('connectionstatechange', async (state) =>
+        localTransport.on('connectionstatechange', (state: RTCPeerConnectionState) =>
         {
             console.debug("[Room] > connectionstatechange: ", state);
+
+            // так и не получилось подключиться
+            if (state == "failed")
+            {
+                HandleCriticalError(new TransportFailedError("ICE connection state change is failed."));
+            }
         });
     }
 
@@ -476,7 +504,7 @@ export class Room
     private handleSendTransportEvents(localTransport: MediasoupTypes.Transport): void
     {
         localTransport.on('produce', (
-            parameters: TransportProduceParameters, callback, errback
+            parameters: TransportProduceParameters, callback: CallbackOnProduce, errback: Errback
         ) =>
         {
             try
@@ -560,7 +588,7 @@ export class Room
         const maxBitrate = (track.kind == 'video') ? this.maxVideoBitrate : this.maxAudioBitrate;
 
         // создаем producer
-        this.mediasoup.createProducer(track, maxBitrate);
+        await this.mediasoup.createProducer(track, maxBitrate);
     }
 
     // обновить существующее медиа

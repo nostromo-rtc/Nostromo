@@ -28,15 +28,15 @@ export class UI
     // контейнер с видеоэлементами
     private _allVideos = new Map<string, HTMLVideoElement>();
     public get allVideos(): Map<string, HTMLVideoElement> { return this._allVideos; }
-    public get localVideo() { return this._allVideos.get('localVideo'); }
+    public get localVideo(): HTMLVideoElement | undefined { return this._allVideos.get('localVideo'); }
 
     // чат
     private _chat = document.getElementById('chat') as HTMLTextAreaElement;
-    public get chat() { return this._chat; }
+    public get chat() : HTMLTextAreaElement { return this._chat; }
 
     // сообщение пользователя, отправляемое в чат
     private _messageText = document.getElementById('messageText') as HTMLTextAreaElement;
-    public get messageText() { return this._messageText; }
+    public get messageText() : HTMLTextAreaElement { return this._messageText; }
 
     // настройки захвата видео
     private captureSettings = document.getElementById('captureSettings') as HTMLSelectElement;
@@ -92,13 +92,13 @@ export class UI
 
     public addCaptureSetting(label: string, value: string): void
     {
-        let newSetting = new Option(label, value);
+        const newSetting = new Option(label, value);
         this.captureSettings.add(newSetting);
     }
 
     private prepareButtons(): Map<string, HTMLButtonElement>
     {
-        let buttons = new Map<string, HTMLButtonElement>();
+        const buttons = new Map<string, HTMLButtonElement>();
 
         buttons.set('getUserMediaMic',  document.getElementById('btn_getUserMediaMic')  as HTMLButtonElement);
         buttons.set('toggleMic',        document.getElementById('btn_toggleMic')        as HTMLButtonElement);
@@ -121,7 +121,7 @@ export class UI
                 e.preventDefault();
                 this._buttons.get('sendMessage')!.click();
                 this.messageText.value = '';
-            };
+            }
         });
     }
 
@@ -134,8 +134,8 @@ export class UI
     private showUserName(): void
     {
         if (localStorage['username'] == undefined) localStorage['username'] = 'Гость';
-        this._usernameInput.value = localStorage['username'];
-        this.localVideoLabel.innerText = localStorage['username'];
+        this._usernameInput.value = localStorage['username'] as string;
+        this.localVideoLabel.innerText = localStorage['username'] as string;
     }
 
     // включить звук для всех видео
@@ -145,7 +145,7 @@ export class UI
     }
 
     // выключить звук для всех видео
-    private disableSounds(disable: boolean = true): void
+    private disableSounds(disable = true): void
     {
         for (const video of this._allVideos)
         {
@@ -160,18 +160,18 @@ export class UI
     // добавить новый видеоэлемент собеседника
     public addVideo(remoteVideoId: string, name: string): void
     {
-        let newVideoItem = document.createElement('div');
+        const newVideoItem = document.createElement('div');
         newVideoItem.id = `remoteVideoItem-${remoteVideoId}`;
         newVideoItem.classList.add('videoItem');
 
-        let videoLabel = document.createElement('span');
+        const videoLabel = document.createElement('span');
         videoLabel.classList.add('videoLabel');
         videoLabel.innerText = name;
         videoLabel.id = `remoteVideoLabel-${remoteVideoId}`;
         newVideoItem.appendChild(videoLabel);
 
 
-        let newVideo = document.createElement('video');
+        const newVideo = document.createElement('video');
         newVideo.id = `remoteVideo-${remoteVideoId}`;
         newVideo.classList.add('video-js');
         newVideo.autoplay = true;
@@ -250,24 +250,24 @@ export class UI
         const offset        = 30;
         const aspect_ratio  = 16 / 9;
         // max_h для регулирования размеров видео, чтобы оно вмещалось в videoRows (количество) строк
-        let max_h = ((document.documentElement.clientHeight - header_offset) / this.videoRows) - offset;
-        let flexBasis = ((document.documentElement.clientWidth - nav_offset) / this.videoColumns) - offset;
+        const max_h = ((document.documentElement.clientHeight - header_offset) / this.videoRows) - offset;
+        const flexBasis = ((document.documentElement.clientWidth - nav_offset) / this.videoColumns) - offset;
         for (const videoItem of document.getElementsByClassName('videoItem'))
         {
-            (videoItem as HTMLDivElement).style.maxWidth = max_h * aspect_ratio + 'px';
-            (videoItem as HTMLDivElement).style.flexBasis = flexBasis + 'px';
+            (videoItem as HTMLDivElement).style.maxWidth = String(max_h * aspect_ratio) + 'px';
+            (videoItem as HTMLDivElement).style.flexBasis = String(flexBasis) + 'px';
         }
     }
 
     // подготовить локальный видеоэлемент
     private prepareLocalVideo(): void
     {
-        let localVideoItem = document.createElement('div');
+        const localVideoItem = document.createElement('div');
         localVideoItem.classList.add('videoItem');
 
         localVideoItem.appendChild(this.localVideoLabel);
 
-        let localVideo = document.createElement('video');
+        const localVideo = document.createElement('video');
         localVideo.id = 'localVideo';
         localVideo.autoplay = true;
         localVideo.muted = true;
@@ -287,7 +287,7 @@ export class UI
             ratio: '16:9',
             disableContextMenu: false,
             storage: { enabled: false },
-            keyboard: {focused: false, global: false},
+            keyboard: { focused: false, global: false },
             clickToPlay: false,
             muted: (video.id == 'localVideo') ? true : this.mutePolicy,
             controls: ['play-large', 'play', 'mute', 'volume', 'pip', 'fullscreen']
@@ -302,7 +302,7 @@ export class UI
     }
 
     // скрыть элементы управления у плеера
-    public hideControls(player: Plyr, hide: boolean = true): void
+    public hideControls(player: Plyr, hide = true): void
     {
         player.elements.controls!.hidden = hide;
 
@@ -311,14 +311,14 @@ export class UI
     }
 
     // скрыть регулировку звука у плеера
-    public hideVolumeControl(player: Plyr, hide: boolean = true): void
+    public hideVolumeControl(player: Plyr, hide = true): void
     {
         const volumeDiv: HTMLDivElement = player.elements.controls!.querySelector('.plyr__volume')!;
         volumeDiv.hidden = hide;
     }
 
     // показать элементы управления у плеера
-    public showControls(player: Plyr, hasAudio: boolean)
+    public showControls(player: Plyr, hasAudio: boolean): void
     {
         // не скрывать элементы управления
         this.hideControls(player, false);
@@ -330,7 +330,7 @@ export class UI
 
     private prepareLocalVideoLabel(): HTMLSpanElement
     {
-        let label = document.createElement('span');
+        const label = document.createElement('span');
         label.classList.add('videoLabel');
         return label;
     }

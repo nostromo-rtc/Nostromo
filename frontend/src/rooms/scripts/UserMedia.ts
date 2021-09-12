@@ -1,11 +1,12 @@
-import { UI } from "./UI.js";
-import { Room } from "./Room.js";
+import { UI } from "./UI";
+import { Room } from "./Room";
 
 declare global
 {
-    interface MediaDevices
+    interface MediaTrackConstraintSet
     {
-        getDisplayMedia(constraints?: MediaStreamConstraints): Promise<MediaStream>;
+        autoGainControl?: ConstrainBoolean,
+        noiseSuppression?: ConstrainBoolean
     }
 }
 
@@ -24,7 +25,7 @@ export class UserMedia
         audio: false, video: true
     };
 
-    private micPaused: boolean = false;
+    private micPaused = false;
 
     private captureConstraints: Map<string, MediaStreamConstraints>;
 
@@ -216,17 +217,17 @@ export class UserMedia
     // подготовить опции с разрешениями
     private prepareCaptureConstraints(): Map<string, MediaStreamConstraints>
     {
-        let _constraints = new Map<string, MediaStreamConstraints>();
+        const _constraints = new Map<string, MediaStreamConstraints>();
 
-        let constraints1440p: MediaStreamConstraints = {
+        const constraints1440p: MediaStreamConstraints = {
             video: {
                 frameRate: 30,
                 width: 2560, height: 1440
             },
-            audio: { echoCancellation: false, noiseSuppression: false }
+            audio: { echoCancellation: false, noiseSuppression: false,  }
         };
 
-        let constraints1080p: MediaStreamConstraints = {
+        const constraints1080p: MediaStreamConstraints = {
             video: {
                 frameRate: 30,
                 width: 1920, height: 1080
@@ -234,7 +235,7 @@ export class UserMedia
             audio: { echoCancellation: false, noiseSuppression: false }
         };
 
-        let constraints1080p60: MediaStreamConstraints = {
+        const constraints1080p60: MediaStreamConstraints = {
             video: {
                 frameRate: 60,
                 width: 1920, height: 1080
@@ -242,15 +243,15 @@ export class UserMedia
             audio: { echoCancellation: false, noiseSuppression: false }
         };
 
-        let constraints720p: MediaStreamConstraints = {
+        const constraints720p: MediaStreamConstraints = {
             video: {
                 frameRate: 30,
                 width: 1280, height: 720
             },
-            audio: { echoCancellation: false, noiseSuppression: false }
+            audio: { echoCancellation: false, noiseSuppression: false, suppressLocalAudioPlayback: true }
         };
 
-        let constraints720p60: MediaStreamConstraints = {
+        const constraints720p60: MediaStreamConstraints = {
             video: {
                 frameRate: 60,
                 width: 1280, height: 720
@@ -258,7 +259,7 @@ export class UserMedia
             audio: { echoCancellation: false, noiseSuppression: false }
         };
 
-        let constraints480p: MediaStreamConstraints = {
+        const constraints480p: MediaStreamConstraints = {
             video: {
                 frameRate: 30,
                 width: 854, height: 480
@@ -266,7 +267,7 @@ export class UserMedia
             audio: { echoCancellation: false, noiseSuppression: false }
         };
 
-        let constraints360p: MediaStreamConstraints = {
+        const constraints360p: MediaStreamConstraints = {
             video: {
                 frameRate: 30,
                 width: 640, height: 360
@@ -274,7 +275,7 @@ export class UserMedia
             audio: { echoCancellation: false, noiseSuppression: false }
         };
 
-        let constraints240p: MediaStreamConstraints = {
+        const constraints240p: MediaStreamConstraints = {
             video: {
                 frameRate: 30,
                 width: 426, height: 240
