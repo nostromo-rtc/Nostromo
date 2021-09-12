@@ -1,4 +1,4 @@
-import { Mediasoup, MediasoupTypes } from "./Mediasoup";
+import { ConsumerAppData, Mediasoup, MediasoupTypes } from "./Mediasoup";
 import { SocketHandler, SocketWrapper, SocketId, HandshakeSession } from "./SocketHandler";
 import
 {
@@ -57,7 +57,7 @@ export class Room
 
     // пользователи в комнате
     private _users = new Map<SocketId, User>();
-    public get users() { return this._users; }
+    public get users() : Map<SocketId, User> { return this._users; }
 
     // максимальный битрейт (Кбит) для аудио в этой комнате
     // 1024 - kilo
@@ -68,7 +68,7 @@ export class Room
         name: string, password: string, videoCodec: VideoCodec,
         mediasoup: Mediasoup,
         socketHandler: SocketHandler
-    )
+    ) : Promise<Room>
     {
         // для каждой комнаты свой mediasoup router
         const router = await mediasoup.createRouter(videoCodec);
@@ -122,7 +122,7 @@ export class Room
 
         if (producersCount > 0)
         {
-            let maxVideoBitrate: number = Math.min(
+            const maxVideoBitrate: number = Math.min(
                 networkIncomingCapability / producersCount,
                 networkOutcomingCapability / consumersCount
             ) * MEGA;
@@ -135,13 +135,13 @@ export class Room
     // пользователь заходит в комнату
     public join(socket: SocketWrapper): void
     {
-        let session = socket.handshake.session;
+        const session = socket.handshake.session;
         if (!session) throw `[Room] Error: session is missing (${socket.id})`;
 
-        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} (${session.username}) user connected`);
+        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} (${session.username ?? "Unknown"}) user connected`);
         this._users.set(socket.id, new User(socket.id));
 
-        let user: User = this.users.get(socket.id)!;
+        const user: User = this.users.get(socket.id)!;
 
         // сообщаем пользователю название комнаты
         socket.emit('roomName', this.name);
@@ -170,7 +170,7 @@ export class Room
         // и готов к получению потоков (готов к получению consumers)
         socket.once('join', async (joinInfo: JoinInfo) =>
         {
-            await this.joinEvJoin(user, socket, session!, joinInfo);
+            await this.joinEvJoin(user, socket, session, joinInfo);
         });
 
         // клиент ставит consumer на паузу
@@ -182,7 +182,7 @@ export class Room
                 throw new Error(`[Room] consumer with id "${consumerId}" not found`);
 
             // запоминаем, что клиент поставил на паузу вручную
-            consumer.appData.clientPaused = true;
+            (consumer.appData as ConsumerAppData).clientPaused = true;
 
             await this.pauseConsumer(consumer);
         });
@@ -196,7 +196,7 @@ export class Room
                 throw new Error(`[Room] consumer with id "${consumerId}" not found`);
 
             // клиент хотел снять с паузы consumer, поэтому выключаем флаг ручной паузы
-            consumer.appData.clientPaused = false;
+            (consumer.appData as ConsumerAppData).clientPaused = false;
 
             await this.resumeConsumer(consumer);
         });
@@ -207,7 +207,7 @@ export class Room
         });
 
         // клиент закрывает producer
-        socket.on('closeProducer', async (producerId: string) =>
+        socket.on('closeProducer', (producerId: string) =>
         {
             const producer = user.producers.get(producerId);
 
@@ -250,7 +250,7 @@ export class Room
         // новый ник пользователя
         socket.on('newUsername', (username: string) =>
         {
-            this.joinEvNewUsername(socket, session!, username);
+            this.joinEvNewUsername(socket, session, username);
         });
 
         socket.on('chatMsg', (msg: string) =>
@@ -265,7 +265,7 @@ export class Room
         // пользователь отсоединился
         socket.on('disconnect', (reason: string) =>
         {
-            this.joinEvDisconnect(socket, session!, reason);
+            this.joinEvDisconnect(socket, session, reason);
         });
     }
 
@@ -296,7 +296,7 @@ export class Room
         // 3) клиент ГОТОВ к снятию паузы у этого consumer
         if (consumer.paused
             && !consumer.producerPaused
-            && !consumer.appData.clientPaused)
+            && !(consumer.appData as ConsumerAppData).clientPaused)
         {
             await consumer.resume();
 
@@ -460,7 +460,7 @@ export class Room
         socket: SocketWrapper
     ): void
     {
-        let closeConsumer = () =>
+        const closeConsumer = () =>
         {
             user.consumers.delete(consumer.id);
 
@@ -613,9 +613,10 @@ export class Room
     // пользователь покидает комнату
     public leave(userSocket: SocketWrapper, reason: string): void
     {
+        const username = userSocket.handshake.session?.username ?? "Unknown";
         if (this._users.has(userSocket.id))
         {
-            console.log(`[Room] [#${this._id}, ${this._name}]: ${userSocket.id} (${userSocket.handshake.session!.username}) user disconnected > ${reason}`);
+            console.log(`[Room] [#${this._id}, ${this._name}]: ${userSocket.id} (${username}) user disconnected > ${reason}`);
 
             const transports = this._users.get(userSocket.id)!.transports;
             for (const transport of transports.values())

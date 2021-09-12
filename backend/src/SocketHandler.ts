@@ -3,6 +3,7 @@ import session = require('express-session');
 import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
+import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { RequestHandler } from 'express';
 import { RoomId, Room } from './Room';
 import { NewRoomInfo } from 'shared/AdminTypes';
@@ -31,7 +32,7 @@ declare module "express"
     {
         (
             req: Handshake,
-            res: {},
+            res: unknown,
             next: (err?: ExtendedError) => void,
         ): void;
     }
@@ -41,8 +42,8 @@ export class SocketWrapper
 {
     private socket: Socket;
 
-    public get id() { return this.socket.id; }
-    public get handshake() { return this.socket.handshake; }
+    public get id(): SocketId { return this.socket.id; }
+    public get handshake(): Handshake { return this.socket.handshake; }
 
     constructor(socket: Socket)
     {
@@ -63,8 +64,7 @@ export class SocketWrapper
     {
         return this.socket.once(event, listener);
     }
-
-    public to(name: string)
+    public to(name: string) : SocketIO.BroadcastOperator<DefaultEventsMap>
     {
         return this.socket.to(name);
     }
@@ -123,7 +123,7 @@ export class SocketHandler
 
     private getRoomList(): RoomForUser[]
     {
-        let roomList: Array<RoomForUser> = [];
+        const roomList: RoomForUser[] = [];
         for (const room of this.rooms)
         {
             roomList.push({ id: room[0], name: room[1].name });
@@ -151,7 +151,7 @@ export class SocketHandler
 
         this.io.of('/admin').on('connection', (socket: Socket) =>
         {
-            let session = socket.handshake.session!;
+            const session = socket.handshake.session!;
             if (!session.admin)
             {
                 socket.on('joinAdmin', (pass: string) =>
@@ -226,7 +226,7 @@ export class SocketHandler
 
         this.io.of('/auth').on('connection', (socket: Socket) =>
         {
-            let session = socket.handshake.session!;
+            const session = socket.handshake.session!;
             const roomId: string | undefined = session.joinedRoomId;
 
             // если в сессии нет номера комнаты, или такой комнаты не существует
@@ -239,7 +239,7 @@ export class SocketHandler
 
             socket.on('joinRoom', (pass: string) =>
             {
-                let result: boolean = false;
+                let result = false;
                 if (pass == room.password)
                 {
                     // если у пользователя не было сессии
@@ -259,9 +259,9 @@ export class SocketHandler
         });
     }
 
-    private joinRoom(room: Room, socket: Socket): void
+    private async joinRoom(room: Room, socket: Socket): Promise<void>
     {
-        socket.join(room.id);
+        await socket.join(room.id);
         room.join(new SocketWrapper(socket));
     }
 
@@ -274,7 +274,7 @@ export class SocketHandler
 
         this.io.of('/room').use((socket: Socket, next) =>
         {
-            let session = socket.handshake.session!;
+            const session = socket.handshake.session!;
             // у пользователя есть сессия
             if (session.auth)
             {
@@ -292,16 +292,16 @@ export class SocketHandler
         });
 
         // [Комната] обрабатываем подключение нового юзера
-        this.io.of('/room').on('connection', (socket: Socket) =>
+        this.io.of('/room').on('connection', async (socket: Socket) =>
         {
-            let session = socket.handshake.session!;
+            const session = socket.handshake.session!;
             const roomId: string = session.joinedRoomId!;
 
             if (!this.rooms.has(roomId)) { return; }
 
             const room: Room = this.rooms.get(roomId)!;
 
-            this.joinRoom(room, socket);
+            await this.joinRoom(room, socket);
         });
     }
 
@@ -315,12 +315,12 @@ export class SocketHandler
         return this.io.of('/room').to(name).emit(ev, ...args);
     }
 
-    public emitToAll(ev: string, ...args: any[])
+    public emitToAll(ev: string, ...args: any[]) : boolean
     {
         return this.io.of('/room').emit(ev, ...args);
     }
 
-    public getSocketsCount() : number
+    public getSocketsCount(): number
     {
         return this.io.of('/room').sockets.size;
     }

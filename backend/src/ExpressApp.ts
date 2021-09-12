@@ -10,7 +10,7 @@ declare module 'express-session' {
     {
         auth: boolean;              // авторизован?
         username: string;           // ник
-        authRoomsId: Array<string>; // список авторизованных комнат
+        authRoomsId: string[];      // список авторизованных комнат
         joined: boolean;            // в данный момент в комнате?
         joinedRoomId: string;       // номер комнаты, в которой находится пользователе
         admin: boolean;             // администратор?
@@ -39,23 +39,23 @@ export class ExpressApp
 
     private rooms: Map<RoomId, Room>;
 
-    private wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
         if (req.hostname?.slice(0, 4) === 'www.')
         {
             const newHost: string = req.hostname.slice(4);
-            return res.redirect(301, req.protocol + '://' + newHost + req.originalUrl);
+            res.redirect(301, req.protocol + '://' + newHost + req.originalUrl);
         }
-        next();
+        else next();
     }
 
-    private httpsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    private static httpsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
         if (!req.secure)
         {
-            return res.redirect(301, ['https://', req.hostname, req.originalUrl].join(''));
+            res.redirect(301, ['https://', req.hostname, req.originalUrl].join(''));
         }
-        next();
+        else next();
     }
 
     constructor(_rooms: Map<RoomId, Room>)
@@ -63,10 +63,10 @@ export class ExpressApp
         this.rooms = _rooms;
 
         // убираем www из адреса
-        this.app.use(this.wwwMiddleware);
+        this.app.use(ExpressApp.wwwMiddleware);
 
         // перенаправляем на https
-        this.app.use(this.httpsMiddleware);
+        this.app.use(ExpressApp.httpsMiddleware);
 
         // используем обработчик сессий
         this.app.use(this.sessionMiddleware);

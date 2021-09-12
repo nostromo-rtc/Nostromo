@@ -27,6 +27,12 @@ module.exports = {
             {
                 "ignoreStatic": true
             }
+        ],
+        "@typescript-eslint/no-explicit-any": [
+            "error",
+            {
+                "ignoreRestArgs": true
+            }
         ]
     }
 };

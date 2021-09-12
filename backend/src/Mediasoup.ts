@@ -5,6 +5,22 @@ import MediasoupTypes = mediasoup.types;
 
 export { MediasoupTypes };
 
+
+interface TransportAppData
+{
+    /** Транспорт для приема медиапотоков */
+    consuming: boolean;
+}
+
+export interface ConsumerAppData
+{
+    /**
+     * Consumer был поставлен на паузу со стороны клиента
+     * (клиент поставил плеер на паузу)
+     */
+    clientPaused: boolean;
+}
+
 export class Mediasoup
 {
     // массив workers, задел под многопоточность
@@ -16,17 +32,17 @@ export class Mediasoup
     public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
 
     // количество потребителей на сервере
-    private _videoConsumersCount: number = 0;
+    private _videoConsumersCount = 0;
     public get videoConsumersCount(): number { return this._videoConsumersCount; }
 
-    private _audioConsumersCount: number = 0;
+    private _audioConsumersCount = 0;
     public get audioConsumersCount(): number { return this._audioConsumersCount; }
 
     // количество производителей на сервере
-    private _videoProducersCount: number = 0;
+    private _videoProducersCount = 0;
     public get videoProducersCount(): number { return this._videoProducersCount; }
 
-    private _audioProducersCount: number = 0;
+    private _audioProducersCount = 0;
     public get audioProducersCount(): number { return this._audioProducersCount; }
 
     // аудио кодек
@@ -75,9 +91,9 @@ export class Mediasoup
     {
         console.log(`[Mediasoup] running ${numWorkers} mediasoup Workers...`);
 
-        let workers = new Array<MediasoupTypes.Worker>();
+        const workers = new Array<MediasoupTypes.Worker>();
 
-        for (let i: number = 0; i < numWorkers; ++i)
+        for (let i = 0; i < numWorkers; ++i)
         {
             const worker: MediasoupTypes.Worker = await mediasoup.createWorker(
                 {
@@ -101,7 +117,7 @@ export class Mediasoup
         return new Mediasoup(workers);
     }
 
-    private constructor(workers: Array<MediasoupTypes.Worker>)
+    private constructor(workers: MediasoupTypes.Worker[])
     {
         this.mediasoupWorkers = workers;
     }
@@ -117,7 +133,7 @@ export class Mediasoup
     public async createRouter(codecChoice: VideoCodec): Promise<MediasoupTypes.Router>
     {
         // сначала звуковой кодек opus
-        let mediaCodecs = new Array<MediasoupTypes.RtpCodecCapability>(this.audioCodecConf);
+        const mediaCodecs = new Array<MediasoupTypes.RtpCodecCapability>(this.audioCodecConf);
 
         // теперь определяемся с кодеками для видео
         if (codecChoice == VideoCodec.VP9) mediaCodecs.push(this.videoCodecVp9Conf);
@@ -152,13 +168,20 @@ export class Mediasoup
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
         {
-            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${transport.iceSelectedTuple?.remoteIp} ${state}`);
+            const remoteIp = transport.iceSelectedTuple?.remoteIp;
+            if (!remoteIp) return;
+
+            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${remoteIp} ${state}`);
+
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
         {
+            const remoteIp = transport.iceSelectedTuple?.remoteIp;
+            if (!remoteIp) return;
+
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
-                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${transport.iceSelectedTuple?.remoteIp} ${dtlsstate}`);
+                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${remoteIp} ${dtlsstate}`);
         });
 
         user.transports.set(transport.id, transport);
@@ -201,11 +224,11 @@ export class Mediasoup
         )
         {
             throw new Error(`[Mediasoup] User can't consume`);
-        };
+        }
 
         // берем Transport пользователя, предназначенный для потребления
         const transport = Array.from(user.transports.values())
-            .find((tr) => tr.appData.consuming);
+            .find((tr) => (tr.appData as TransportAppData).consuming);
 
         if (!transport)
         {
@@ -225,24 +248,25 @@ export class Mediasoup
             // поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
             // когда клиент запросит снятие consumer с паузы, этот флаг сменится на false
             // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне
-            consumer.appData.clientPaused = true;
+            (consumer.appData as ConsumerAppData).clientPaused = true;
         }
         catch (error)
         {
-            throw new Error(`[Mediasoup] transport.consume() error: ${error}`);
+            const err = error as Error;
+            throw new Error(`[Mediasoup] transport.consume() | ${err.name}: ${err.message}`);
         }
 
         return consumer;
     }
 
-    public increaseConsumersCount(kind: MediasoupTypes.MediaKind)
+    public increaseConsumersCount(kind: MediasoupTypes.MediaKind) : void
     {
         if (kind == 'video')
             ++this._videoConsumersCount;
         else
             ++this._audioConsumersCount;
     }
-    public decreaseConsumersCount(kind: MediasoupTypes.MediaKind)
+    public decreaseConsumersCount(kind: MediasoupTypes.MediaKind) : void
     {
         if (kind == 'video')
             --this._videoConsumersCount;
@@ -250,14 +274,14 @@ export class Mediasoup
             --this._audioConsumersCount;
     }
 
-    public increaseProducersCount(kind: MediasoupTypes.MediaKind)
+    public increaseProducersCount(kind: MediasoupTypes.MediaKind) : void
     {
         if (kind == 'video')
             ++this._videoProducersCount;
         else
             ++this._audioProducersCount;
     }
-    public decreaseProducersCount(kind: MediasoupTypes.MediaKind)
+    public decreaseProducersCount(kind: MediasoupTypes.MediaKind) : void
     {
         if (kind == 'video')
             --this._videoProducersCount;
