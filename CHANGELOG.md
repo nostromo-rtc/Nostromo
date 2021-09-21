@@ -1,6 +1,7 @@
-### 0.1.0
+### 0.2.1
 
-* Версия с архитектурой `Mesh`.
+* Используется кастомный патч by snnz для [mediasoup-client](https://gitlab.com/SgAkErRu/mediasoup-client/-/tree/3.6.36-patched), исправляющий баг при использовании Firefox, [подробнее о баге](https://github.com/versatica/mediasoup-client/pull/149).
+* Исправлен баг с невозможностью захватить потоки на Chrome.
 
 ### 0.2.0
 
@@ -14,7 +15,6 @@
 * Реализован общий чат в комнате.
 * Обновлены NPM зависимости (включая переход с `socket.io` 3.x на 4.x).
 
-### 0.2.1
+### 0.1
 
-* Используется кастомный патч by snnz для [mediasoup-client](https://gitlab.com/SgAkErRu/mediasoup-client/-/tree/3.6.36-patched), исправляющий баг при использовании Firefox, [подробнее о баге](https://github.com/versatica/mediasoup-client/pull/149).
-* Исправлен баг с невозможностью захватить потоки на Chrome.
+* Версия с архитектурой `Mesh`.
