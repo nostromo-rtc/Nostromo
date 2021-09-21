@@ -16,7 +16,7 @@ import { Mediasoup } from './Mediasoup';
 
 // комната
 import { RoomId, Room } from './Room';
-import { VideoCodec } from 'shared/RoomTypes';
+import { VideoCodec } from 'shared/types/RoomTypes';
 
 // для ввода в консоль
 import readline = require('readline');
@@ -101,7 +101,7 @@ async function main()
     prepareLogs();
 
     // -- инициализация приложения -- //
-    process.title = `webrtc-server-${process.env.npm_package_version!}`;
+    process.title = `nostromo-${process.env.npm_package_version!}`;
     console.log(`Version: ${process.env.npm_package_version!}`);
 
     // создание класса-обработчика mediasoup

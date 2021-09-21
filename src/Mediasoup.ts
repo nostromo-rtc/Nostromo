@@ -1,5 +1,5 @@
 import mediasoup = require('mediasoup');
-import { NewProducerInfo, VideoCodec } from 'shared/RoomTypes';
+import { NewProducerInfo, VideoCodec } from 'shared/types/RoomTypes';
 import { User } from './Room';
 import MediasoupTypes = mediasoup.types;
 

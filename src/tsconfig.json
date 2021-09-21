@@ -10,9 +10,9 @@
         "sourceMap": false,
         "noEmitOnError": true,
         "paths": {
-            "shared/*" : ["../../shared/*"]
+            "shared/*" : ["../node_modules/nostromo-shared/*"]
         }
     },
     "include": ["*.ts"],
-    "exclude": ["../../node_modules/*"]
+    "exclude": ["../node_modules/*"]
 }

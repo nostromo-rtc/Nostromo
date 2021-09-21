@@ -12,7 +12,7 @@ import
     VideoCodec,
     CloseConsumerInfo,
     ChatMsgInfo
-} from "shared/RoomTypes";
+} from "shared/types/RoomTypes";
 
 export { RoomId };
 

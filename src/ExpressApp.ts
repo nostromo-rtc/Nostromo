@@ -2,7 +2,7 @@ import express = require('express');
 import session = require('express-session');
 import path = require('path');
 
-const frontend_dirname = __dirname + "/../../frontend";
+const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
 // добавляю в сессию необходимые параметры
 declare module 'express-session' {

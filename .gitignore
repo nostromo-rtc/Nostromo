@@ -5,17 +5,10 @@
 node_modules/
 
 # compiled .js files of backend
-backend/dist
+dist
 
 # folder with SSL files
 config/ssl
-
-# compiled .js files of frontend
-frontend/temp-build/**/*.js
-
-# bundled (webpack) and vendor .js files of frontend
-frontend/static/**/*.js
-frontend/static/**/vendor.css
 
 # other
 *.bat

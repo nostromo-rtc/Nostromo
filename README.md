@@ -1,4 +1,4 @@
-# WebRTC Server (Russian)
+# Nostromo Server (Russian)
 
 > Откройте директорию с программой в терминале и напишите:
 
@@ -52,7 +52,7 @@
 
 ***
 
-# WebRTC Server (English)
+# Nostromo Server (English)
 
 > Open this folder in terminal and write:
 
