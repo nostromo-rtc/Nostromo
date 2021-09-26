@@ -100,9 +100,14 @@ async function main()
     // и сохранения лога в файл
     prepareLogs();
 
+    // считываем название и версию программы
+    // именно таким способом, чтобы не были нужны переменные окружения npm
+    const packageJson: unknown = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    const { name, version } = packageJson as {name: string, version: string};
+
     // -- инициализация приложения -- //
-    process.title = `nostromo-${process.env.npm_package_version!}`;
-    console.log(`Version: ${process.env.npm_package_version!}`);
+    process.title = `${name}-${version}`;
+    console.log(`Version: ${version}`);
 
     // создание класса-обработчика mediasoup
     const mediasoup = await Mediasoup.create(1);

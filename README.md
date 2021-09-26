@@ -1,21 +1,59 @@
 # Nostromo Server (Russian)
 
-> Откройте директорию с программой в терминале и напишите:
+For [english version](#nostromo-server-english).
 
-Для установки всех пакетов (необходимые и для запуска, и для сборки проекта) -> `npm install`
+## Запуск
 
-Для установки пакетов необходимых ТОЛЬКО для запуска -> `npm install --production`
+### Если вы хотите запустить релизную версию
 
-Для сборки проекта -> `npm run build`
+1. Скачайте релиз и распакуйте архив.
+2. Откройте директорию с программой в терминале.
+3. Запустите программу.
 
-Для запуска программы -> `npm start`
+> Не забудьте, что перед запуском необходимо изменить [настройки](#настройки).
+
+```
+$ npm start
+```
+
+### Если вы хотите запустить dev версию
+
+1. Склонируйте репозиторий (скачав архив с сайта или с помощью Git).
+```
+$ git clone https://gitlab.com/sgakerru/nostromo.git
+```
+2. Откройте директорию с программой в терминале.
+3. Установите все `npm` пакеты (необходимые и для запуска, и для сборки проекта).
+
+> Убедитесь, что вы установили **ВСЕ** [необходимые программы и зависимости](#требования) перед сборкой проекта.
+
+> Если вы не хотите компилировать C++ компоненты, такие как `mediasoup`, можете попробовать скопировать папку `node_modules/mediasoup` из релизной версии, перед выполнением следующей команды.
+```
+$ npm install
+```
+
+
+4. Запустите программу.
+
+> Не забудьте, что перед запуском необходимо изменить [настройки](#настройки).
+
+```
+$ npm start
+```
+
+Если вы внесли изменения в `.ts` файлы из папки `src` и хотите пересобрать проект, используйте команду:
+```
+npm run build
+```
+
+## Настройки
 
 >Не забудьте положить файлы `SSL` в папку `config/ssl` and настроить под себя файл `server.conf`.
 
 >Чтобы сгенерировать `самоподписный` SSL сертификат используйте команду (должен быть установлен `OpenSSL`):
-
-    openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
-
+```
+openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
+```
 
 ## Требования
 
@@ -46,30 +84,82 @@
     * Непривелигированные пользователи (не root) не могут открыть сокет на порте ниже чем 1024.
 
 > Для примера на `Debian`:
+```
+sudo iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port 5000
+sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
+```
 
-    sudo iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port 5000
-    sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
+## Трюки
+
+### Windows
+
+После компиляции `mediasoup`, исполняемый файл `mediasoup-worker.exe` при запуске создает процесс `conhost.exe` (каждый потребляет по 5 Мб) соответственно при создании четырёх `Mediasoup.Worker` создадутся и четыре `conhost.exe`. `conhost.exe` нужен для drag-n-drop в консоли и оформления (темы), но поскольку процесс `worker` фоновый, ему это ни к чему.
+Поэтому есть трюк, как отключить `conhost.exe`. Для этого нужно изменить у `mediasoup-worker.exe` тип с консольного приложения на обычное.
+> Это можно сделать с помощью утилиты `binedit.exe`, которая входит в состав `Visual C++ Build Environment`:
+```bat
+"path to editbin.exe" /SUBSYSTEM:WINDOWS "path to mediasoup-worker.exe"
+```
+
+> И пример:
+```bat
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.29.30037\bin\Hostx64\x64\editbin.exe" /SUBSYSTEM:WINDOWS "C:\nostromo\node_modules\mediasoup\worker\out\Release\mediasoup-worker.exe"
+```
 
 ***
 
 # Nostromo Server (English)
 
-> Open this folder in terminal and write:
+## Launch
 
-To install (for launch and build project) -> `npm install`
+### If you want to launch release
 
-To install without dev deps (ONLY for launch) -> `npm install --production`
+1. Download release and extract archive.
+2. Open directory with programm in terminal.
+3. Launch the programm.
 
-To build project -> `npm run build`
+> Don't forget, that you have edit [settings](#settings) before launch.
 
-To start app -> `npm start`
+```
+$ npm start
+```
 
->Don't forget place `SSL` files to `config/ssl` folder and configure `server.conf` file.
+### If you want to launch dev version
 
->To generate `self-signed` SSL certificate:
+1. Clone repository (via downloading archive from site or via Git).
+```
+$ git clone https://gitlab.com/sgakerru/nostromo.git
+```
+2. Open directory with programm in terminal.
+3. Install all `npm` packages (they are needed to launch and build project).
 
-    openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
+> Be sure, that you have installed **ALL** [necessary programms and dependencies](#requirements) before building project.
 
+> If you don't want to build C++ components, like `mediasoup`, you can try copy folder `node_modules/mediasoup` from release, before installation other npm packages.
+```
+$ npm install
+```
+
+4. Launch the programm.
+
+> Don't forget, that you have edit [settings](#settings) before launch.
+
+```
+$ npm start
+```
+
+If you have edited `.ts` files from `src` folder and want to rebuild project, try command:
+```
+npm run build
+```
+
+## Settings
+
+>Don't forget place `SSL` files in `config/ssl` folder and configurate project settings `server.conf`.
+
+>To generate `self-signed` SSL cert use command (you need to have `OpenSSL` for that):
+```
+openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
+```
 
 ## Requirements
 
@@ -100,6 +190,23 @@ In order to [build](https://mediasoup.org/documentation/v3/mediasoup/installatio
     * Non-privileged user (not root) can't open a listening socket on ports below 1024.
 
 > On `Debian` for example:
+```
+sudo iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port 5000
+sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
+```
 
-    sudo iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port 5000
-    sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
+## Tricks
+
+### Windows
+
+After compilation of `mediasoup`, binary file `mediasoup-worker.exe` with launch creates `conhost.exe` (each consumes 5 Mb), so with creating four `Mediasoup.Worker` will be created four `conhost.exe`. `conhost.exe` is needed to drag-n-drop in console and for console themes, but `worker` is background process, so it is not necessary.
+So there is a trick, how to disable `conhost.exe`. To do so, you need to edit type of `mediasoup-worker.exe` from console application to normal.
+> You can do that with `binedit.exe`, that is included in `Visual C++ Build Environment`:
+```bat
+"path to editbin.exe" /SUBSYSTEM:WINDOWS "path to mediasoup-worker.exe"
+```
+
+> And example:
+```bat
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\14.29.30037\bin\Hostx64\x64\editbin.exe" /SUBSYSTEM:WINDOWS "C:\nostromo\node_modules\mediasoup\worker\out\Release\mediasoup-worker.exe"
+```

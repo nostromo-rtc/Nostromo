@@ -97,9 +97,8 @@ export class Mediasoup
         {
             const worker: MediasoupTypes.Worker = await mediasoup.createWorker(
                 {
-                    logLevel: 'debug',
-                    rtcMinPort: 40000,
-                    rtcMaxPort: 50000
+                    rtcMinPort: Number(process.env.MEDIASOUP_RTC_MIN_PORT ?? 40000),
+                    rtcMaxPort: Number(process.env.MEDIASOUP_RTC_MAX_PORT ?? 50000)
                 });
 
             worker.on('died', (error) =>
