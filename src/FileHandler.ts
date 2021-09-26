@@ -10,7 +10,6 @@ interface FileInfo
 {
     name: string | null;
     type: string | null;
-    extension?: string;
     roomId: string;
 }
 
@@ -68,7 +67,7 @@ export class FileHandler
 
             const { name, type } = file;
             const roomId = req.session.joinedRoomId!;
-            this.fileStorage.set(fileId, { name, type, extension, roomId });
+            this.fileStorage.set(fileId, { name, type, roomId });
         });
 
         form.on("error", (err) =>
