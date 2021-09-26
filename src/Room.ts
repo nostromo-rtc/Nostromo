@@ -11,7 +11,8 @@ import
     NewProducerInfo,
     VideoCodec,
     CloseConsumerInfo,
-    ChatMsgInfo
+    ChatMsgInfo,
+    ChatFileInfo
 } from "shared/types/RoomTypes";
 
 export { RoomId };
@@ -57,7 +58,7 @@ export class Room
 
     // пользователи в комнате
     private _users = new Map<SocketId, User>();
-    public get users() : Map<SocketId, User> { return this._users; }
+    public get users(): Map<SocketId, User> { return this._users; }
 
     // максимальный битрейт (Кбит) для аудио в этой комнате
     // 1024 - kilo
@@ -68,7 +69,7 @@ export class Room
         name: string, password: string, videoCodec: VideoCodec,
         mediasoup: Mediasoup,
         socketHandler: SocketHandler
-    ) : Promise<Room>
+    ): Promise<Room>
     {
         // для каждой комнаты свой mediasoup router
         const router = await mediasoup.createRouter(videoCodec);
@@ -260,6 +261,16 @@ export class Room
                 msg: msg.trim()
             };
             socket.to(this.id).emit('chatMsg', chatMsgInfo);
+        });
+
+        socket.on('chatFile', (chatFileInfo: ChatFileInfo) =>
+        {
+            // проверяем достоверность заявленного имени в запросе
+            const sessionUsername = socket.handshake.session!.username!;
+            if (chatFileInfo.username != sessionUsername)
+                chatFileInfo.username = sessionUsername;
+
+            socket.to(this.id).emit('chatFile', chatFileInfo);
         });
 
         // пользователь отсоединился

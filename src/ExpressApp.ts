@@ -2,6 +2,9 @@ import express = require('express');
 import session = require('express-session');
 import path = require('path');
 
+import { RoomId, Room } from './Room';
+import { FileHandler } from "./FileHandler";
+
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
 // добавляю в сессию необходимые параметры
@@ -12,12 +15,10 @@ declare module 'express-session' {
         username: string;           // ник
         authRoomsId: string[];      // список авторизованных комнат
         joined: boolean;            // в данный момент в комнате?
-        joinedRoomId: string;       // номер комнаты, в которой находится пользователе
+        joinedRoomId: string;       // номер комнаты, в которой находится пользователь
         admin: boolean;             // администратор?
     }
 }
-
-import { RoomId, Room } from './Room';
 
 // класс - обработчик веб-сервера
 export class ExpressApp
@@ -38,6 +39,8 @@ export class ExpressApp
     });
 
     private rooms: Map<RoomId, Room>;
+
+    private fileHandler = new FileHandler;
 
     private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
@@ -75,23 +78,33 @@ export class ExpressApp
 
         // [обрабатываем маршруты]
         // главная страница
-        this.app.get('/', (req, res) =>
+        this.app.get('/', (req: express.Request, res: express.Response) =>
         {
             res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
         });
 
-        this.app.get('/rooms/:roomId', (req, res) =>
+        this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response) =>
         {
             this.roomRoute(req, res);
         });
 
-        this.app.get('/admin', (req, res) =>
+        this.app.get('/admin', (req: express.Request, res: express.Response) =>
         {
             this.adminRoute(req, res);
         });
 
+        this.app.get("/file/:fileId", (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.handleFileDownload(req, res);
+        });
+
+        this.app.post("/api/upload", (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            this.fileHandler.handleFileUpload(req, res, next);
+        });
+
         // открываем доступ к статике, т.е к css, js, картинки
-        this.app.use('/admin', (req, res, next) =>
+        this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
             if ((req.ip == process.env.ALLOW_ADMIN_IP)
                 || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
@@ -101,7 +114,7 @@ export class ExpressApp
             else next();
         });
 
-        this.app.use('/rooms', (req, res, next) =>
+        this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
             if (req.session.auth)
             {
@@ -112,13 +125,16 @@ export class ExpressApp
 
         this.app.use('/', express.static(frontend_dirname + "/static/public/"));
 
-        this.app.use((req, res) =>
+        this.app.use((req: express.Request, res: express.Response) =>
         {
             res.status(404).end('404 error: page not found');
         });
     }
 
-    private adminRoute(req: express.Request, res: express.Response): void
+    private adminRoute(
+        req: express.Request,
+        res: express.Response
+    ): void
     {
         if ((req.ip == process.env.ALLOW_ADMIN_IP)
             || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
@@ -139,7 +155,10 @@ export class ExpressApp
         }
     }
 
-    private roomRoute(req: express.Request, res: express.Response): void | express.Response
+    private roomRoute(
+        req: express.Request,
+        res: express.Response
+    ): void | express.Response
     {
         // запрещаем кешировать страницу с комнатой
         res.setHeader('Cache-Control', 'no-store');
@@ -148,7 +167,7 @@ export class ExpressApp
         const joinInRoom = (roomId: string): void =>
         {
             // сокет сделает данный параметр true,
-            // isInRoom нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
+            // joined нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
             req.session.joined = false;
             req.session.joinedRoomId = roomId;
             return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));

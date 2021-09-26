@@ -10,6 +10,9 @@ dist
 # folder with SSL files
 config/ssl
 
+# folder with uploaded files
+files
+
 # other
 *.bat
 *.exe
