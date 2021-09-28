@@ -3,10 +3,11 @@ import fs = require('fs');
 import http = require('http');
 import https = require('https');
 import dotenv = require('dotenv');
-import util = require('util');
+import os = require('os');
 
 // Express
 import { ExpressApp } from './ExpressApp';
+import { FileHandler } from "./FileHandler";
 
 // сокеты
 import { SocketHandler } from './SocketHandler';
@@ -18,11 +19,19 @@ import { Mediasoup } from './Mediasoup';
 import { RoomId, Room } from './Room';
 import { VideoCodec } from 'shared/types/RoomTypes';
 
+// логи
+import { prepareLogs } from "./Logger";
+
 // для ввода в консоль
 import readline = require('readline');
 
 // инициализация тестовой комнаты
-async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, rooms: Map<RoomId, Room>): Promise<void>
+async function initTestRoom(
+    mediasoup: Mediasoup,
+    socketHandler: SocketHandler,
+    rooms: Map<RoomId, Room>,
+    fileHandler: FileHandler
+): Promise<void>
 {
     rooms.set('0',
         await Room.create(
@@ -31,63 +40,22 @@ async function initTestRoom(mediasoup: Mediasoup, socketHandler: SocketHandler, 
             process.env.DEV_TESTROOM_PASS ?? 'testik1',
             VideoCodec.VP8,
             mediasoup,
-            socketHandler
+            socketHandler,
+            fileHandler
         )
     );
-}
 
-// добавление временных в меток в лог и сохранение логов в файл
-function prepareLogs(): void
-{
-    // создадим файл с логом
-    const outputFile = fs.createWriteStream(process.env.LOG_FILENAME ?? 'log.txt', { flags: 'a+', encoding: "utf8" });
-
-    // оригинальные функции
-    const origLog = console.log;
-    const origError = console.error;
-
-    // добавляем временные метки
-    const addTimestamps = (message: unknown, ...optionalParams: unknown[]) =>
+    /*for (let i = 0; i < 10000; ++i)
     {
-        const timestamp = (new Date).toLocaleString("en-GB", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: '2-digit',
-            minute: "2-digit",
-            second: "numeric"
-        }) + '.' + ((new Date).getUTCMilliseconds() / 1000).toFixed(3).slice(2, 5);
-
-        if (typeof message === 'string')
-        {
-            // вставляем первым параметром строку с временной меткой
-            optionalParams.unshift(`[${timestamp}] ${message}`);
-        }
-        else
-        {
-            // вставляем вторым параметром объект
-            optionalParams.unshift(message);
-            // а первым временную метку и placeholder,
-            // который отобразит второй параметр как объект
-            optionalParams.unshift(`[${timestamp}] %o`);
-        }
-        return optionalParams;
-    };
-
-    console.log = function (message: unknown, ...optionalParams: unknown[])
-    {
-        const data: unknown[] = addTimestamps(message, ...optionalParams);
-        origLog.apply(this, data);
-        // конец строки в стиле CRLF (знак переноса каретки и новой строки)
-        outputFile.write((util.format.apply(this, data) + "\r\n"));
-    };
-
-    console.error = function (message: unknown, ...optionalParams: unknown[])
-    {
-        const data: unknown[] = addTimestamps(message, ...optionalParams);
-        origError.apply(this, data);
-        outputFile.write((util.format.apply(this, data) + "\r\n"));
-    };
+        await Room.create(
+            String(i),
+            process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
+            process.env.DEV_TESTROOM_PASS ?? 'testik1',
+            VideoCodec.VP8,
+            mediasoup,
+            socketHandler
+        );
+    }*/
 }
 
 // главная функция
@@ -103,19 +71,22 @@ async function main()
     // считываем название и версию программы
     // именно таким способом, чтобы не были нужны переменные окружения npm
     const packageJson: unknown = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
-    const { name, version } = packageJson as {name: string, version: string};
+    const { name, version } = packageJson as { name: string, version: string; };
 
     // -- инициализация приложения -- //
     process.title = `${name}-${version}`;
     console.log(`Version: ${version}`);
 
     // создание класса-обработчика mediasoup
-    const mediasoup = await Mediasoup.create(1);
+    const numWorkers = os.cpus().length;
+    const mediasoup = await Mediasoup.create(numWorkers);
 
     // комнаты
     const rooms = new Map<RoomId, Room>();
 
-    const Express = new ExpressApp(rooms);
+    const fileHandler = new FileHandler();
+
+    const Express = new ExpressApp(rooms, fileHandler);
 
     const httpServer: http.Server = http.createServer(Express.app);
     const httpPort = process.env.HTTP_PORT;
@@ -142,11 +113,13 @@ async function main()
     const socketHandlerInstance = new SocketHandler(
         server,
         Express.sessionMiddleware,
-        mediasoup, rooms, 0
+        mediasoup,
+        fileHandler,
+        rooms, 0
     );
 
     // создаем тестовую комнату
-    await initTestRoom(mediasoup, socketHandlerInstance, rooms);
+    await initTestRoom(mediasoup, socketHandlerInstance, rooms, fileHandler);
 
     // для ввода в консоль сервера
     const rl = readline.createInterface({

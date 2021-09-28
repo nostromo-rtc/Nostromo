@@ -8,6 +8,7 @@ import { RequestHandler } from 'express';
 import { RoomId, Room } from './Room';
 import { NewRoomInfo } from 'shared/types/AdminTypes';
 import { Mediasoup } from './Mediasoup';
+import { FileHandler } from "./FileHandler";
 
 export type SocketId = string;
 type Socket = SocketIO.Socket;
@@ -20,7 +21,6 @@ declare module "socket.io/dist/socket" {
     interface Handshake
     {
         session?: HandshakeSession;
-        sessionId?: string;
     }
 }
 
@@ -77,6 +77,7 @@ export class SocketHandler
 
     private sessionMiddleware: RequestHandler;
     private mediasoup: Mediasoup;
+    private fileHandler: FileHandler;
     private rooms: Map<RoomId, Room>;
 
     private roomIndex: number;
@@ -92,18 +93,20 @@ export class SocketHandler
     }
 
     constructor(
-        server: https.Server,
-        sessionMiddleware: RequestHandler,
-        mediasoup: Mediasoup,
-        rooms: Map<RoomId, Room>,
-        roomIndex: number)
+        _server: https.Server,
+        _sessionMiddleware: RequestHandler,
+        _mediasoup: Mediasoup,
+        _fileHandler: FileHandler,
+        _rooms: Map<RoomId, Room>,
+        _roomIndex: number)
     {
-        this.io = this.createSocketServer(server);
+        this.io = this.createSocketServer(_server);
 
-        this.sessionMiddleware = sessionMiddleware;
-        this.mediasoup = mediasoup;
-        this.rooms = rooms;
-        this.roomIndex = roomIndex;
+        this.sessionMiddleware = _sessionMiddleware;
+        this.mediasoup = _mediasoup;
+        this.fileHandler = _fileHandler;
+        this.rooms = _rooms;
+        this.roomIndex = _roomIndex;
 
         // [Главная страница]
         this.io.of('/').on('connection', (socket: Socket) =>
@@ -213,7 +216,8 @@ export class SocketHandler
             pass,
             videoCodec,
             this.mediasoup,
-            this
+            this,
+            this.fileHandler
         ));
     }
 

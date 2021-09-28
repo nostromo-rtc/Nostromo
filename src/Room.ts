@@ -1,5 +1,6 @@
 import { ConsumerAppData, Mediasoup, MediasoupTypes } from "./Mediasoup";
 import { SocketHandler, SocketWrapper, SocketId, HandshakeSession } from "./SocketHandler";
+import { FileHandler } from "./FileHandler";
 import
 {
     RoomId,
@@ -56,6 +57,9 @@ export class Room
     // SocketHandler
     private socketHandler: SocketHandler;
 
+    // Работа с файлами
+    private fileHandler: FileHandler;
+
     // пользователи в комнате
     private _users = new Map<SocketId, User>();
     public get users(): Map<SocketId, User> { return this._users; }
@@ -68,7 +72,8 @@ export class Room
         roomId: RoomId,
         name: string, password: string, videoCodec: VideoCodec,
         mediasoup: Mediasoup,
-        socketHandler: SocketHandler
+        socketHandler: SocketHandler,
+        fileHandler: FileHandler
     ): Promise<Room>
     {
         // для каждой комнаты свой mediasoup router
@@ -78,7 +83,7 @@ export class Room
             roomId,
             name, password,
             mediasoup, router, videoCodec,
-            socketHandler
+            socketHandler, fileHandler
         );
     }
 
@@ -86,7 +91,7 @@ export class Room
         roomId: RoomId,
         name: string, password: string,
         mediasoup: Mediasoup, mediasoupRouter: MediasoupTypes.Router, videoCodec: VideoCodec,
-        socketHandler: SocketHandler
+        socketHandler: SocketHandler, fileHandler: FileHandler
     )
     {
         console.log(`[Room] creating a new Room [#${roomId}, ${name}, ${videoCodec}]`);
@@ -99,6 +104,8 @@ export class Room
         this.mediasoupRouter = mediasoupRouter;
 
         this.socketHandler = socketHandler;
+
+        this.fileHandler = fileHandler;
     }
 
     // получить RTP возможности (кодеки) роутера
@@ -263,12 +270,14 @@ export class Room
             socket.to(this.id).emit('chatMsg', chatMsgInfo);
         });
 
-        socket.on('chatFile', (chatFileInfo: ChatFileInfo) =>
+        socket.on('chatFile', (fileId: string) =>
         {
-            // проверяем достоверность заявленного имени в запросе
-            const sessionUsername = socket.handshake.session!.username!;
-            if (chatFileInfo.username != sessionUsername)
-                chatFileInfo.username = sessionUsername;
+            const fileInfo = this.fileHandler.getFileInfo(fileId);
+            if (!fileInfo) return;
+
+            const username = socket.handshake.session!.username!;
+
+            const chatFileInfo : ChatFileInfo = {fileId, filename: fileInfo.name, size: fileInfo.size, username};
 
             socket.to(this.id).emit('chatFile', chatFileInfo);
         });

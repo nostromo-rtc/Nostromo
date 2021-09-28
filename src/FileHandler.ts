@@ -1,5 +1,4 @@
 import express = require("express");
-import formidable = require("formidable");
 import path = require("path");
 import { nanoid } from "nanoid";
 import fs = require('fs');
@@ -8,8 +7,9 @@ type FileId = string;
 
 interface FileInfo
 {
-    name: string | null;
-    type: string | null;
+    name: string;
+    type: string;
+    size: number;
     roomId: string;
 }
 
@@ -18,6 +18,11 @@ export class FileHandler
 {
     private readonly FILES_PATH = path.join(process.cwd(), "/files");
     private fileStorage = new Map<FileId, FileInfo>();
+
+    public getFileInfo(fileId: string): FileInfo | undefined
+    {
+        return this.fileStorage.get(fileId);
+    }
     public handleFileDownload(
         req: express.Request,
         res: express.Response
@@ -46,44 +51,36 @@ export class FileHandler
         next: express.NextFunction
     ): void
     {
-        const form = formidable({
-            maxFileSize: 10 * 1024 * 1024 * 1024
-        });
+        const fileId: string = nanoid(32);
 
-        let fileId: string = nanoid(32);
+        // проверяем, существует ли папка для файлов
+        if (!fs.existsSync(this.FILES_PATH))
+            fs.mkdirSync(this.FILES_PATH);
 
-        form.on("fileBegin", (formName, file) =>
+        // указываем путь и название
+        const filePath = path.join(this.FILES_PATH, fileId);
+        const outStream = fs.createWriteStream(filePath);
+
+        // TODO: поменять на номер из заголовка
+        const roomId = req.session.joinedRoomId!;
+        if (!req.session.authRoomsId?.includes(roomId))
         {
-            const extension: string = express.static.mime.extension(file.type!)!;
+            return res.status(403).end();
+        }
 
-            fileId += `.${extension}`;
+        this.fileStorage.set(fileId, { name: "test", type: "image", size: 10, roomId });
 
-            // проверяем, существует ли папка для файлов
-            if (!fs.existsSync(this.FILES_PATH))
-                fs.mkdirSync(this.FILES_PATH);
-
-            // указываем путь и название
-            file.path = path.join(this.FILES_PATH, fileId);
-
-            const { name, type } = file;
-            const roomId = req.session.joinedRoomId!;
-            this.fileStorage.set(fileId, { name, type, roomId });
-        });
-
-        form.on("error", (err) =>
+        outStream.on("finish", () =>
         {
-            this.fileStorage.delete(fileId);
-            return next(err);
+            console.log("finish");
+            return res.status(201).end(fileId);
         });
 
-        form.parse(req, (err) =>
+        req.on("close", () =>
         {
-            if (err) return next(err);
+            console.log(outStream.bytesWritten);
         });
 
-        form.once("end", () =>
-        {
-            return res.send(fileId);
-        });
+        req.pipe(outStream);
     }
 }

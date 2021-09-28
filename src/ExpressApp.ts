@@ -40,7 +40,7 @@ export class ExpressApp
 
     private rooms: Map<RoomId, Room>;
 
-    private fileHandler = new FileHandler;
+    private fileHandler;
 
     private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
@@ -61,9 +61,10 @@ export class ExpressApp
         else next();
     }
 
-    constructor(_rooms: Map<RoomId, Room>)
+    constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileHandler)
     {
         this.rooms = _rooms;
+        this.fileHandler = _fileHandler;
 
         // убираем www из адреса
         this.app.use(ExpressApp.wwwMiddleware);
@@ -76,34 +77,29 @@ export class ExpressApp
 
         this.app.disable('x-powered-by');
 
-        // [обрабатываем маршруты]
-        // главная страница
+        // обрабатываем маршруты
+        // [главная страница]
         this.app.get('/', (req: express.Request, res: express.Response) =>
         {
             res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
         });
 
+        // [комната]
         this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response) =>
         {
             this.roomRoute(req, res);
         });
 
+        // [админка]
         this.app.get('/admin', (req: express.Request, res: express.Response) =>
         {
             this.adminRoute(req, res);
         });
 
-        this.app.get("/file/:fileId", (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.handleFileDownload(req, res);
-        });
+        // [файлы]
+        this.handleFilesRoutes();
 
-        this.app.post("/api/upload", (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            this.fileHandler.handleFileUpload(req, res, next);
-        });
-
-        // открываем доступ к статике, т.е к css, js, картинки
+        // [открываем доступ к статике]
         this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
             if ((req.ip == process.env.ALLOW_ADMIN_IP)
@@ -128,6 +124,19 @@ export class ExpressApp
         this.app.use((req: express.Request, res: express.Response) =>
         {
             res.status(404).end('404 error: page not found');
+        });
+    }
+
+    private handleFilesRoutes()
+    {
+        this.app.get("/files/:fileId", (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.handleFileDownload(req, res);
+        });
+
+        this.app.post("/api/upload", (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            this.fileHandler.handleFileUpload(req, res, next);
         });
     }
 
