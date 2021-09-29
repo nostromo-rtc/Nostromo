@@ -14,7 +14,7 @@ import
     CloseConsumerInfo,
     ChatMsgInfo,
     ChatFileInfo
-} from "shared/types/RoomTypes";
+} from "nostromo-shared/types/RoomTypes";
 
 export { RoomId };
 

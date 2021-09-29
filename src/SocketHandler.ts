@@ -6,7 +6,7 @@ import { ExtendedError } from 'socket.io/dist/namespace';
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { RequestHandler } from 'express';
 import { RoomId, Room } from './Room';
-import { NewRoomInfo } from 'shared/types/AdminTypes';
+import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { Mediasoup } from './Mediasoup';
 import { FileHandler } from "./FileHandler";
 

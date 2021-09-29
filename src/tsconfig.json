@@ -8,11 +8,8 @@
         "experimentalDecorators": true,
         "strict" : true,
         "sourceMap": false,
-        "noEmitOnError": true,
-        "paths": {
-            "shared/*" : ["../node_modules/nostromo-shared/*"]
-        }
+        "noEmitOnError": true
     },
-    "include": ["*.ts"],
+    "include": ["*.ts", "../node_modules/nostromo-shared/api/*.ts"],
     "exclude": ["../node_modules/*"]
 }

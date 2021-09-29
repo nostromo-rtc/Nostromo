@@ -17,7 +17,7 @@ import { Mediasoup } from './Mediasoup';
 
 // комната
 import { RoomId, Room } from './Room';
-import { VideoCodec } from 'shared/types/RoomTypes';
+import { VideoCodec } from "nostromo-shared/types/RoomTypes";
 
 // логи
 import { prepareLogs } from "./Logger";
