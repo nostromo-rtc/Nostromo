@@ -5,6 +5,8 @@ import path = require('path');
 import { RoomId, Room } from './Room';
 import { FileHandler } from "./FileHandler";
 
+import { FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes"
+
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
 // добавляю в сессию необходимые параметры
@@ -129,14 +131,20 @@ export class ExpressApp
 
     private handleFilesRoutes()
     {
-        this.app.get("/files/:fileId", (req: express.Request, res: express.Response) =>
+        // Tus Head Request (узнать, сколько осталось докачать)
+        this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.handleFileDownload(req, res);
+            this.fileHandler.fileUploadOffsetInfo(req, res);
+        });
+        // скачать файл
+        this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.fileDownload(req, res);
         });
 
-        this.app.post("/api/upload", (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
-            this.fileHandler.handleFileUpload(req, res, next);
+            this.fileHandler.fileUpload(req, res, next);
         });
     }
 

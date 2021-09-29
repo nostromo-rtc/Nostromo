@@ -1,7 +1,7 @@
 {
   "name": "nostromo",
   "version": "0.2.1",
-  "description": "",
+  "description": "WebRTC SFU Server for Video conferencing on Node.js",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",

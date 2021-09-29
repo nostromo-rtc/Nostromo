@@ -2,28 +2,78 @@ import express = require("express");
 import path = require("path");
 import { nanoid } from "nanoid";
 import fs = require('fs');
+import { FileHandlerConstants, FileHandlerResponse, IncomingHttpHeaders } from "nostromo-shared/types/FileHandlerTypes";
 
+/** Случайный Id + расширение */
 type FileId = string;
 
-interface FileInfo
+class TusHeadResponse implements FileHandlerResponse
 {
-    name: string;
-    type: string;
-    size: number;
-    roomId: string;
+    public headers: IncomingHttpHeaders = {
+        "Tus-Resumable": FileHandlerConstants.TUS_VERSION,
+        "Cache-Control": "no-store"
+    };
+    public statusCode: number;
+    constructor(fileInfo: FileInfo | undefined)
+    {
+        if (!fileInfo)
+        {
+            this.statusCode = 404;
+        }
+        else
+        {
+            this.headers["Upload-Offset"] = fileInfo.bytesWritten.toString();
+            this.headers["Upload-Length"] = fileInfo.size.toString();
+            this.statusCode = 200;
+        }
+    }
 }
+
+type FileInfo = {
+    /** Оригинальное название файла. */
+    name: string;
+    /** Тип файла. */
+    type: string;
+    /** Размер файла в байтах. */
+    size: number;
+    /** Сколько байт уже было получено сервером. */
+    bytesWritten: number;
+    /** Id сессии пользователя, загружающего файл. */
+    ownerId: string;
+    /** Id комнаты, в которой загружали файл. */
+    roomId: string;
+};
 
 // класс - обработчик файлов
 export class FileHandler
 {
-    private readonly FILES_PATH = path.join(process.cwd(), "/files");
+    private readonly FILES_PATH = path.join(process.cwd(), FileHandlerConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
 
     public getFileInfo(fileId: string): FileInfo | undefined
     {
         return this.fileStorage.get(fileId);
     }
-    public handleFileDownload(
+
+    public fileUploadOffsetInfo(
+        req: express.Request,
+        res: express.Response
+    ): void
+    {
+        const fileId = req.params["fileId"];
+        const fileInfo = this.fileStorage.get(fileId);
+        const tusRes = new TusHeadResponse(fileInfo);
+
+        for (const header in tusRes.headers)
+        {
+            const value = tusRes.headers[header];
+            res.header(header, value);
+        }
+
+        res.status(tusRes.statusCode).end();
+    }
+
+    public fileDownload(
         req: express.Request,
         res: express.Response
     ): void
@@ -45,7 +95,7 @@ export class FileHandler
         //res.sendFile(path.join(this.FILES_PATH, fileId));
         return res.download(path.join(this.FILES_PATH, fileId), fileInfo.name ?? fileId);
     }
-    public handleFileUpload(
+    public fileUpload(
         req: express.Request,
         res: express.Response,
         next: express.NextFunction
@@ -63,12 +113,13 @@ export class FileHandler
 
         // TODO: поменять на номер из заголовка
         const roomId = req.session.joinedRoomId!;
+        const ownerId = req.session.id;
         if (!req.session.authRoomsId?.includes(roomId))
         {
             return res.status(403).end();
         }
 
-        this.fileStorage.set(fileId, { name: "test", type: "image", size: 10, roomId });
+        this.fileStorage.set(fileId, { name: "test", type: "image", bytesWritten: 0, size: 10, roomId, ownerId });
 
         outStream.on("finish", () =>
         {
