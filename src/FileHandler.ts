@@ -2,34 +2,13 @@ import express = require("express");
 import path = require("path");
 import { nanoid } from "nanoid";
 import fs = require('fs');
-import { FileHandlerConstants, FileHandlerResponse, IncomingHttpHeaders } from "nostromo-shared/types/FileHandlerTypes";
+import { FileHandlerResponse, FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
+import { TusHeadResponse, TusOptionsResponse } from "./FileHandlerTusProtocol";
 
 /** Случайный Id + расширение */
 type FileId = string;
 
-class TusHeadResponse implements FileHandlerResponse
-{
-    public headers: IncomingHttpHeaders = {
-        "Tus-Resumable": FileHandlerConstants.TUS_VERSION,
-        "Cache-Control": "no-store"
-    };
-    public statusCode: number;
-    constructor(fileInfo: FileInfo | undefined)
-    {
-        if (!fileInfo)
-        {
-            this.statusCode = 404;
-        }
-        else
-        {
-            this.headers["Upload-Offset"] = fileInfo.bytesWritten.toString();
-            this.headers["Upload-Length"] = fileInfo.size.toString();
-            this.statusCode = 200;
-        }
-    }
-}
-
-type FileInfo = {
+export type FileInfo = {
     /** Оригинальное название файла. */
     name: string;
     /** Тип файла. */
@@ -55,7 +34,16 @@ export class FileHandler
         return this.fileStorage.get(fileId);
     }
 
-    public fileUploadOffsetInfo(
+    private assignHeaders(fromTus: FileHandlerResponse, toExpress: express.Response)
+    {
+        for (const header in fromTus.headers)
+        {
+            const value = fromTus.headers[header];
+            toExpress.header(header, value);
+        }
+    }
+
+    public tusHeadInfo(
         req: express.Request,
         res: express.Response
     ): void
@@ -63,13 +51,18 @@ export class FileHandler
         const fileId = req.params["fileId"];
         const fileInfo = this.fileStorage.get(fileId);
         const tusRes = new TusHeadResponse(fileInfo);
+        this.assignHeaders(tusRes, res);
 
-        for (const header in tusRes.headers)
-        {
-            const value = tusRes.headers[header];
-            res.header(header, value);
-        }
+        res.status(tusRes.statusCode).end();
+    }
 
+    public tusOptionsInfo(
+        req: express.Request,
+        res: express.Response
+    ): void
+    {
+        const tusRes = new TusOptionsResponse();
+        this.assignHeaders(tusRes, res);
         res.status(tusRes.statusCode).end();
     }
 

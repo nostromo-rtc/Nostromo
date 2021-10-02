@@ -134,8 +134,15 @@ export class ExpressApp
         // Tus Head Request (узнать, сколько осталось докачать)
         this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.fileUploadOffsetInfo(req, res);
+            this.fileHandler.tusHeadInfo(req, res);
         });
+
+        // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
+        this.app.options(`${FileHandlerConstants.FILES_ROUTE}/`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusOptionsInfo(req, res);
+        });
+
         // скачать файл
         this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
