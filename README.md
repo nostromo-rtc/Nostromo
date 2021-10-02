@@ -2,32 +2,43 @@
 
 For [english version](#nostromo-server-english).
 
-## Запуск
+# Запуск
 
-### Если вы хотите запустить релизную версию
+## Если вы хотите запустить релизную версию (из бинарников)
+
+> Убедитесь, что вы установили **ВСЕ** [необходимые программы и зависимости](#требования-для-запуска-программы), необходимые для запуска программы.
 
 1. Скачайте релиз и распакуйте архив.
 2. Откройте директорию с программой в терминале.
-3. Запустите программу.
 
 > Не забудьте, что перед запуском необходимо изменить [настройки](#настройки).
+
+3. Запустите программу.
 
 ```
 $ npm start
 ```
 
-### Если вы хотите запустить dev версию
+## Если вы хотите запустить dev версию (из исходников)
 
+В данном случае вам придется **собрать** проект.
+
+**Сборка** состоит из двух этапов:
+1. Сборка `C/C++` компонентов.
+2. Сборка `npm` компонентов.
+
+Чтобы **собрать** проект, следуйте инструкции:
 1. Склонируйте репозиторий (скачав архив с сайта или с помощью Git).
 ```
 $ git clone https://gitlab.com/sgakerru/nostromo.git
 ```
 2. Откройте директорию с программой в терминале.
-3. Установите все `npm` пакеты (необходимые и для запуска, и для сборки проекта).
 
-> Убедитесь, что вы установили **ВСЕ** [необходимые программы и зависимости](#требования) перед сборкой проекта.
+> Убедитесь, что вы установили **ВСЕ** [необходимые программы и зависимости](#требования-для-сборки-проекта), необходимые для сборки проекта.
 
-> Если вы не хотите компилировать C++ компоненты, такие как `mediasoup`, можете попробовать скопировать папку `node_modules/mediasoup` из релизной версии, перед выполнением следующей команды.
+> Если вы не хотите компилировать `C++` компоненты, такие как `mediasoup`, то есть пропустить первый этап, то вы можете попробовать скопировать папку `node_modules/mediasoup` из релизной версии, перед выполнением следующей команды.
+
+3. Теперь, когда все требования были удовлетворены, установите все `npm` пакеты (необходимые и для запуска, и для сборки проекта).
 ```
 $ npm install
 ```
@@ -46,7 +57,7 @@ $ npm start
 npm run build
 ```
 
-## Настройки
+# Настройки
 
 >Не забудьте положить файлы `SSL` в папку `config/ssl` and настроить под себя файл `server.conf`.
 
@@ -55,10 +66,17 @@ npm run build
 openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
 ```
 
-## Требования
+# Требования
 
+## Требования для запуска программы
+Данное требование обязательно, поскольку необходимо для запуска:
 >`Node.js LTS` (тестировалось на v14.17.1).
 
+## Требования для сборки проекта
+Если вы решили собрать проект из исходников, должна быть установлена программа (пакет):
+>`Git` (тестировалось на версии 2.33.0).
+
+## Требования для компиляции C/C++ компонентов
 Для того, чтобы [скомпилировать](https://mediasoup.org/documentation/v3/mediasoup/installation/) C/C++ компоненты библиотеки `mediasoup` должны быть установлены следующие программы (пакеты):
 
 ### Windows (тестировалось на Win10-v2004)
@@ -89,9 +107,9 @@ sudo iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port 5000
 sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
 ```
 
-## Трюки
+# Трюки
 
-### Windows
+## Windows
 
 После компиляции `mediasoup`, исполняемый файл `mediasoup-worker.exe` при запуске создает процесс `conhost.exe` (каждый потребляет по 5 Мб) соответственно при создании четырёх `Mediasoup.Worker` создадутся и четыре `conhost.exe`. `conhost.exe` нужен для drag-n-drop в консоли и оформления (темы), но поскольку процесс `worker` фоновый, ему это ни к чему.
 Поэтому есть трюк, как отключить `conhost.exe`. Для этого нужно изменить у `mediasoup-worker.exe` тип с консольного приложения на обычное.
@@ -109,37 +127,50 @@ sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
 
 # Nostromo Server (English)
 
-## Launch
+# Launch
 
-### If you want to launch release
+## If you want to launch release (from binaries)
+
+> Be sure, that you have installed **ALL** [necessary programs and dependencies](#requirements-for-launching-program) before launching program.
 
 1. Download release and extract archive.
-2. Open directory with programm in terminal.
-3. Launch the programm.
+2. Open directory with program in terminal.
 
 > Don't forget, that you have edit [settings](#settings) before launch.
+
+3. Launch the program.
 
 ```
 $ npm start
 ```
 
-### If you want to launch dev version
+## If you want to launch dev version (from sources)
+
+In that case you have to build a project.
+
+Build consists in two steps:
+1. Build `C/C++` components.
+2. Build `npm` components.
+
+To build a project, lead this guide:
 
 1. Clone repository (via downloading archive from site or via Git).
 ```
 $ git clone https://gitlab.com/sgakerru/nostromo.git
 ```
-2. Open directory with programm in terminal.
-3. Install all `npm` packages (they are needed to launch and build project).
+2. Open directory with program in terminal.
 
-> Be sure, that you have installed **ALL** [necessary programms and dependencies](#requirements) before building project.
+> Be sure, that you have installed **ALL** [necessary programs and dependencies](#requirements-for-building-project) to build a project.
 
-> If you don't want to build C++ components, like `mediasoup`, you can try copy folder `node_modules/mediasoup` from release, before installation other npm packages.
+> If you don't want to build `C++` components, like `mediasoup`, that is, skip the first step, so you can try copy folder `node_modules/mediasoup` from release, before installation other npm packages.
+
+3. Now, when all requirements were met, install all `npm` packages (they are needed to launch and build project).
+
 ```
 $ npm install
 ```
 
-4. Launch the programm.
+4. Launch the program.
 
 > Don't forget, that you have edit [settings](#settings) before launch.
 
@@ -152,7 +183,7 @@ If you have edited `.ts` files from `src` folder and want to rebuild project, tr
 npm run build
 ```
 
-## Settings
+# Settings
 
 >Don't forget place `SSL` files in `config/ssl` folder and configurate project settings `server.conf`.
 
@@ -161,10 +192,17 @@ npm run build
 openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
 ```
 
-## Requirements
+# Requirements
 
+## Requirements for launching program
+This requirement is mandatory, since it is necessary for launching program:
 >`Node.js LTS` (tested on v14.17.1).
 
+## Requirements for building project
+If you decided to build project from sources, you have to install program (package):
+>`Git` (tested on v2.33.0).
+
+## Requirements for building C/C++ components
 In order to [build](https://mediasoup.org/documentation/v3/mediasoup/installation/) the `mediasoup` C/C++ components the following packages must be available on the target host:
 
 ### Windows (tested on Win10-v2004)
@@ -195,9 +233,9 @@ sudo iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-port 5000
 sudo iptables -A PREROUTING -t nat -p tcp --dport 443 -j REDIRECT --to-port 5001
 ```
 
-## Tricks
+# Tricks
 
-### Windows
+## Windows
 
 After compilation of `mediasoup`, binary file `mediasoup-worker.exe` with launch creates `conhost.exe` (each consumes 5 Mb), so with creating four `Mediasoup.Worker` will be created four `conhost.exe`. `conhost.exe` is needed to drag-n-drop in console and for console themes, but `worker` is background process, so it is not necessary.
 So there is a trick, how to disable `conhost.exe`. To do so, you need to edit type of `mediasoup-worker.exe` from console application to normal.
