@@ -137,21 +137,28 @@ export class ExpressApp
             this.fileHandler.tusHeadInfo(req, res);
         });
 
+        // Tus Patch Request (заливка файла)
+        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) => 
+        {
+            this.fileHandler.tusPatchFile(req, res);
+        });
+
         // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
-        this.app.options(`${FileHandlerConstants.FILES_ROUTE}/`, (req: express.Request, res: express.Response) =>
+        this.app.options(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
         {
             this.fileHandler.tusOptionsInfo(req, res);
+        });
+
+        // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
+        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusPostCreateFile(req, res);
         });
 
         // скачать файл
         this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
             this.fileHandler.fileDownload(req, res);
-        });
-
-        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            this.fileHandler.fileUpload(req, res, next);
         });
     }
 

@@ -3,7 +3,7 @@ import path = require("path");
 import { nanoid } from "nanoid";
 import fs = require('fs');
 import { FileHandlerResponse, FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
-import { TusHeadResponse, TusOptionsResponse } from "./FileHandlerTusProtocol";
+import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse } from "./FileHandlerTusProtocol";
 
 /** Случайный Id + расширение */
 type FileId = string;
@@ -50,7 +50,52 @@ export class FileHandler
     {
         const fileId = req.params["fileId"];
         const fileInfo = this.fileStorage.get(fileId);
-        const tusRes = new TusHeadResponse(fileInfo);
+
+        const tusRes = new TusHeadResponse(req, fileInfo);
+        this.assignHeaders(tusRes, res);
+
+        res.status(tusRes.statusCode).end();
+    }
+
+    public tusPatchFile(
+        req: express.Request,
+        res: express.Response
+    ): void
+    {
+        // проверяем, существует ли папка для файлов
+        if (!fs.existsSync(this.FILES_PATH))
+            fs.mkdirSync(this.FILES_PATH);
+
+        const fileId = req.params["fileId"];
+        const fileInfo = this.fileStorage.get(fileId);
+
+        const tusRes = new TusPatchResponse(req, fileInfo);
+
+        // не возникло проблем с заголовками
+        if (tusRes.statusCode == 204)
+        {
+            // offset до patch
+            const oldBytesWritten = fileInfo!.bytesWritten;
+
+            // указываем путь и название
+            const filePath = path.join(this.FILES_PATH, fileId);
+            const outStream = fs.createWriteStream(filePath, { start: oldBytesWritten, flags: "r+" });
+
+            outStream.on("finish", () =>
+            {
+                console.log("finish");
+                fileInfo!.bytesWritten = outStream.bytesWritten;
+            });
+
+            outStream.on("close", () =>
+            {
+                console.log("close");
+                fileInfo!.bytesWritten = outStream.bytesWritten;
+            });
+
+            req.pipe(outStream);
+        }
+
         this.assignHeaders(tusRes, res);
 
         res.status(tusRes.statusCode).end();
@@ -63,6 +108,7 @@ export class FileHandler
     {
         const tusRes = new TusOptionsResponse();
         this.assignHeaders(tusRes, res);
+
         res.status(tusRes.statusCode).end();
     }
 
@@ -88,43 +134,27 @@ export class FileHandler
         //res.sendFile(path.join(this.FILES_PATH, fileId));
         return res.download(path.join(this.FILES_PATH, fileId), fileInfo.name ?? fileId);
     }
-    public fileUpload(
+    public tusPostCreateFile(
         req: express.Request,
-        res: express.Response,
-        next: express.NextFunction
+        res: express.Response
     ): void
     {
-        const fileId: string = nanoid(32);
-
-        // проверяем, существует ли папка для файлов
-        if (!fs.existsSync(this.FILES_PATH))
-            fs.mkdirSync(this.FILES_PATH);
-
-        // указываем путь и название
-        const filePath = path.join(this.FILES_PATH, fileId);
-        const outStream = fs.createWriteStream(filePath);
-
-        // TODO: поменять на номер из заголовка
-        const roomId = req.session.joinedRoomId!;
-        const ownerId = req.session.id;
-        if (!req.session.authRoomsId?.includes(roomId))
-        {
+        const roomId = req.headers["Room-Id"]?.toString();
+        if (!roomId || !req.session.authRoomsId?.includes(roomId))
             return res.status(403).end();
+
+        const ownerId = req.session.id;
+        const fileId: string = nanoid(32);
+        res.location(fileId);
+
+        const tusRes = new TusPostCreationResponse(req, fileId, ownerId, roomId);
+        this.assignHeaders(tusRes, res);
+
+        if (tusRes.fileInfo)
+        {
+            this.fileStorage.set(fileId, tusRes.fileInfo);
         }
 
-        this.fileStorage.set(fileId, { name: "test", type: "image", bytesWritten: 0, size: 10, roomId, ownerId });
-
-        outStream.on("finish", () =>
-        {
-            console.log("finish");
-            return res.status(201).end(fileId);
-        });
-
-        req.on("close", () =>
-        {
-            console.log(outStream.bytesWritten);
-        });
-
-        req.pipe(outStream);
+        res.status(tusRes.statusCode).end();
     }
 }
