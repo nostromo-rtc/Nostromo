@@ -78,7 +78,8 @@ async function main()
     console.log(`Version: ${version}`);
 
     // создание класса-обработчика mediasoup
-    const numWorkers = os.cpus().length;
+    //const numWorkers = os.cpus().length;
+    const numWorkers = 1;
     const mediasoup = await Mediasoup.create(numWorkers);
 
     // комнаты
