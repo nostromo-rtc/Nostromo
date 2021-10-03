@@ -147,7 +147,9 @@ export class FileHandler
         const fileId: FileId = req.params.fileId;
         const fileInfo = this.fileStorage.get(fileId);
 
-        if (!fileInfo)
+        const filePath = path.join(this.FILES_PATH, fileId);
+
+        if (!fileInfo || !fs.existsSync(filePath))
             return res.status(404).end("404 Not Found");
 
         // если пользователь не авторизован в комнате
@@ -163,7 +165,7 @@ export class FileHandler
         if (fileInfo.bytesWritten != fileInfo.size)
             return res.status(202).end("202 Accepted: File is not ready");
 
-        return res.download(path.join(this.FILES_PATH, fileId), fileInfo.name);
+        return res.download(filePath, fileInfo.name);
     }
     public tusPostCreateFile(
         req: express.Request,
