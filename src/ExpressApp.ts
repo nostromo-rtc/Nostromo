@@ -138,9 +138,9 @@ export class ExpressApp
         });
 
         // Tus Patch Request (заливка файла)
-        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) => 
+        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.tusPatchFile(req, res);
+            await this.fileHandler.tusPatchFile(req, res);
         });
 
         // Tus Options Request (узнать информацию о конфигурации Tus на сервере)

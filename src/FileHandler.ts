@@ -57,10 +57,10 @@ export class FileHandler
         res.status(tusRes.statusCode).end();
     }
 
-    public tusPatchFile(
+    public async tusPatchFile(
         req: express.Request,
         res: express.Response
-    ): void
+    ): Promise<void>
     {
         // проверяем, существует ли папка для файлов
         if (!fs.existsSync(this.FILES_PATH))
@@ -74,31 +74,55 @@ export class FileHandler
         // не возникло проблем с заголовками
         if (tusRes.statusCode == 204)
         {
-            // offset до patch
-            const oldBytesWritten = fileInfo!.bytesWritten;
-
-            // указываем путь и название
-            const filePath = path.join(this.FILES_PATH, fileId);
-            const outStream = fs.createWriteStream(filePath, { start: oldBytesWritten, flags: "r+" });
-
-            outStream.on("finish", () =>
-            {
-                console.log("finish");
-                fileInfo!.bytesWritten = outStream.bytesWritten;
-            });
-
-            outStream.on("close", () =>
-            {
-                console.log("close");
-                fileInfo!.bytesWritten = outStream.bytesWritten;
-            });
-
-            req.pipe(outStream);
+            await this.writeFile(fileInfo!, fileId, req);
+            tusRes.headers["Upload-Offset"] = String(fileInfo!.bytesWritten);
         }
 
         this.assignHeaders(tusRes, res);
 
         res.status(tusRes.statusCode).end();
+    }
+
+    private async writeFile(fileInfo: FileInfo, fileId: string, req: express.Request)
+        : Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // offset до patch
+            const oldBytesWritten = fileInfo.bytesWritten;
+
+            // указываем путь и название
+            const filePath = path.join(this.FILES_PATH, fileId);
+            const outStream = fs.createWriteStream(filePath, { start: oldBytesWritten, flags: "a" });
+
+            // если закрылся реквест, то закроем стрим
+            req.on("close", () =>
+            {
+                outStream.end();
+            });
+
+            // если стрим закрылся по любой причине,
+            // то запишем сколько успели загрузить байт
+            outStream.on("close", () =>
+            {
+                fileInfo.bytesWritten += outStream.bytesWritten;
+                resolve();
+            });
+
+            // если ошибки
+            outStream.on("error", (err) =>
+            {
+                reject(err);
+            });
+
+            req.on("error", (err) =>
+            {
+                reject(err);
+            });
+
+            // перенаправляем стрим из реквеста в файловый стрим
+            req.pipe(outStream);
+        });
     }
 
     public tusOptionsInfo(
@@ -120,32 +144,33 @@ export class FileHandler
         const fileId: FileId = req.params.fileId;
         const fileInfo = this.fileStorage.get(fileId);
 
-        const error404 = () => { res.status(404).end('404 Error: page not found'); };
+        if (!fileInfo) return res.status(404).end("404 Not Found");
 
-        if (!fileInfo ||
-            !req.session.auth ||
+        if (!req.session.auth ||
             !req.session.authRoomsId?.includes(fileInfo.roomId)
         )
         {
-            return error404();
+            return res.status(403).end("403 Forbidden");
         }
-        //res.set("Content-Type", fileInfo.type!);
-        //res.set("Content-Disposition", `inline; filename="${fileInfo.name!}"`)
-        //res.sendFile(path.join(this.FILES_PATH, fileId));
-        return res.download(path.join(this.FILES_PATH, fileId), fileInfo.name ?? fileId);
+
+        if (fileInfo.bytesWritten != fileInfo.size)
+        {
+            return res.status(202).end("202 Accepted: File is not ready");
+        }
+
+        return res.download(path.join(this.FILES_PATH, fileId), fileInfo.name);
     }
     public tusPostCreateFile(
         req: express.Request,
         res: express.Response
     ): void
     {
-        const roomId = req.headers["Room-Id"]?.toString();
+        const roomId = req.header("Room-Id")?.toString();
         if (!roomId || !req.session.authRoomsId?.includes(roomId))
             return res.status(403).end();
 
         const ownerId = req.session.id;
         const fileId: string = nanoid(32);
-        res.location(fileId);
 
         const tusRes = new TusPostCreationResponse(req, fileId, ownerId, roomId);
         this.assignHeaders(tusRes, res);
@@ -153,6 +178,7 @@ export class FileHandler
         if (tusRes.fileInfo)
         {
             this.fileStorage.set(fileId, tusRes.fileInfo);
+            res.location(fileId);
         }
 
         res.status(tusRes.statusCode).end();
