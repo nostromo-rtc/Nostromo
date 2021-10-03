@@ -19,10 +19,20 @@ export class TusHeadResponse implements FileHandlerResponse
         {
             this.statusCode = 404;
         }
+        // если это не владелец файла
+        // то есть этот пользователь не вызывал post creation запрос
+        else if (fileInfo.ownerId != req.session.id)
+        {
+            this.statusCode = 403;
+        }
         else
         {
             this.headers["Upload-Offset"] = fileInfo.bytesWritten.toString();
             this.headers["Upload-Length"] = fileInfo.size.toString();
+
+            if (fileInfo.originalMetadata)
+                this.headers["Upload-Metadata"] = fileInfo.originalMetadata;
+
             this.statusCode = 204;
         }
     }
@@ -70,11 +80,17 @@ export class TusPatchResponse implements FileHandlerResponse
             this.statusCode = 409;
         }
 
+        // проверяем, есть ли content-length
+        else if (isNaN(contentLength))
+        {
+            this.statusCode = 411;
+        }
+
         // проверяем загружаемый размер
-        // чтобы был > 0 и < чем разница между размером и оффсетом (чтобы не вылезти за границу)
+        // чтобы был > 0 и <= чем разница между размером и оффсетом (чтобы не вылезти за границу)
         else if (contentLength <= 0 || contentLength > (fileInfo.size - fileInfo.bytesWritten))
         {
-            this.statusCode = 403;
+            this.statusCode = 400;
         }
 
         // если все в порядке
@@ -87,7 +103,8 @@ export class TusOptionsResponse implements FileHandlerResponse
     public headers: OutgoingHttpHeaders = {
         "Tus-Extension": "creation",
         "Tus-Version": FileHandlerConstants.TUS_VERSION,
-        "Tus-Resumable": FileHandlerConstants.TUS_VERSION
+        "Tus-Resumable": FileHandlerConstants.TUS_VERSION,
+        "Tus-Max-Size": process.env.FILE_MAX_SIZE
     };
     public statusCode = 204;
 }
@@ -129,13 +146,23 @@ export class TusPostCreationResponse implements FileHandlerResponse
         const fileSize = req.header("Upload-Length");
         if (!fileSize || Number(fileSize) <= 0)
         {
-            this.statusCode = 412;
+            this.statusCode = 400;
             return;
         }
 
-        // парсим метаданные
-        const metadataMap = this.parseMetadata(req.header("Upload-Metadata")?.toString());
+        // проверяем, не превышает ли размер файла максимально допустимый
+        if (Number(fileSize) > Number(process.env.FILE_MAX_SIZE))
+        {
+            this.statusCode = 413;
+            return;
+        }
 
+        // считываем метаданные из заголовка
+        const originalMetadata = req.header("Upload-Metadata")?.toString();
+        // парсим метаданные
+        const metadataMap = this.parseMetadata(originalMetadata);
+
+        // достаем имя и тип из метаданных
         const filename = metadataMap.get("filename");
         const filetype = metadataMap.get("filetype");
 
@@ -145,10 +172,9 @@ export class TusPostCreationResponse implements FileHandlerResponse
             size: Number(fileSize),
             bytesWritten: 0,
             ownerId,
-            roomId
+            roomId,
+            originalMetadata
         };
-
-        console.log(this.fileInfo);
 
         this.statusCode = 201;
     }

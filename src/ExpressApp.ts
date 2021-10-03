@@ -158,7 +158,7 @@ export class ExpressApp
         // скачать файл
         this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.fileDownload(req, res);
+            this.fileHandler.tusDownloadFile(req, res);
         });
     }
 
