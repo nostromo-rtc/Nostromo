@@ -59,7 +59,17 @@ npm run build
 
 # Настройки
 
->Не забудьте положить файлы `SSL` в папку `config/ssl` and настроить под себя файл `server.conf`.
+> Подготовьте файл "`server.conf`".
+
+Изначально в папке `"config/"` лежит файл `"server.default.conf"` - **конфигурация по умолчанию**.
+
+Чтобы изменить настройки, скопируйте файл с конфигурацией по умолчанию, переименуйте в `"server.conf"` и внесите необходимые изменения.
+
+Программа будет искать настройки в файле `"server.conf"`, а в случае, если этого файла не существует - в файле `"server.default.conf"`.
+
+Если отсутствуют и `"server.conf"` и `"server.default.conf"`, то программа сообщит о соответствующей ошибке.
+
+>Не забудьте положить файлы `SSL` в папку `"config/ssl"`.
 
 >Чтобы сгенерировать `самоподписный` SSL сертификат используйте команду (должен быть установлен `OpenSSL`):
 ```
@@ -185,7 +195,17 @@ npm run build
 
 # Settings
 
->Don't forget place `SSL` files in `config/ssl` folder and configurate project settings `server.conf`.
+> Configurate "`server.conf`" file.
+
+Initially `"config/"` folder has a `"server.default.conf"` file - **default configuration**.
+
+In order to change settings, you should copy a file with default configuration, rename a file in `"server.conf"` and make the necessary changes.
+
+Application will search settings in a `"server.conf"` file, but in case that file is not exist - in a `"server.default.conf"` file.
+
+Если отсутствуют и `"server.conf"` и `"server.default.conf"`, то программа сообщит о соответствующей ошибке.
+
+>Don't forget place `SSL` files in `"config/ssl"` folder.
 
 >To generate `self-signed` SSL cert use command (you need to have `OpenSSL` for that):
 ```
