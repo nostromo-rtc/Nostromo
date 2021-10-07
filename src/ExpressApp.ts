@@ -5,7 +5,7 @@ import path = require('path');
 import { RoomId, Room } from './Room';
 import { FileHandler } from "./FileHandler";
 
-import { FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes"
+import { FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
@@ -61,6 +61,122 @@ export class ExpressApp
             res.redirect(301, ['https://', req.hostname, req.originalUrl].join(''));
         }
         else next();
+    }
+
+    private static preventFloodMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (ExpressApp.requestHasNotBody(req)) next();
+        else ExpressApp.sendCodeAndDestroySocket(req, res, 405);
+    }
+
+    private handleFilesRoutes()
+    {
+        // Tus Head Request (узнать, сколько осталось докачать)
+        this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusHeadInfo(req, res);
+        });
+
+        // Tus Patch Request (заливка файла)
+        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
+        {
+            await this.fileHandler.tusPatchFile(req, res);
+        });
+
+        // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
+        this.app.options(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusOptionsInfo(req, res);
+        });
+
+        // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
+        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusPostCreateFile(req, res);
+        });
+
+        // скачать файл
+        this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusDownloadFile(req, res);
+        });
+    }
+
+    private adminRoute(
+        req: express.Request,
+        res: express.Response
+    ): void
+    {
+        if ((req.ip == process.env.ALLOW_ADMIN_IP)
+            || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+        {
+            if (!req.session.admin)
+            {
+                req.session.admin = false;
+                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
+            }
+            else
+            {
+                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
+            }
+        }
+        else
+        {
+            res.sendStatus(404);
+        }
+    }
+
+    private roomRoute(
+        req: express.Request,
+        res: express.Response
+    ): void | express.Response
+    {
+        // запрещаем кешировать страницу с комнатой
+        res.setHeader('Cache-Control', 'no-store');
+
+        // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
+        const joinInRoom = (roomId: string): void =>
+        {
+            // сокет сделает данный параметр true,
+            // joined нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
+            req.session.joined = false;
+            req.session.joinedRoomId = roomId;
+            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
+        };
+
+        // проверяем наличие запрашиваемой комнаты
+        const roomId: RoomId = req.params.roomId;
+        if (this.rooms.has(roomId))
+        {
+            // если пользователь авторизован в этой комнате
+            if (req.session.auth && req.session.authRoomsId?.includes(roomId))
+            {
+                return joinInRoom(roomId);
+            }
+
+            // если не авторизован, но есть пароль в query
+            const pass = req.query.p as string || undefined;
+            if (pass)
+            {
+                if (pass == this.rooms.get(roomId)!.password)
+                {
+                    // если у пользователя не было сессии
+                    if (!req.session.auth)
+                    {
+                        req.session.auth = true;
+                        req.session.authRoomsId = new Array<string>();
+                    }
+                    // запоминаем для этого пользователя авторизованную комнату
+                    req.session.authRoomsId!.push(roomId);
+                    return joinInRoom(roomId);
+                }
+                return res.send("неправильный пароль");
+            }
+
+            req.session.joinedRoomId = roomId;
+            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
+        }
+        return res.sendStatus(404);
     }
 
     constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileHandler)
@@ -123,119 +239,36 @@ export class ExpressApp
 
         this.app.use('/', express.static(frontend_dirname + "/static/public/"));
 
+        this.app.use(ExpressApp.preventFloodMiddleware);
+
         this.app.use((req: express.Request, res: express.Response) =>
         {
-            res.status(404).end('404 error: page not found');
+            if (req.method == "GET" || req.method == "HEAD") res.sendStatus(404);
+            else res.sendStatus(405);
         });
     }
 
-    private handleFilesRoutes()
+    static requestHasNotBody(req: express.Request): boolean
     {
-        // Tus Head Request (узнать, сколько осталось докачать)
-        this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusHeadInfo(req, res);
-        });
-
-        // Tus Patch Request (заливка файла)
-        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
-        {
-            await this.fileHandler.tusPatchFile(req, res);
-        });
-
-        // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
-        this.app.options(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusOptionsInfo(req, res);
-        });
-
-        // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
-        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusPostCreateFile(req, res);
-        });
-
-        // скачать файл
-        this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusDownloadFile(req, res);
-        });
+        const contentLength = req.headers["content-length"];
+        return ((!contentLength || Number(contentLength) == 0) && req.readableLength == 0);
     }
 
-    private adminRoute(
-        req: express.Request,
-        res: express.Response
-    ): void
+    static sendCodeAndDestroySocket(req: express.Request, res: express.Response, httpCode: number): void
     {
-        if ((req.ip == process.env.ALLOW_ADMIN_IP)
-            || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+        // экспериментальным путем установлено, что чтение 13 чанков по 16 кб (208 кб) и последующее уничтожение сокета реквеста
+        // с большой вероятностью возвращает код http респонса для Chrome и Postman,
+        // причем Postman сам отправляет 13 чанков и после сразу принимает код реквеста (судя по логу, если отслеживать event 'data' у реквеста),
+        // а Chrome, если ничего не делать, отправляет данные пока не кончится файл и только потом отображает код респонса
+        // Firefox тоже отправляет данные пока не кончится файл и только потом отображает код респонса
+        // однако 13 чанков и последующий destroy реквеста ему не особо помогают, он просто у себя фиксирует, что реквест оборвался, но без кода ответа
+        let i = 0;
+
+        req.on("data", () =>
         {
-            if (!req.session.admin)
-            {
-                req.session.admin = false;
-                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
-            }
-            else
-            {
-                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
-            }
-        }
-        else
-        {
-            res.status(404).end('404 Error: page not found');
-        }
-    }
+            if (i++ == 12) req.socket.destroy();
+        });
 
-    private roomRoute(
-        req: express.Request,
-        res: express.Response
-    ): void | express.Response
-    {
-        // запрещаем кешировать страницу с комнатой
-        res.setHeader('Cache-Control', 'no-store');
-
-        // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
-        const joinInRoom = (roomId: string): void =>
-        {
-            // сокет сделает данный параметр true,
-            // joined нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
-            req.session.joined = false;
-            req.session.joinedRoomId = roomId;
-            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
-        };
-
-        // проверяем наличие запрашиваемой комнаты
-        const roomId: RoomId = req.params.roomId;
-        if (this.rooms.has(roomId))
-        {
-            // если пользователь авторизован в этой комнате
-            if (req.session.auth && req.session.authRoomsId?.includes(roomId))
-            {
-                return joinInRoom(roomId);
-            }
-
-            // если не авторизован, но есть пароль в query
-            const pass = req.query.p as string || undefined;
-            if (pass)
-            {
-                if (pass == this.rooms.get(roomId)!.password)
-                {
-                    // если у пользователя не было сессии
-                    if (!req.session.auth)
-                    {
-                        req.session.auth = true;
-                        req.session.authRoomsId = new Array<string>();
-                    }
-                    // запоминаем для этого пользователя авторизованную комнату
-                    req.session.authRoomsId!.push(roomId);
-                    return joinInRoom(roomId);
-                }
-                return res.send("неправильный пароль");
-            }
-
-            req.session.joinedRoomId = roomId;
-            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
-        }
-        return res.status(404).end('404 Error: page not found');
+        res.status((httpCode)).end();
     }
 }
