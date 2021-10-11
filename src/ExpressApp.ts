@@ -44,6 +44,75 @@ export class ExpressApp
 
     private fileHandler;
 
+    constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileHandler)
+    {
+        this.rooms = _rooms;
+        this.fileHandler = _fileHandler;
+
+        // убираем www из адреса
+        this.app.use(ExpressApp.wwwMiddleware);
+
+        // перенаправляем на https
+        this.app.use(ExpressApp.httpsMiddleware);
+
+        // используем обработчик сессий
+        this.app.use(this.sessionMiddleware);
+
+        this.app.disable('x-powered-by');
+
+        // обрабатываем маршруты
+        // [главная страница]
+        this.app.get('/', (req: express.Request, res: express.Response) =>
+        {
+            res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
+        });
+
+        // [комната]
+        this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response) =>
+        {
+            this.roomRoute(req, res);
+        });
+
+        // [админка]
+        this.app.get('/admin', (req: express.Request, res: express.Response) =>
+        {
+            this.adminRoute(req, res);
+        });
+
+        // [файлы]
+        this.handleFilesRoutes();
+
+        // [открываем доступ к статике]
+        this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            if ((req.ip == process.env.ALLOW_ADMIN_IP)
+                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+            {
+                express.static(frontend_dirname + "/static/admin/")(req, res, next);
+            }
+            else next();
+        });
+
+        this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            if (req.session.auth)
+            {
+                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
+            }
+            else next();
+        });
+
+        this.app.use('/', express.static(frontend_dirname + "/static/public/"));
+
+        this.app.use(ExpressApp.preventFloodMiddleware);
+
+        this.app.use((req: express.Request, res: express.Response) =>
+        {
+            if (req.method == "GET" || req.method == "HEAD") res.sendStatus(404);
+            else res.sendStatus(405);
+        });
+    }
+
     private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
         if (req.hostname?.slice(0, 4) === 'www.')
@@ -98,7 +167,7 @@ export class ExpressApp
         // скачать файл
         this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.tusDownloadFile(req, res);
+            this.fileHandler.downloadFile(req, res);
         });
     }
 
@@ -179,75 +248,6 @@ export class ExpressApp
         return res.sendStatus(404);
     }
 
-    constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileHandler)
-    {
-        this.rooms = _rooms;
-        this.fileHandler = _fileHandler;
-
-        // убираем www из адреса
-        this.app.use(ExpressApp.wwwMiddleware);
-
-        // перенаправляем на https
-        this.app.use(ExpressApp.httpsMiddleware);
-
-        // используем обработчик сессий
-        this.app.use(this.sessionMiddleware);
-
-        this.app.disable('x-powered-by');
-
-        // обрабатываем маршруты
-        // [главная страница]
-        this.app.get('/', (req: express.Request, res: express.Response) =>
-        {
-            res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
-        });
-
-        // [комната]
-        this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response) =>
-        {
-            this.roomRoute(req, res);
-        });
-
-        // [админка]
-        this.app.get('/admin', (req: express.Request, res: express.Response) =>
-        {
-            this.adminRoute(req, res);
-        });
-
-        // [файлы]
-        this.handleFilesRoutes();
-
-        // [открываем доступ к статике]
-        this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            if ((req.ip == process.env.ALLOW_ADMIN_IP)
-                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
-            {
-                express.static(frontend_dirname + "/static/admin/")(req, res, next);
-            }
-            else next();
-        });
-
-        this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            if (req.session.auth)
-            {
-                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
-            }
-            else next();
-        });
-
-        this.app.use('/', express.static(frontend_dirname + "/static/public/"));
-
-        this.app.use(ExpressApp.preventFloodMiddleware);
-
-        this.app.use((req: express.Request, res: express.Response) =>
-        {
-            if (req.method == "GET" || req.method == "HEAD") res.sendStatus(404);
-            else res.sendStatus(405);
-        });
-    }
-
     static requestHasNotBody(req: express.Request): boolean
     {
         const contentLength = req.headers["content-length"];
@@ -269,6 +269,6 @@ export class ExpressApp
             if (i++ == 12) req.socket.destroy();
         });
 
-        res.status((httpCode)).end();
+        res.status(httpCode).end();
     }
 }

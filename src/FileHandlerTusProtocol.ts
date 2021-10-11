@@ -1,6 +1,7 @@
 import { FileHandlerConstants, FileHandlerResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileHandlerTypes";
 import { FileInfo } from "./FileHandler";
 import express = require("express");
+import fs = require("fs");
 export class TusHeadResponse implements FileHandlerResponse
 {
     public headers: OutgoingHttpHeaders = {
@@ -8,6 +9,7 @@ export class TusHeadResponse implements FileHandlerResponse
         "Cache-Control": "no-store"
     };
     public statusCode: number;
+    public successful = false;
     constructor(req: express.Request, fileInfo: FileInfo | undefined)
     {
         // проверяем версию Tus
@@ -15,16 +17,20 @@ export class TusHeadResponse implements FileHandlerResponse
         {
             this.statusCode = 412;
         }
+
+        // если нет файла
         else if (!fileInfo)
         {
             this.statusCode = 404;
         }
+
         // если это не владелец файла
         // то есть этот пользователь не вызывал post creation запрос
         else if (fileInfo.ownerId != req.session.id)
         {
             this.statusCode = 403;
         }
+
         else
         {
             this.headers["Upload-Offset"] = fileInfo.bytesWritten.toString();
@@ -34,6 +40,7 @@ export class TusHeadResponse implements FileHandlerResponse
                 this.headers["Upload-Metadata"] = fileInfo.originalMetadata;
 
             this.statusCode = 204;
+            this.successful = true;
         }
     }
 }
@@ -45,6 +52,7 @@ export class TusPatchResponse implements FileHandlerResponse
         "Cache-Control": "no-store"
     };
     public statusCode: number;
+    public successful = false;
     constructor(req: express.Request, fileInfo: FileInfo | undefined)
     {
         const contentLength = Number(req.header("Content-Length"));
@@ -94,7 +102,11 @@ export class TusPatchResponse implements FileHandlerResponse
         }
 
         // если все в порядке
-        else this.statusCode = 204;
+        else
+        {
+            this.statusCode = 204;
+            this.successful = true;
+        }
     }
 }
 
@@ -107,6 +119,7 @@ export class TusOptionsResponse implements FileHandlerResponse
         "Tus-Max-Size": process.env.FILE_MAX_SIZE
     };
     public statusCode = 204;
+    public successful = true;
 }
 
 export class TusPostCreationResponse implements FileHandlerResponse
@@ -115,6 +128,8 @@ export class TusPostCreationResponse implements FileHandlerResponse
         "Tus-Resumable": FileHandlerConstants.TUS_VERSION
     };
     public statusCode: number;
+
+    public successful = false;
 
     public fileInfo: FileInfo | undefined;
 
@@ -167,6 +182,7 @@ export class TusPostCreationResponse implements FileHandlerResponse
         const filetype = metadataMap.get("filetype");
 
         this.fileInfo = {
+            id: fileId,
             name: filename ? Buffer.from(filename, "base64").toString("utf-8") : fileId,
             type: filetype ? Buffer.from(filetype, "base64").toString("utf-8") : "application/offset+octet-stream",
             size: Number(fileSize),
@@ -177,5 +193,44 @@ export class TusPostCreationResponse implements FileHandlerResponse
         };
 
         this.statusCode = 201;
+        this.successful = true;
+    }
+}
+
+export class GetResponse implements FileHandlerResponse
+{
+    public statusCode: number;
+    public statusMsg?: string;
+    public successful = false;
+
+    constructor(req: express.Request, fileInfo: FileInfo | undefined, filePath: string)
+    {
+        // если файла не существует
+        if (!fileInfo || !fs.existsSync(filePath))
+        {
+            this.statusCode = 404;
+            return;
+        }
+
+        // если пользователь не авторизован в комнате
+        // и не имеет права качать этот файл
+        if (!req.session.auth ||
+            !req.session.authRoomsId?.includes(fileInfo.roomId)
+        )
+        {
+            this.statusCode = 403;
+            return;
+        }
+
+        // если файл ещё не закачался на сервер
+        if (fileInfo.bytesWritten != fileInfo.size)
+        {
+            this.statusCode = 202;
+            this.statusMsg = "File is not ready";
+            return;
+        }
+
+        this.statusCode = 200;
+        this.successful = true;
     }
 }
