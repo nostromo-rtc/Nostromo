@@ -97,8 +97,7 @@ export class FileHandler
         const tusRes = new TusHeadResponse(req, fileInfo);
         this.assignHeaders(tusRes, res);
 
-        const conditionForPrevent = !ExpressApp.requestHasNotBody(req);
-        this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, tusRes.statusCode);
+        this.sendStatus(res, tusRes.statusCode);
     }
 
     // непосредственно записываем стрим в файл на сервере
@@ -175,8 +174,7 @@ export class FileHandler
         const tusRes = new TusOptionsResponse();
         this.assignHeaders(tusRes, res);
 
-        const conditionForPrevent = !ExpressApp.requestHasNotBody(req);
-        this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, tusRes.statusCode);
+        this.sendStatus(res, tusRes.statusCode);
     }
 
     public downloadFile(
@@ -192,17 +190,13 @@ export class FileHandler
 
         const customRes = new GetResponse(req, fileInfo, filePath);
 
-        if (!ExpressApp.requestHasNotBody(req))
-        {
-            return ExpressApp.sendCodeAndDestroySocket(req, res, 405);
-        }
-        else if (!customRes.successful)
+        if (!customRes.successful)
         {
             this.sendStatus(res, customRes.statusCode, customRes.statusMsg);
         }
-        else if (customRes.successful)
+        else
         {
-            return res.download(filePath, fileInfo!.name);
+            res.download(filePath, fileInfo!.name);
         }
     }
     public tusPostCreateFile(
