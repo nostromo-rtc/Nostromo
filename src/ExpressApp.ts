@@ -25,10 +25,10 @@ declare module 'express-session' {
 // класс - обработчик веб-сервера
 export class ExpressApp
 {
-    // приложение Express
+    /** Приложение Express. */
     public app: express.Express = express();
 
-    // обработчик сессий
+    /** Обработчик сессий */
     public sessionMiddleware: express.RequestHandler = session({
         secret: process.env.EXPRESS_SESSION_KEY!,
         name: 'sessionId',
@@ -49,18 +49,105 @@ export class ExpressApp
         this.rooms = _rooms;
         this.fileHandler = _fileHandler;
 
-        // убираем www из адреса
         this.app.use(ExpressApp.wwwMiddleware);
 
-        // перенаправляем на https
         this.app.use(ExpressApp.httpsMiddleware);
 
-        // используем обработчик сессий
         this.app.use(this.sessionMiddleware);
 
         this.app.disable('x-powered-by');
 
-        // обрабатываем маршруты
+        this.app.use(ExpressApp.rejectRequestWithBodyMiddleware);
+
+        this.handleRoutes();
+
+        this.handleStatic();
+
+        this.app.use(ExpressApp.preventFloodMiddleware);
+
+        this.endPoint();
+    }
+
+    /** Убираем www из адреса. */
+    private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (req.hostname?.slice(0, 4) === 'www.')
+        {
+            const newHost: string = req.hostname.slice(4);
+            res.redirect(301, req.protocol + '://' + newHost + req.originalUrl);
+        }
+        else
+        {
+            next();
+        }
+    }
+    /** Перенаправляем на https. */
+    private static httpsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (!req.secure)
+        {
+            res.redirect(301, ['https://', req.hostname, req.originalUrl].join(''));
+        }
+        else
+        {
+            next();
+        }
+    }
+
+    public static requestHasNotBody(req: express.Request): boolean
+    {
+        const contentLength = req.headers["content-length"];
+        return ((!contentLength || Number(contentLength) == 0) && req.readableLength == 0);
+    }
+
+    public static sendCodeAndDestroySocket(req: express.Request, res: express.Response, httpCode: number): void
+    {
+        // экспериментальным путем установлено, что чтение 13 чанков по 16 кб (208 кб) и последующее уничтожение сокета реквеста
+        // с большой вероятностью возвращает код http респонса для Chrome и Postman,
+        // причем Postman сам отправляет 13 чанков и после сразу принимает код реквеста (судя по логу, если отслеживать event 'data' у реквеста),
+        // а Chrome, если ничего не делать, отправляет данные пока не кончится файл и только потом отображает код респонса
+        // Firefox тоже отправляет данные пока не кончится файл и только потом отображает код респонса
+        // однако 13 чанков и последующий destroy реквеста ему не особо помогают, он просто у себя фиксирует, что реквест оборвался, но без кода ответа
+        let i = 0;
+
+        req.on("data", () =>
+        {
+            if (i++ == 12) req.socket.destroy();
+        });
+
+        res.status(httpCode).end();
+    }
+
+    /** Отвергаем запросы GET, HEAD и OPTIONS с телом в запросе. */
+    private static rejectRequestWithBodyMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        const methodWithoutBody = (req.method == "GET" || req.method == "HEAD" || req.method == "OPTIONS");
+        if (methodWithoutBody && !ExpressApp.requestHasNotBody(req))
+        {
+            ExpressApp.sendCodeAndDestroySocket(req, res, 405);
+        }
+        else
+        {
+            next();
+        }
+    }
+
+    /** Защищаемся от флуд-атаки через body в реквесте. */
+    private static preventFloodMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (ExpressApp.requestHasNotBody(req))
+        {
+            next();
+        }
+        else
+        {
+            ExpressApp.sendCodeAndDestroySocket(req, res, 405);
+        }
+    }
+
+    /** Обрабатываем маршруты. */
+    private handleRoutes()
+    {
         // [главная страница]
         this.app.get('/', (req: express.Request, res: express.Response) =>
         {
@@ -81,94 +168,6 @@ export class ExpressApp
 
         // [файлы]
         this.handleFilesRoutes();
-
-        // [открываем доступ к статике]
-        this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            if ((req.ip == process.env.ALLOW_ADMIN_IP)
-                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
-            {
-                express.static(frontend_dirname + "/static/admin/")(req, res, next);
-            }
-            else next();
-        });
-
-        this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            if (req.session.auth)
-            {
-                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
-            }
-            else next();
-        });
-
-        this.app.use('/', express.static(frontend_dirname + "/static/public/"));
-
-        this.app.use(ExpressApp.preventFloodMiddleware);
-
-        this.app.use((req: express.Request, res: express.Response) =>
-        {
-            if (req.method == "GET" || req.method == "HEAD") res.sendStatus(404);
-            else res.sendStatus(405);
-        });
-    }
-
-    private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
-    {
-        if (req.hostname?.slice(0, 4) === 'www.')
-        {
-            const newHost: string = req.hostname.slice(4);
-            res.redirect(301, req.protocol + '://' + newHost + req.originalUrl);
-        }
-        else next();
-    }
-
-    private static httpsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
-    {
-        if (!req.secure)
-        {
-            res.redirect(301, ['https://', req.hostname, req.originalUrl].join(''));
-        }
-        else next();
-    }
-
-    private static preventFloodMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
-    {
-        if (ExpressApp.requestHasNotBody(req)) next();
-        else ExpressApp.sendCodeAndDestroySocket(req, res, 405);
-    }
-
-    private handleFilesRoutes()
-    {
-        // Tus Head Request (узнать, сколько осталось докачать)
-        this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusHeadInfo(req, res);
-        });
-
-        // Tus Patch Request (заливка файла)
-        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
-        {
-            await this.fileHandler.tusPatchFile(req, res);
-        });
-
-        // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
-        this.app.options(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusOptionsInfo(req, res);
-        });
-
-        // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
-        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.tusPostCreateFile(req, res);
-        });
-
-        // скачать файл
-        this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
-        {
-            this.fileHandler.downloadFile(req, res);
-        });
     }
 
     private adminRoute(
@@ -176,8 +175,8 @@ export class ExpressApp
         res: express.Response
     ): void
     {
-        if ((req.ip == process.env.ALLOW_ADMIN_IP)
-            || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+        if ((req.ip == process.env.ALLOW_ADMIN_IP) ||
+            (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
         {
             if (!req.session.admin)
             {
@@ -248,27 +247,82 @@ export class ExpressApp
         return res.sendStatus(404);
     }
 
-    static requestHasNotBody(req: express.Request): boolean
+    /** Обрабатываем маршруты, связанные с файлами. */
+    private handleFilesRoutes()
     {
-        const contentLength = req.headers["content-length"];
-        return ((!contentLength || Number(contentLength) == 0) && req.readableLength == 0);
-    }
-
-    static sendCodeAndDestroySocket(req: express.Request, res: express.Response, httpCode: number): void
-    {
-        // экспериментальным путем установлено, что чтение 13 чанков по 16 кб (208 кб) и последующее уничтожение сокета реквеста
-        // с большой вероятностью возвращает код http респонса для Chrome и Postman,
-        // причем Postman сам отправляет 13 чанков и после сразу принимает код реквеста (судя по логу, если отслеживать event 'data' у реквеста),
-        // а Chrome, если ничего не делать, отправляет данные пока не кончится файл и только потом отображает код респонса
-        // Firefox тоже отправляет данные пока не кончится файл и только потом отображает код респонса
-        // однако 13 чанков и последующий destroy реквеста ему не особо помогают, он просто у себя фиксирует, что реквест оборвался, но без кода ответа
-        let i = 0;
-
-        req.on("data", () =>
+        // Tus Head Request (узнать, сколько осталось докачать)
+        this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            if (i++ == 12) req.socket.destroy();
+            this.fileHandler.tusHeadInfo(req, res);
         });
 
-        res.status(httpCode).end();
+        // Tus Patch Request (заливка файла)
+        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
+        {
+            await this.fileHandler.tusPatchFile(req, res);
+        });
+
+        // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
+        this.app.options(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusOptionsInfo(req, res);
+        });
+
+        // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
+        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.tusPostCreateFile(req, res);
+        });
+
+        // скачать файл
+        this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        {
+            this.fileHandler.downloadFile(req, res);
+        });
+    }
+
+    /** Открываем доступ к статике. */
+    private handleStatic()
+    {
+        this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            if ((req.ip == process.env.ALLOW_ADMIN_IP)
+                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+            {
+                express.static(frontend_dirname + "/static/admin/")(req, res, next);
+            }
+            else
+            {
+                next();
+            }
+        });
+
+        this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            if (req.session.auth)
+            {
+                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
+            }
+            else
+            {
+                next();
+            }
+        });
+
+        this.app.use('/', express.static(frontend_dirname + "/static/public/"));
+    }
+
+    /** Самый последний обработчик запросов. */
+    private endPoint()
+    {
+        this.app.use((req: express.Request, res: express.Response) =>
+        {
+            let statusCode = 405;
+            if (req.method == "GET" || req.method == "HEAD")
+            {
+                statusCode = 404;
+            }
+            res.sendStatus(statusCode);
+        });
     }
 }
