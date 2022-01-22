@@ -55,12 +55,12 @@ export class SocketWrapper
         return this.socket.emit(ev, ...args);
     }
 
-    public on(event: string, listener: (...args: any[]) => void): SocketIO.Socket
+    public on(event: string, listener: (...args: any[]) => void): Socket
     {
         return this.socket.on(event, listener);
     }
 
-    public once(event: string, listener: (...args: any[]) => void): SocketIO.Socket
+    public once(event: string, listener: (...args: any[]) => void): Socket
     {
         return this.socket.once(event, listener);
     }

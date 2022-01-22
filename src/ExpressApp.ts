@@ -22,7 +22,7 @@ declare module 'express-session' {
     }
 }
 
-// класс - обработчик веб-сервера
+/** Класс - веб-сервер Express. */
 export class ExpressApp
 {
     /** Приложение Express. */
@@ -40,9 +40,11 @@ export class ExpressApp
         }
     });
 
+    /** Комнаты. */
     private rooms: Map<RoomId, Room>;
 
-    private fileHandler;
+    /** Обработчик файлов. */
+    private fileHandler: FileHandler;
 
     constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileHandler)
     {
@@ -94,12 +96,14 @@ export class ExpressApp
         }
     }
 
+    /** Есть ли тело у запроса? */
     public static requestHasNotBody(req: express.Request): boolean
     {
         const contentLength = req.headers["content-length"];
         return ((!contentLength || Number(contentLength) == 0) && req.readableLength == 0);
     }
 
+    /** Отправить код ошибки и разорвать соединение с клиентом. */
     public static sendCodeAndDestroySocket(req: express.Request, res: express.Response, httpCode: number): void
     {
         // экспериментальным путем установлено, что чтение 13 чанков по 16 кб (208 кб) и последующее уничтожение сокета реквеста
@@ -146,7 +150,7 @@ export class ExpressApp
     }
 
     /** Обрабатываем маршруты. */
-    private handleRoutes()
+    private handleRoutes() : void
     {
         // [главная страница]
         this.app.get('/', (req: express.Request, res: express.Response) =>
@@ -170,6 +174,7 @@ export class ExpressApp
         this.handleFilesRoutes();
     }
 
+    /** Маршруты для администратора. */
     private adminRoute(
         req: express.Request,
         res: express.Response
@@ -194,6 +199,7 @@ export class ExpressApp
         }
     }
 
+    /** Маршруты для комнаты. */
     private roomRoute(
         req: express.Request,
         res: express.Response
@@ -248,7 +254,7 @@ export class ExpressApp
     }
 
     /** Обрабатываем маршруты, связанные с файлами. */
-    private handleFilesRoutes()
+    private handleFilesRoutes() : void
     {
         // Tus Head Request (узнать, сколько осталось докачать)
         this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
@@ -282,7 +288,7 @@ export class ExpressApp
     }
 
     /** Открываем доступ к статике. */
-    private handleStatic()
+    private handleStatic() : void
     {
         this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
@@ -313,7 +319,7 @@ export class ExpressApp
     }
 
     /** Самый последний обработчик запросов. */
-    private endPoint()
+    private endPoint() : void
     {
         this.app.use((req: express.Request, res: express.Response) =>
         {
