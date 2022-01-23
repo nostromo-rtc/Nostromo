@@ -110,6 +110,8 @@ export class FileHandler
     {
         return new Promise((resolve, reject) =>
         {
+            console.log(`[FileHandler] User (${req.ip}) uploading file:`, fileInfo);
+
             // offset до patch
             const oldBytesWritten = fileInfo.bytesWritten;
 
@@ -150,20 +152,26 @@ export class FileHandler
 
         const fileId = req.params["fileId"];
         const fileInfo = this.fileStorage.get(fileId);
-
         const tusRes = new TusPatchResponse(req, fileInfo);
 
-        // если корректный запрос, то записываем в файл
-        if (tusRes.successful)
+        try
         {
-            await this.writeFile(fileInfo!, fileId, req);
-            tusRes.headers["Upload-Offset"] = String(fileInfo!.bytesWritten);
+            // если корректный запрос, то записываем в файл
+            if (tusRes.successful)
+            {
+                await this.writeFile(fileInfo!, fileId, req);
+                tusRes.headers["Upload-Offset"] = String(fileInfo!.bytesWritten);
+            }
+
+            this.assignHeaders(tusRes, res);
+
+            const conditionForPrevent = (!tusRes.successful && !ExpressApp.requestHasNotBody(req));
+            this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, tusRes.statusCode);
         }
-
-        this.assignHeaders(tusRes, res);
-
-        const conditionForPrevent = (!tusRes.successful && !ExpressApp.requestHasNotBody(req));
-        this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, tusRes.statusCode);
+        catch (error)
+        {
+            console.error(`[FileHandler] Error (${(error as Error).message}) while uploading file: ${fileId}`);
+        }
     }
 
     public tusOptionsInfo(
@@ -186,6 +194,7 @@ export class FileHandler
         // и информацию о файле из этого Id
         const fileId: FileId = req.params.fileId;
         const fileInfo = this.fileStorage.get(fileId);
+        console.log(`[FileHandler] User (${req.ip}) downloading file:`, fileInfo);
         const filePath = path.join(this.FILES_PATH, fileId);
 
         const customRes = new GetResponse(req, fileInfo, filePath);
