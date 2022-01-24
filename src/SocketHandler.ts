@@ -3,7 +3,6 @@ import session = require('express-session');
 import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
-import { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { RequestHandler } from 'express';
 import { RoomId, Room } from './Room';
 import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
@@ -35,38 +34,6 @@ declare module "express"
             res: unknown,
             next: (err?: ExtendedError) => void,
         ): void;
-    }
-}
-
-export class SocketWrapper
-{
-    private socket: Socket;
-
-    public get id(): SocketId { return this.socket.id; }
-    public get handshake(): Handshake { return this.socket.handshake; }
-
-    constructor(socket: Socket)
-    {
-        this.socket = socket;
-    }
-
-    public emit(ev: string, ...args: any[]): boolean
-    {
-        return this.socket.emit(ev, ...args);
-    }
-
-    public on(event: string, listener: (...args: any[]) => void): Socket
-    {
-        return this.socket.on(event, listener);
-    }
-
-    public once(event: string, listener: (...args: any[]) => void): Socket
-    {
-        return this.socket.once(event, listener);
-    }
-    public to(name: string) : SocketIO.BroadcastOperator<DefaultEventsMap>
-    {
-        return this.socket.to(name);
     }
 }
 
@@ -266,7 +233,7 @@ export class SocketHandler
     private async joinRoom(room: Room, socket: Socket): Promise<void>
     {
         await socket.join(room.id);
-        room.join(new SocketWrapper(socket));
+        room.join(socket);
     }
 
     private handleRoom(): void
@@ -309,9 +276,9 @@ export class SocketHandler
         });
     }
 
-    public getSocketById(id: SocketId): SocketWrapper
+    public getSocketById(id: SocketId): Socket
     {
-        return new SocketWrapper(this.io.of('/room').sockets.get(id)!);
+        return this.io.of('/room').sockets.get(id)!;
     }
 
     public emitTo(name: string, ev: string, ...args: any[]): boolean

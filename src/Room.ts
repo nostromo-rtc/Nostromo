@@ -1,5 +1,5 @@
 import { ConsumerAppData, Mediasoup, MediasoupTypes } from "./Mediasoup";
-import { SocketHandler, SocketWrapper, SocketId, HandshakeSession } from "./SocketHandler";
+import { SocketHandler, SocketId, HandshakeSession } from "./SocketHandler";
 import { FileHandler } from "./FileHandler";
 import
 {
@@ -15,6 +15,7 @@ import
     ChatMsgInfo,
     ChatFileInfo
 } from "nostromo-shared/types/RoomTypes";
+import { Socket } from "socket.io";
 
 export { RoomId };
 
@@ -141,7 +142,7 @@ export class Room
     }
 
     // пользователь заходит в комнату
-    public join(socket: SocketWrapper): void
+    public join(socket: Socket): void
     {
         const session = socket.handshake.session;
         if (!session) throw `[Room] Error: session is missing (${socket.id})`;
@@ -277,7 +278,7 @@ export class Room
 
             const username = socket.handshake.session!.username!;
 
-            const chatFileInfo : ChatFileInfo = {fileId, filename: fileInfo.name, size: fileInfo.size, username};
+            const chatFileInfo: ChatFileInfo = { fileId, filename: fileInfo.name, size: fileInfo.size, username };
 
             socket.to(this.id).emit('chatFile', chatFileInfo);
         });
@@ -289,7 +290,7 @@ export class Room
         });
     }
 
-    private async pauseConsumer(consumer: MediasoupTypes.Consumer, socket?: SocketWrapper)
+    private async pauseConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
     {
         // если уже не на паузе
         if (!consumer.paused)
@@ -308,7 +309,7 @@ export class Room
         if (socket) socket.emit('pauseConsumer', consumer.id);
     }
 
-    private async resumeConsumer(consumer: MediasoupTypes.Consumer, socket?: SocketWrapper)
+    private async resumeConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
     {
         // проверяем чтобы:
         // 1) consumer был на паузе,
@@ -334,7 +335,7 @@ export class Room
     // обработка события 'createWebRtcTransport' в методе join
     private async joinEvCreateWebRtcTransport(
         user: User,
-        socket: SocketWrapper,
+        socket: Socket,
         consuming: boolean
     )
     {
@@ -386,7 +387,7 @@ export class Room
     // обработка события 'join' в методе join
     private async joinEvJoin(
         user: User,
-        socket: SocketWrapper,
+        socket: Socket,
         session: HandshakeSession,
         joinInfo: JoinInfo
     )
@@ -434,7 +435,7 @@ export class Room
         user: User,
         producerUserId: SocketId,
         producer: MediasoupTypes.Producer,
-        socket: SocketWrapper
+        socket: Socket
     )
     {
         try
@@ -477,7 +478,7 @@ export class Room
         consumer: MediasoupTypes.Consumer,
         user: User,
         producerUserId: SocketId,
-        socket: SocketWrapper
+        socket: Socket
     ): void
     {
         const closeConsumer = () =>
@@ -508,7 +509,7 @@ export class Room
 
     private async createProducer(
         user: User,
-        socket: SocketWrapper,
+        socket: Socket,
         newProducerInfo: NewProducerInfo
     )
     {
@@ -585,7 +586,7 @@ export class Room
 
     // обработка события 'disconnect' в методе join
     private joinEvDisconnect(
-        socket: SocketWrapper,
+        socket: Socket,
         session: HandshakeSession,
         reason: string
     )
@@ -600,7 +601,7 @@ export class Room
 
     // обработка события 'newUsername' в методе join
     private joinEvNewUsername(
-        socket: SocketWrapper,
+        socket: Socket,
         session: HandshakeSession,
         username: string
     )
@@ -618,7 +619,7 @@ export class Room
     // обработка события 'restartIce' в методе join
     private async joinEvRestartIce(
         user: User,
-        socket: SocketWrapper,
+        socket: Socket,
         transportId: string
     )
     {
@@ -631,7 +632,7 @@ export class Room
     }
 
     // пользователь покидает комнату
-    public leave(userSocket: SocketWrapper, reason: string): void
+    public leave(userSocket: Socket, reason: string): void
     {
         const username = userSocket.handshake.session?.username ?? "Unknown";
         if (this._users.has(userSocket.id))
