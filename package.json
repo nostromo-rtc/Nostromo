@@ -18,7 +18,7 @@
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
     "express-session": "^1.17.2",
-    "mediasoup": "^3.7.17",
+    "mediasoup": "^3.9.6",
     "nanoid": "^3.2.0",
     "socket.io": "^4.4.1"
   },
@@ -29,7 +29,7 @@
     "@typescript-eslint/eslint-plugin": "^5.10.1",
     "@typescript-eslint/parser": "^5.10.1",
     "eslint": "^8.7.0",
-    "mediasoup-client": "gitlab:sgakerru/mediasoup-client#3.6.36-patched",
+    "mediasoup-client": "^3.6.50",
     "nostromo-shared": "gitlab:sgakerru/nostromo-shared#dev",
     "nostromo-web": "gitlab:sgakerru/nostromo-web#dev",
     "typescript": "^4.5.5"
