@@ -281,12 +281,12 @@ export class SocketHandler
         return this.io.of('/room').sockets.get(id)!;
     }
 
-    public emitTo(name: string, ev: string, ...args: any[]): boolean
+    public emitTo(name: string, ev: string, ...args: unknown[]): boolean
     {
         return this.io.of('/room').to(name).emit(ev, ...args);
     }
 
-    public emitToAll(ev: string, ...args: any[]) : boolean
+    public emitToAll(ev: string, ...args: unknown[]) : boolean
     {
         return this.io.of('/room').emit(ev, ...args);
     }
