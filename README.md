@@ -1,6 +1,6 @@
 # Nostromo Server (Russian)
 
-For [english version](#nostromo-server-english).
+For [english version click here](#nostromo-server-english).
 
 # Запуск
 
@@ -37,6 +37,9 @@ $ git clone https://gitlab.com/sgakerru/nostromo.git
 > Убедитесь, что вы установили **ВСЕ** [необходимые программы и зависимости](#требования-для-сборки-проекта), необходимые для сборки проекта.
 
 > Если вы не хотите компилировать `C++` компоненты, такие как `mediasoup`, то есть пропустить первый этап, то вы можете попробовать скопировать папку `node_modules/mediasoup` из релизной версии, перед выполнением следующей команды.
+
+> Для того, чтобы компонент `mediasoup` пропустил этап компиляции, можно установить параметр окружения `MEDIASOUP_WORKER_BIN`, и указать в качестве значения этой переменной путь до скомпилированного бинарного файла `mediasoup-worker.exe`
+(Например: "C:\nostromo\node_modules\mediasoup\worker\out\Release\mediasoup-worker.exe"). Для Linux данный параметр работает аналогичным образом.
 
 3. Теперь, когда все требования были удовлетворены, установите все `npm` пакеты (необходимые и для запуска, и для сборки проекта).
 ```
@@ -80,32 +83,31 @@ openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -ou
 
 ## Требования для запуска программы
 Данное требование обязательно, поскольку необходимо для запуска:
->`Node.js LTS` (тестировалось на v14.17.1).
+>`Node.js LTS` (тестировалось на v16.13.2).
 
 ## Требования для сборки проекта
 Если вы решили собрать проект из исходников, должна быть установлена программа (пакет):
->`Git` (тестировалось на версии 2.33.0).
+>`Git` (тестировалось на версии 2.35.1).
 
 ## Требования для компиляции C/C++ компонентов
 Для того, чтобы [скомпилировать](https://mediasoup.org/documentation/v3/mediasoup/installation/) C/C++ компоненты библиотеки `mediasoup` должны быть установлены следующие программы (пакеты):
 
-### Windows (тестировалось на Win10-v2004)
-* python версии 2 (тестировалось на 2.7.18)
-    *  python версии 3 имеет проблему с MSBuild и .sln (смотреть [эту проблему](https://bugs.chromium.org/p/gyp/issues/detail?id=556) для подробностей)
-* Visual C++ Build Environment >= 2015
-    * Visual Studio Build Tools, individual components:
-        * MSVC v142 - VS 2019 C++ Build Tools for x64/x86 (latest version)
-        * Windows 10 SDK (тестировалось на 10.0.19041.0)
-    * Поместить путь до файла MSBuild.exe в параметр окружения PATH (например "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin")
-    * Создайте новый параметр окружения GYP_MSVS_VERSION и укажите версию Visual Studio (например "2019" для Visual Studio 2019).
+### Windows (тестировалось на Win10-v21H2)
+* python версии >= 3.6 с PIP (тестировалось на 3.10.2)
+    * Необходимо в настройках системы `Управление псевдонимами выполнения приложения` отключить все галки, связанные с Python.
+* Visual C++ Build Environment with C++11 support (тестировалось на VS Build Tools 2019 - 16.11.9)
+    * Пакет - `разработка классических приложений на C++`.
+* make
+    * GNU make необходимо установить из MSYS из пакета [MinGW](https://sourceforge.net/projects/mingw/). Убедитесь, что путь до папки с бинарным файлом `make` прописан в параметре окружения `PATH` (например C:\MinGW\msys\1.0\bin).
 
-### Linux (тестировалось на Debian 10 Buster)
-* python версии 2 или 3 (тестировалось на on 2.7.16)
+### Linux (тестировалось на Debian 11 Bullseye)
+* python версии >= 3.6 с PIP (тестировалось на 3.10.2)
 * make
 * gcc и g++ >= 4.9 или clang (с поддержкой C++11) (тестировалось на gcc 8.3.0-6)
 * команды (symlinks) cc и c++ указывающие на соответствущие исполняемые файлы gcc/g++ или clang/clang++.
 
 > В `Debian` и `Ubuntu` установите `build-essential` .deb пакет. Он включает в себя и make и gcc/g++.
+> В `Debian` и `Ubuntu` установите `python3-pip` .deb пакет, иначе пакетный менеджер PIP может быть недоступен.
 
 * `Перебросьте порты` для Http и Https сервера на порты больше чем 1024.
     * Вы можете поменять `порт приложения` в файле `server.conf`.
@@ -174,6 +176,9 @@ $ git clone https://gitlab.com/sgakerru/nostromo.git
 
 > If you don't want to build `C++` components, like `mediasoup`, that is, skip the first step, so you can try copy folder `node_modules/mediasoup` from release, before installation other npm packages.
 
+> Component `mediasoup` will avoid build stage, if you set `MEDIASOUP_WORKER_BIN` environment variable with path to compiled binary file `mediasoup-worker.exe`
+(For example: "C:\nostromo\node_modules\mediasoup\worker\out\Release\mediasoup-worker.exe"). For Linux that env variable works too.
+
 3. Now, when all requirements were met, install all `npm` packages (they are needed to launch and build project).
 
 ```
@@ -203,7 +208,7 @@ In order to change settings, you should copy a file with default configuration, 
 
 Application will search settings in a `"server.conf"` file, but in case that file is not exist - in a `"server.default.conf"` file.
 
-Если отсутствуют и `"server.conf"` и `"server.default.conf"`, то программа сообщит о соответствующей ошибке.
+Application will inform about error, if `"server.conf"` or `"server.default.conf"` files are not exist.
 
 >Don't forget place `SSL` files in `"config/ssl"` folder.
 
@@ -216,32 +221,32 @@ openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -ou
 
 ## Requirements for launching program
 This requirement is mandatory, since it is necessary for launching program:
->`Node.js LTS` (tested on v14.17.1).
+>`Node.js LTS` (tested on v16.13.2).
 
 ## Requirements for building project
 If you decided to build project from sources, you have to install program (package):
->`Git` (tested on v2.33.0).
+>`Git` (tested on v2.35.1).
 
 ## Requirements for building C/C++ components
 In order to [build](https://mediasoup.org/documentation/v3/mediasoup/installation/) the `mediasoup` C/C++ components the following packages must be available on the target host:
 
-### Windows (tested on Win10-v2004)
-* python version 2 (tested on 2.7.18)
-    *  python version 3 has problem with MSBuild and .sln (check [this issue](https://bugs.chromium.org/p/gyp/issues/detail?id=556) for details)
-* Visual C++ Build Environment >= 2015
-    * Visual Studio Build Tools, individual components:
-        * MSVC v142 - VS 2019 C++ Build Tools for x64/x86 (latest version)
-        * Windows 10 SDK (tested on 10.0.19041.0)
-    * Append the path of MSBuild.exe folder to the Windows PATH environment variable (e.g. "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin")
-    * Create a new Windows environment variable GYP_MSVS_VERSION with the version of Visual Studio as value (e.g. "2019" for Visual Studio 2019).
+### Windows (tested on Win10-v21H2)
+* python version >= 3.6 with PIP (tested on 3.10.2)
+    * If you have Python-related errors, search for “App execution aliases” in system settings and disable everything Python-related from there.
+* Visual C++ Build Environment with C++11 support (tested on VS Build Tools 2019 - 16.11.9)
+    * Package - `C++ Build Tools`.
+* make
+    * GNU make have to be installed with MSYS from [MinGW](https://sourceforge.net/projects/mingw/) and make sure to append the path of folder containing make to the Windows Path environment variable (e.g. C:\MinGW\msys\1.0\bin).
 
-### Linux (tested on Debian 10 Buster)
-* python version 2 or 3 (tested on 2.7.16)
+### Linux (tested on Debian 11 Bullseye)
+* python version >= 3.6 with PIP (tested on 3.10.2)
 * make
 * gcc and g++ >= 4.9 or clang (with C++11 support) (tested on gcc 8.3.0-6)
 * cc and c++ commands (symlinks) pointing to the corresponding gcc/g++ or clang/clang++ executables.
 
-> In `Debian` and `Ubuntu` install the `build-essential` .deb package. It includes both make and gcc/g++.
+> On `Debian` and `Ubuntu` install the `build-essential` .deb package. It includes both make and gcc/g++.
+
+> On `Debian` and `Ubuntu` install the `python3-pip` DEB package, otherwise PIP package manager might be unavailable.
 
 * `Forward ports` for Http and Https servers to ports > 1024.
     * You can change `port of application` in `server.conf` file.
