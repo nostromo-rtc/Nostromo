@@ -5,13 +5,6 @@ import MediasoupTypes = mediasoup.types;
 
 export { MediasoupTypes };
 
-
-interface TransportAppData
-{
-    /** Транспорт для приема медиапотоков */
-    consuming: boolean;
-}
-
 export interface ConsumerAppData
 {
     /**
@@ -104,10 +97,8 @@ export class Mediasoup
             worker.on('died', (error) =>
             {
                 console.error(
-                    `[Mediasoup] mediasoup Worker died, exiting in 3 seconds... [pid: ${worker.pid}]`, (error as Error).message
+                    `[Mediasoup] mediasoup Worker died [pid: ${worker.pid}]`, (error as Error).message
                 );
-
-                setTimeout(() => process.exit(1), 3000);
             });
 
             workers.push(worker);
@@ -121,15 +112,8 @@ export class Mediasoup
         this.mediasoupWorkers = workers;
     }
 
-    private getWorker(): MediasoupTypes.Worker
-    {
-        // пока временно возвращаем первый Worker из массива
-        const worker: MediasoupTypes.Worker = this.mediasoupWorkers[0];
-        return worker;
-    }
-
-    // создать Router
-    public async createRouter(codecChoice: VideoCodec): Promise<MediasoupTypes.Router>
+    // создать роутеры для комнаты
+    public async createRouters(codecChoice: VideoCodec): Promise<MediasoupTypes.Router[]>
     {
         // сначала звуковой кодек opus
         const mediaCodecs = new Array<MediasoupTypes.RtpCodecCapability>(this.audioCodecConf);
@@ -141,9 +125,14 @@ export class Mediasoup
 
         const routerOptions: MediasoupTypes.RouterOptions = { mediaCodecs };
 
-        const router = await this.getWorker().createRouter(routerOptions);
+        const routers: MediasoupTypes.Router[] = [];
 
-        return router;
+        for (const worker of this.mediasoupWorkers)
+        {
+            routers.push(await worker.createRouter(routerOptions));
+        }
+
+        return routers;
     }
 
     // создать транспортный канал для user
@@ -161,8 +150,7 @@ export class Mediasoup
                 { ip: process.env.MEDIASOUP_LOCAL_IP!, announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP! }
             ],
             initialAvailableOutgoingBitrate: 600000,
-            enableUdp: true,
-            appData: { consuming }
+            enableUdp: true
         });
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
@@ -183,7 +171,14 @@ export class Mediasoup
                 console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${remoteIp} ${dtlsstate}`);
         });
 
-        user.transports.set(transport.id, transport);
+        if (consuming)
+        {
+            user.consumerTransport = transport;
+        }
+        else
+        {
+            user.producerTransport = transport;
+        }
 
         return transport;
     }
@@ -191,17 +186,34 @@ export class Mediasoup
     // создаем производителя (producer) для user
     public async createProducer(
         user: User,
-        newProducerInfo: NewProducerInfo
+        newProducerInfo: NewProducerInfo,
+        routers: MediasoupTypes.Router[]
     ): Promise<MediasoupTypes.Producer>
     {
         const { transportId, kind, rtpParameters } = newProducerInfo;
 
-        if (!user.transports.has(transportId))
-            throw new Error(`[Mediasoup] transport with id "${transportId}" not found`);
+        const transport = user.getTransportById(transportId);
 
-        const transport = user.transports.get(transportId)!;
+        if (!transport)
+        {
+            throw new Error(`[Mediasoup] transport with id "${transportId}" not found`);
+        }
 
         const producer = await transport.produce({ kind, rtpParameters });
+
+        // TODO: возможно pipe не стоит делать сразу на все роутеры
+        // и делать его при востребовании producer при попытке создания consumer от одного из роутеров
+        // но я какого-то повышенного потребления ОЗУ/ЦП от этого (когда всё за раз) не заметил
+
+        const producerRouter = routers[0];
+
+        for (const router of routers)
+        {
+            if (producerRouter.id != router.id)
+            {
+                await producerRouter.pipeToRouter({producerId: producer.id, router});
+            }
+        }
 
         return producer;
     }
@@ -215,19 +227,17 @@ export class Mediasoup
     {
         // не создаем consumer, если пользователь не может потреблять медиапоток
         if (!user.rtpCapabilities ||
-            !router.canConsume(
-                {
-                    producerId: producer.id,
-                    rtpCapabilities: user.rtpCapabilities
-                })
+            !router.canConsume({
+                producerId: producer.id,
+                rtpCapabilities: user.rtpCapabilities
+            })
         )
         {
             throw new Error(`[Mediasoup] User can't consume`);
         }
 
         // берем Transport пользователя, предназначенный для потребления
-        const transport = Array.from(user.transports.values())
-            .find((tr) => (tr.appData as TransportAppData).consuming);
+        const transport = user.consumerTransport;
 
         if (!transport)
         {
@@ -258,14 +268,14 @@ export class Mediasoup
         return consumer;
     }
 
-    public increaseConsumersCount(kind: MediasoupTypes.MediaKind) : void
+    public increaseConsumersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
             ++this._videoConsumersCount;
         else
             ++this._audioConsumersCount;
     }
-    public decreaseConsumersCount(kind: MediasoupTypes.MediaKind) : void
+    public decreaseConsumersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
             --this._videoConsumersCount;
@@ -273,14 +283,14 @@ export class Mediasoup
             --this._audioConsumersCount;
     }
 
-    public increaseProducersCount(kind: MediasoupTypes.MediaKind) : void
+    public increaseProducersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
             ++this._videoProducersCount;
         else
             ++this._audioProducersCount;
     }
-    public decreaseProducersCount(kind: MediasoupTypes.MediaKind) : void
+    public decreaseProducersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
             --this._videoProducersCount;

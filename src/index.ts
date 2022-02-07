@@ -90,18 +90,6 @@ async function initTestRoom(
             fileHandler
         )
     );
-
-    /*for (let i = 0; i < 10000; ++i)
-    {
-        await Room.create(
-            String(i),
-            process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
-            process.env.DEV_TESTROOM_PASS ?? 'testik1',
-            VideoCodec.VP8,
-            mediasoup,
-            socketHandler
-        );
-    }*/
 }
 
 // главная функция
@@ -113,8 +101,8 @@ async function main()
         initApplication();
 
         // создание класса-обработчика mediasoup
-        //const numWorkers = os.cpus().length;
-        const numWorkers = 1;
+        const numWorkers = os.cpus().length;
+        // укажем, что хотим создать столько mediasoup workers, сколько ядер у сервера
         const mediasoup = await Mediasoup.create(numWorkers);
 
         // комнаты

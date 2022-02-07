@@ -24,10 +24,27 @@ export class User
 {
     public userId: SocketId;
     public rtpCapabilities?: MediasoupTypes.RtpCapabilities;
-
-    public transports = new Map<string, MediasoupTypes.WebRtcTransport>();
+    public consumerTransport?: MediasoupTypes.WebRtcTransport;
+    public producerTransport?: MediasoupTypes.WebRtcTransport;
     public producers = new Map<string, MediasoupTypes.Producer>();
     public consumers = new Map<string, MediasoupTypes.Consumer>();
+
+    public getTransportById(transportId: string)
+        : MediasoupTypes.WebRtcTransport | undefined
+    {
+        if (this.consumerTransport?.id == transportId)
+        {
+            return this.consumerTransport;
+        }
+
+        if (this.producerTransport?.id == transportId)
+        {
+            return this.producerTransport;
+        }
+
+        return undefined;
+    }
+
 
     constructor(_userId: SocketId)
     {
@@ -53,7 +70,10 @@ export class Room
 
     // mediasoup
     private mediasoup: Mediasoup;
-    private mediasoupRouter: MediasoupTypes.Router;
+    /** Массив роутеров (каждый роутер на своём ядре процессора). */
+    private mediasoupRouters: MediasoupTypes.Router[];
+    /** Индекс последнего задействованного роутера. */
+    private latestRouterIdx = 1;
 
     // SocketHandler
     private socketHandler: SocketHandler;
@@ -77,13 +97,13 @@ export class Room
         fileHandler: FileHandler
     ): Promise<Room>
     {
-        // для каждой комнаты свой mediasoup router
-        const router = await mediasoup.createRouter(videoCodec);
+        // для каждой комнаты свои роутеры
+        const routers = await mediasoup.createRouters(videoCodec);
 
         return new Room(
             roomId,
             name, password,
-            mediasoup, router, videoCodec,
+            mediasoup, routers, videoCodec,
             socketHandler, fileHandler
         );
     }
@@ -91,7 +111,7 @@ export class Room
     private constructor(
         roomId: RoomId,
         name: string, password: string,
-        mediasoup: Mediasoup, mediasoupRouter: MediasoupTypes.Router, videoCodec: VideoCodec,
+        mediasoup: Mediasoup, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec,
         socketHandler: SocketHandler, fileHandler: FileHandler
     )
     {
@@ -102,7 +122,7 @@ export class Room
         this._password = password;
 
         this.mediasoup = mediasoup;
-        this.mediasoupRouter = mediasoupRouter;
+        this.mediasoupRouters = mediasoupRouters;
 
         this.socketHandler = socketHandler;
 
@@ -112,7 +132,31 @@ export class Room
     // получить RTP возможности (кодеки) роутера
     public get routerRtpCapabilities(): MediasoupTypes.RtpCapabilities
     {
-        return this.mediasoupRouter.rtpCapabilities;
+        // поскольку кодеки всех роутеров этой комнаты одинаковые,
+        // то вернем кодеки первого роутера
+        return this.mediasoupRouters[0].rtpCapabilities;
+    }
+
+    /** Получить очередной роутер для создания транспортного канала. */
+    private getRouter(consuming: boolean): MediasoupTypes.Router
+    {
+        // Если нужен роутер для приема потоков от клиента
+        // или роутер всего один.
+        if (!consuming || this.mediasoupRouters.length == 1)
+        {
+            return this.mediasoupRouters[0];
+        }
+        else
+        {
+            ++this.latestRouterIdx;
+
+            if (this.latestRouterIdx == this.mediasoupRouters.length)
+            {
+                this.latestRouterIdx = 1;
+            }
+
+            return this.mediasoupRouters[this.latestRouterIdx];
+        }
     }
 
     // рассчитываем новый максимальный видео битрейт
@@ -250,12 +294,6 @@ export class Room
             await this.resumeProducer(producer);
         });
 
-        // перезапуск ICE слоя (генерирование новых локальных ICE параметров и отдача их клиенту)
-        socket.on('restartIce', async (transportId) =>
-        {
-            await this.joinEvRestartIce(user, socket, transportId);
-        });
-
         // новый ник пользователя
         socket.on('newUsername', (username: string) =>
         {
@@ -341,15 +379,24 @@ export class Room
     {
         try
         {
+            const router = this.getRouter(consuming);
+
             const transport = await this.mediasoup.createWebRtcTransport(
                 user,
                 consuming,
-                this.mediasoupRouter
+                router
             );
 
             transport.on('routerclose', () =>
             {
-                user.transports.delete(transport.id);
+                if (consuming)
+                {
+                    user.consumerTransport = undefined;
+                }
+                else
+                {
+                    user.producerTransport = undefined;
+                }
 
                 socket.emit('closeTransport', transport.id);
             });
@@ -377,10 +424,13 @@ export class Room
     {
         const { transportId, dtlsParameters } = connectWebRtcTransportInfo;
 
-        if (!user.transports.has(transportId))
-            throw new Error(`[Room] transport with id "${transportId}" not found`);
+        const transport = user.getTransportById(transportId);
 
-        const transport = user.transports.get(transportId)!;
+        if (!transport)
+        {
+            throw new Error(`[Room] transport with id "${transportId}" not found`);
+        }
+
         await transport.connect({ dtlsParameters });
     }
 
@@ -445,7 +495,7 @@ export class Room
             const consumer = await this.mediasoup.createConsumer(
                 user,
                 producer,
-                this.mediasoupRouter
+                this.mediasoupRouters[0]
             );
 
             user.consumers.set(consumer.id, consumer);
@@ -515,7 +565,7 @@ export class Room
     {
         try
         {
-            const producer = await this.mediasoup.createProducer(user, newProducerInfo);
+            const producer = await this.mediasoup.createProducer(user, newProducerInfo, this.mediasoupRouters);
 
             user.producers.set(producer.id, producer);
 
@@ -616,21 +666,6 @@ export class Room
         socket.to(this.id).emit('newUsername', userInfo);
     }
 
-    // обработка события 'restartIce' в методе join
-    private async joinEvRestartIce(
-        user: User,
-        socket: Socket,
-        transportId: string
-    )
-    {
-        if (!user.transports.has(transportId))
-            throw new Error(`[Room] transport with id "${transportId}" not found`);
-
-        const transport = user.transports.get(transportId)!;
-        const iceParameters = await transport.restartIce();
-        socket.emit('restartIce', iceParameters);
-    }
-
     // пользователь покидает комнату
     public leave(userSocket: Socket, reason: string): void
     {
@@ -639,11 +674,8 @@ export class Room
         {
             console.log(`[Room] [#${this._id}, ${this._name}]: ${userSocket.id} (${username}) user disconnected > ${reason}`);
 
-            const transports = this._users.get(userSocket.id)!.transports;
-            for (const transport of transports.values())
-            {
-                transport.close();
-            }
+            this._users.get(userSocket.id)!.consumerTransport?.close();
+            this._users.get(userSocket.id)!.producerTransport?.close();
 
             this._users.delete(userSocket.id);
         }
@@ -653,6 +685,10 @@ export class Room
     public close(): void
     {
         console.log(`[Room] closing Room [${this._id}]`);
-        this.mediasoupRouter.close();
+
+        for (const router of this.mediasoupRouters)
+        {
+            router.close();
+        }
     }
 }
