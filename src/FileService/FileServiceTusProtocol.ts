@@ -1,5 +1,5 @@
 import { FileHandlerConstants, FileHandlerResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileHandlerTypes";
-import { FileInfo } from "./FileHandler";
+import { FileInfo } from "./FileService";
 import express = require("express");
 import fs = require("fs");
 export class TusHeadResponse implements FileHandlerResponse

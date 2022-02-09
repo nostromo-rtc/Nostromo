@@ -3,8 +3,8 @@ import path = require("path");
 import { nanoid } from "nanoid";
 import fs = require('fs');
 import { FileHandlerResponse, FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
-import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileHandlerTusProtocol";
-import { ExpressApp } from "./ExpressApp";
+import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
+import { WebService } from "../WebService";
 
 /** Случайный Id + расширение */
 type FileId = string;
@@ -28,8 +28,8 @@ export type FileInfo = {
     originalMetadata?: string;
 };
 
-// класс - обработчик файлов
-export class FileHandler
+/** Обработчик файлов. */
+export class FileService
 {
     private readonly FILES_PATH = path.join(process.cwd(), FileHandlerConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
@@ -78,7 +78,7 @@ export class FileHandler
     {
         if (conditionForPrevent)
         {
-            ExpressApp.sendCodeAndDestroySocket(req, res, statusCode);
+            WebService.sendCodeAndDestroySocket(req, res, statusCode);
         }
         else
         {
@@ -165,7 +165,7 @@ export class FileHandler
 
             this.assignHeaders(tusRes, res);
 
-            const conditionForPrevent = (!tusRes.successful && !ExpressApp.requestHasNotBody(req));
+            const conditionForPrevent = (!tusRes.successful && !WebService.requestHasNotBody(req));
             this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, tusRes.statusCode);
         }
         catch (error)
@@ -213,7 +213,7 @@ export class FileHandler
         res: express.Response
     ): void
     {
-        const conditionForPrevent = !ExpressApp.requestHasNotBody(req);
+        const conditionForPrevent = !WebService.requestHasNotBody(req);
 
         // проверяем, имеет ли право пользователь
         // выкладывать файл в комнату с номером Room-Id

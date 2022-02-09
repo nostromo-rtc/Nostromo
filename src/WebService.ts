@@ -3,7 +3,7 @@ import session = require('express-session');
 import path = require('path');
 
 import { RoomId, Room } from './Room';
-import { FileHandler } from "./FileHandler";
+import { FileService } from "./FileService/FileService";
 
 import { FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
 
@@ -22,8 +22,8 @@ declare module 'express-session' {
     }
 }
 
-/** Класс - веб-сервер Express. */
-export class ExpressApp
+/** HTTP веб-сервер. */
+export class WebService
 {
     /** Приложение Express. */
     public app: express.Express = express();
@@ -44,28 +44,28 @@ export class ExpressApp
     private rooms: Map<RoomId, Room>;
 
     /** Обработчик файлов. */
-    private fileHandler: FileHandler;
+    private fileHandler: FileService;
 
-    constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileHandler)
+    constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileService)
     {
         this.rooms = _rooms;
         this.fileHandler = _fileHandler;
 
-        this.app.use(ExpressApp.wwwMiddleware);
+        this.app.use(WebService.wwwMiddleware);
 
-        this.app.use(ExpressApp.httpsMiddleware);
+        this.app.use(WebService.httpsMiddleware);
 
         this.app.use(this.sessionMiddleware);
 
         this.app.disable('x-powered-by');
 
-        this.app.use(ExpressApp.rejectRequestWithBodyMiddleware);
+        this.app.use(WebService.rejectRequestWithBodyMiddleware);
 
         this.handleRoutes();
 
         this.handleStatic();
 
-        this.app.use(ExpressApp.preventFloodMiddleware);
+        this.app.use(WebService.preventFloodMiddleware);
 
         this.endPoint();
     }
@@ -126,9 +126,9 @@ export class ExpressApp
     private static rejectRequestWithBodyMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
         const methodWithoutBody = (req.method == "GET" || req.method == "HEAD" || req.method == "OPTIONS");
-        if (methodWithoutBody && !ExpressApp.requestHasNotBody(req))
+        if (methodWithoutBody && !WebService.requestHasNotBody(req))
         {
-            ExpressApp.sendCodeAndDestroySocket(req, res, 405);
+            WebService.sendCodeAndDestroySocket(req, res, 405);
         }
         else
         {
@@ -139,18 +139,18 @@ export class ExpressApp
     /** Защищаемся от флуд-атаки через body в реквесте. */
     private static preventFloodMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
-        if (ExpressApp.requestHasNotBody(req))
+        if (WebService.requestHasNotBody(req))
         {
             next();
         }
         else
         {
-            ExpressApp.sendCodeAndDestroySocket(req, res, 405);
+            WebService.sendCodeAndDestroySocket(req, res, 405);
         }
     }
 
     /** Обрабатываем маршруты. */
-    private handleRoutes() : void
+    private handleRoutes(): void
     {
         // [главная страница]
         this.app.get('/', (req: express.Request, res: express.Response) =>
@@ -254,7 +254,7 @@ export class ExpressApp
     }
 
     /** Обрабатываем маршруты, связанные с файлами. */
-    private handleFilesRoutes() : void
+    private handleFilesRoutes(): void
     {
         // Tus Head Request (узнать, сколько осталось докачать)
         this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
@@ -288,7 +288,7 @@ export class ExpressApp
     }
 
     /** Открываем доступ к статике. */
-    private handleStatic() : void
+    private handleStatic(): void
     {
         this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
@@ -319,7 +319,7 @@ export class ExpressApp
     }
 
     /** Самый последний обработчик запросов. */
-    private endPoint() : void
+    private endPoint(): void
     {
         this.app.use((req: express.Request, res: express.Response) =>
         {

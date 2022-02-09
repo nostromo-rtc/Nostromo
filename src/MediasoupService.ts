@@ -14,7 +14,7 @@ export interface ConsumerAppData
     clientPaused: boolean;
 }
 
-export class Mediasoup
+export class MediasoupService
 {
     // массив workers, задел под многопоточность
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
@@ -80,7 +80,7 @@ export class Mediasoup
     };
 
     // создаем экземпляр класса (внутри которого создаются Workers)
-    public static async create(numWorkers: number): Promise<Mediasoup>
+    public static async create(numWorkers: number): Promise<MediasoupService>
     {
         console.log(`[Mediasoup] running ${numWorkers} mediasoup Workers...`);
 
@@ -104,7 +104,7 @@ export class Mediasoup
             workers.push(worker);
         }
 
-        return new Mediasoup(workers);
+        return new MediasoupService(workers);
     }
 
     private constructor(workers: MediasoupTypes.Worker[])
@@ -211,7 +211,7 @@ export class Mediasoup
         {
             if (producerRouter.id != router.id)
             {
-                await producerRouter.pipeToRouter({producerId: producer.id, router});
+                await producerRouter.pipeToRouter({ producerId: producer.id, router });
             }
         }
 

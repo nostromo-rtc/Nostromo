@@ -6,14 +6,14 @@ import dotenv = require('dotenv');
 import os = require('os');
 
 // Express
-import { ExpressApp } from './ExpressApp';
-import { FileHandler } from "./FileHandler";
+import { WebService } from './WebService';
+import { FileService } from "./FileService/FileService";
 
 // сокеты
-import { SocketHandler } from './SocketHandler';
+import { SocketService } from './SocketService/SocketService';
 
 // mediasoup
-import { Mediasoup } from './Mediasoup';
+import { MediasoupService } from './MediasoupService';
 
 // комната
 import { RoomId, Room } from './Room';
@@ -73,10 +73,10 @@ function initApplication()
 
 // инициализация тестовой комнаты
 async function initTestRoom(
-    mediasoup: Mediasoup,
-    socketHandler: SocketHandler,
+    mediasoup: MediasoupService,
+    socketHandler: SocketService,
     rooms: Map<RoomId, Room>,
-    fileHandler: FileHandler
+    fileHandler: FileService
 ): Promise<void>
 {
     rooms.set('0',
@@ -103,14 +103,14 @@ async function main()
         // создание класса-обработчика mediasoup
         const numWorkers = os.cpus().length;
         // укажем, что хотим создать столько mediasoup workers, сколько ядер у сервера
-        const mediasoup = await Mediasoup.create(numWorkers);
+        const mediasoup = await MediasoupService.create(numWorkers);
 
         // комнаты
         const rooms = new Map<RoomId, Room>();
 
-        const fileHandler = new FileHandler();
+        const fileHandler = new FileService();
 
-        const Express = new ExpressApp(rooms, fileHandler);
+        const Express = new WebService(rooms, fileHandler);
 
         const httpServer: http.Server = http.createServer(Express.app);
         const httpPort = process.env.HTTP_PORT;
@@ -134,7 +134,7 @@ async function main()
             console.log(`Https server running on port: ${port!}`);
         });
 
-        const socketHandlerInstance = new SocketHandler(
+        const socketHandlerInstance = new SocketService(
             server,
             Express.sessionMiddleware,
             mediasoup,

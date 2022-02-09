@@ -1,6 +1,6 @@
-import { ConsumerAppData, Mediasoup, MediasoupTypes } from "./Mediasoup";
-import { SocketHandler, SocketId, HandshakeSession } from "./SocketHandler";
-import { FileHandler } from "./FileHandler";
+import { ConsumerAppData, MediasoupService, MediasoupTypes } from "./MediasoupService";
+import { SocketService, SocketId, HandshakeSession } from "./SocketService/SocketService";
+import { FileService } from "./FileService/FileService";
 import
 {
     RoomId,
@@ -19,7 +19,7 @@ import { Socket } from "socket.io";
 
 export { RoomId };
 
-// пользователь комнаты
+/** Пользователь комнаты. */
 export class User
 {
     public userId: SocketId;
@@ -52,49 +52,46 @@ export class User
     }
 }
 
-// комнаты
+/** Комната. */
 export class Room
 {
-    // номер комнаты
-    private _id: RoomId;
-    public get id(): RoomId { return this._id; }
+    /** Идентификатор комнаты. */
+    public readonly id: RoomId;
 
-    // название комнаты
-    private _name: string;
-    public get name(): string { return this._name; }
+    /** Название комнаты. */
+    public readonly name: string;
 
-    // пароль комнаты
+    /** Пароль комнаты. */
     private _password: string;
     public get password(): string { return this._password; }
     public set password(value: string) { this._password = value; }
 
-    // mediasoup
-    private mediasoup: Mediasoup;
+    /** Для работы с медиапотоками Mediasoup. */
+    private mediasoup: MediasoupService;
     /** Массив роутеров (каждый роутер на своём ядре процессора). */
     private mediasoupRouters: MediasoupTypes.Router[];
     /** Индекс последнего задействованного роутера. */
     private latestRouterIdx = 1;
 
-    // SocketHandler
-    private socketHandler: SocketHandler;
+    /** Для работы с сокетами. */
+    private socketHandler: SocketService;
 
-    // Работа с файлами
-    private fileHandler: FileHandler;
+    /** Для работы с файлами. */
+    private fileHandler: FileService;
 
-    // пользователи в комнате
-    private _users = new Map<SocketId, User>();
-    public get users(): Map<SocketId, User> { return this._users; }
+    /** Пользователи в комнате. */
+    public readonly users = new Map<SocketId, User>();
 
-    // максимальный битрейт (Кбит) для аудио в этой комнате
-    // 1024 - kilo
+    /** Максимальный битрейт (Кбит) для аудио в этой комнате. */
     private maxAudioBitrate = 64 * 1024;
 
+    /** Создать комнату. */
     public static async create(
         roomId: RoomId,
         name: string, password: string, videoCodec: VideoCodec,
-        mediasoup: Mediasoup,
-        socketHandler: SocketHandler,
-        fileHandler: FileHandler
+        mediasoup: MediasoupService,
+        socketHandler: SocketService,
+        fileHandler: FileService
     ): Promise<Room>
     {
         // для каждой комнаты свои роутеры
@@ -111,25 +108,24 @@ export class Room
     private constructor(
         roomId: RoomId,
         name: string, password: string,
-        mediasoup: Mediasoup, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec,
-        socketHandler: SocketHandler, fileHandler: FileHandler
+        mediasoup: MediasoupService, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec,
+        socketHandler: SocketService, fileHandler: FileService
     )
     {
         console.log(`[Room] creating a new Room [#${roomId}, ${name}, ${videoCodec}]`);
 
-        this._id = roomId;
-        this._name = name;
+        this.id = roomId;
+        this.name = name;
         this._password = password;
 
         this.mediasoup = mediasoup;
         this.mediasoupRouters = mediasoupRouters;
 
         this.socketHandler = socketHandler;
-
         this.fileHandler = fileHandler;
     }
 
-    // получить RTP возможности (кодеки) роутера
+    /** Получить RTP возможности (кодеки) роутера. */
     public get routerRtpCapabilities(): MediasoupTypes.RtpCapabilities
     {
         // поскольку кодеки всех роутеров этой комнаты одинаковые,
@@ -159,8 +155,8 @@ export class Room
         }
     }
 
-    // рассчитываем новый максимальный видео битрейт
-    private calculateAndEmitNewMaxVideoBitrate()
+    /** Рассчитываем новый максимальный видео битрейт. */
+    private calculateAndEmitNewMaxVideoBitrate(): void
     {
         const MEGA = 1024 * 1024;
 
@@ -181,20 +177,28 @@ export class Room
             ) * MEGA;
 
             if (maxVideoBitrate > 0)
+            {
                 this.socketHandler.emitToAll('maxVideoBitrate', maxVideoBitrate);
+            }
         }
     }
 
-    // пользователь заходит в комнату
+    /** Пользователь заходит в комнату. */
     public join(socket: Socket): void
     {
         const session = socket.handshake.session;
-        if (!session) throw `[Room] Error: session is missing (${socket.id})`;
+        if (!session)
+        {
+            throw `[Room] Error: session is missing for (${socket.id})`;
+        }
 
-        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} (${session.username ?? "Unknown"}) user connected`);
+        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} (${session.username ?? "Гость"}) user connected`);
         this._users.set(socket.id, new User(socket.id));
 
         const user: User = this.users.get(socket.id)!;
+
+        // Сообщаем заинтересованным новый список пользователей в комнате.
+        this.sendUserList();
 
         // сообщаем пользователю название комнаты
         socket.emit('roomName', this.name);
@@ -328,6 +332,34 @@ export class Room
         });
     }
 
+    /** Отправить список пользователей в комнате. */
+    public sendUserList()
+    {
+        // TODO: пока так, на любое изменение весь список отправляется заново.
+        // Но надо сделать чтобы конкретно отсылалась инфа о зашедшем, вышедшем и о сменившем ник.
+        type UserInfo = {
+            id: string,
+            name: string;
+        };
+
+        const userList: UserInfo[] = [];
+
+        for (const user of this.users)
+        {
+            const username = this.socketHandler.getSocketById(user[0]).handshake.session!.username;
+            userList.push({ id: user[0], name: username ?? "Гость" });
+        }
+
+        const subscriptionsCount = this.socketHandler.userListSubscriptionsByRoom.get(this.id);
+
+        if (subscriptionsCount != undefined
+            && subscriptionsCount > 0)
+        {
+            this.socketHandler.emitTo('admin', `userList-${this.id}`, 'userList', userList);
+        }
+    }
+
+    /** Поставить consumer на паузу. */
     private async pauseConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
     {
         // если уже не на паузе
@@ -344,9 +376,13 @@ export class Room
         // То есть сообщаем клиенту, что сервер поставил или хотел поставить на паузу. Хотел в том случае,
         // если до этого клиент уже поставил на паузу, а после соответствующий producer был поставлен на паузу.
         // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер НЕ ГОТОВ снимать с паузы consumer.
-        if (socket) socket.emit('pauseConsumer', consumer.id);
+        if (socket)
+        {
+            socket.emit('pauseConsumer', consumer.id);
+        }
     }
 
+    /** Снять consumer с паузы. */
     private async resumeConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
     {
         // проверяем чтобы:
@@ -367,7 +403,10 @@ export class Room
         // Сообщаем клиенту, чтобы он тоже снял с паузы, если только это не он попросил.
         // То есть сообщаем клиенту, что сервер снял или хотел снять паузу.
         // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер ГОТОВ снимать с паузы consumer.
-        if (socket) socket.emit('resumeConsumer', consumer.id);
+        if (socket)
+        {
+            socket.emit('resumeConsumer', consumer.id);
+        }
     }
 
     // обработка события 'createWebRtcTransport' в методе join
@@ -474,7 +513,7 @@ export class Room
                 };
 
                 // сообщаем пользователю anotherUser о новом пользователе
-                this.socketHandler.emitTo(anotherUser[0], 'newUser', thisUserInfo);
+                this.socketHandler.emitTo('room', anotherUser[0], 'newUser', thisUserInfo);
             }
         }
     }
@@ -644,9 +683,12 @@ export class Room
         session.joined = false;
         session.save();
 
-        this.leave(socket, reason);
+        this.userLeft(socket, session, reason);
 
-        this.socketHandler.emitTo(this.id, 'userDisconnected', socket.id);
+        // Сообщаем заинтересованным новый список пользователей в комнате.
+        this.sendUserList();
+
+        this.socketHandler.emitTo('room', this.id, 'userDisconnected', socket.id);
     }
 
     // обработка события 'newUsername' в методе join
@@ -654,7 +696,7 @@ export class Room
         socket: Socket,
         session: HandshakeSession,
         username: string
-    )
+    ): void
     {
         session.username = username;
 
@@ -664,27 +706,41 @@ export class Room
         };
 
         socket.to(this.id).emit('newUsername', userInfo);
+
+        // Сообщаем заинтересованным новый список пользователей в комнате.
+        this.sendUserList();
     }
 
-    // пользователь покидает комнату
-    public leave(userSocket: Socket, reason: string): void
+    /** Пользователь покинул комнату. */
+    public userLeft(
+        socket: Socket,
+        session: HandshakeSession,
+        reason: string
+    ): void
     {
-        const username = userSocket.handshake.session?.username ?? "Unknown";
-        if (this._users.has(userSocket.id))
+        const username = session.username ?? "Гость";
+
+        const user = this.users.get(socket.id);
+
+        if (!user)
         {
-            console.log(`[Room] [#${this._id}, ${this._name}]: ${userSocket.id} (${username}) user disconnected > ${reason}`);
-
-            this._users.get(userSocket.id)!.consumerTransport?.close();
-            this._users.get(userSocket.id)!.producerTransport?.close();
-
-            this._users.delete(userSocket.id);
+            return;
         }
+
+        console.log(`[Room] [#${this.id}, ${this.name}]: ${socket.id} (${username}) user disconnected > ${reason}`);
+
+        user.consumerTransport?.close();
+        user.producerTransport?.close();
+
+        this.users.delete(socket.id);
     }
 
-    // комната закрывается
+    /** Закрыть комнату */
     public close(): void
     {
-        console.log(`[Room] closing Room [${this._id}]`);
+        // TODO: функционал этого метода пока что не проверялся.
+        // Надо бы проверить.
+        console.log(`[Room] closing Room [${this.id}]`);
 
         for (const router of this.mediasoupRouters)
         {

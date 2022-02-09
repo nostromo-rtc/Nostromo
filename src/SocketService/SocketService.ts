@@ -4,10 +4,10 @@ import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 import { RequestHandler } from 'express';
-import { RoomId, Room } from './Room';
+import { RoomId, Room } from '../Room';
 import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
-import { Mediasoup } from './Mediasoup';
-import { FileHandler } from "./FileHandler";
+import { MediasoupService } from '../MediasoupService';
+import { FileService } from "../FileService/FileService";
 
 export type SocketId = string;
 type Socket = SocketIO.Socket;
@@ -37,17 +37,20 @@ declare module "express"
     }
 }
 
-// класс - обработчик сокетов
-export class SocketHandler
+/** Обработчик веб-сокетов. */
+export class SocketService
 {
     private io: SocketIO.Server;
 
     private sessionMiddleware: RequestHandler;
-    private mediasoup: Mediasoup;
-    private fileHandler: FileHandler;
+    private mediasoup: MediasoupService;
+    private fileHandler: FileService;
     private rooms: Map<RoomId, Room>;
-
     private roomIndex: number;
+    /** Подписан ли кто-то на получение списка пользователей в этой комнате, или нет. */
+    public userListSubscriptionsByRoom = new Map<RoomId, number>();
+    /** Кто подписан на изменение списка пользователя в этой комнате. */
+    private userListSubscriptionsBySocket = new Map<SocketId, RoomId>();
 
     private createSocketServer(server: https.Server): SocketIO.Server
     {
@@ -62,8 +65,8 @@ export class SocketHandler
     constructor(
         _server: https.Server,
         _sessionMiddleware: RequestHandler,
-        _mediasoup: Mediasoup,
-        _fileHandler: FileHandler,
+        _mediasoup: MediasoupService,
+        _fileHandler: FileService,
         _rooms: Map<RoomId, Room>,
         _roomIndex: number)
     {
@@ -159,6 +162,58 @@ export class SocketHandler
                     };
 
                     this.io.of('/').emit('newRoom', roomInfo);
+                });
+
+                socket.on('userList', async (roomId: string) =>
+                {
+                    // Если такой комнаты вообще нет.
+                    if (!this.rooms.has(roomId))
+                    {
+                        return;
+                    }
+
+                    const previousSelectedRoom = this.userListSubscriptionsBySocket.get(socket.id);
+
+                    // Если новая выбранная комната на самом деле не новая, а та же самая.
+                    if (previousSelectedRoom != undefined
+                        && previousSelectedRoom == roomId)
+                    {
+                        return;
+                    }
+
+                    // Смотрим счётчик подписавшихся на комнату.
+                    let previousValue = this.userListSubscriptionsByRoom.get(roomId);
+                    if (previousValue == undefined)
+                    {
+                        this.userListSubscriptionsByRoom.set(roomId, 0);
+                        previousValue = 0;
+                    }
+
+                    // Если до этого были подписаны на изменение списка юзеров
+                    // в другой комнате, то отписываемся.
+                    if (previousSelectedRoom)
+                    {
+                        this.userListSubscriptionsByRoom.set(previousSelectedRoom, previousValue - 1);
+                    }
+
+                    this.userListSubscriptionsBySocket.set(socket.id, roomId);
+                    this.userListSubscriptionsByRoom.set(roomId, previousValue + 1);
+
+                    await socket.join(`userList-${roomId}`);
+
+                    this.rooms.get(roomId)!.sendUserList();
+                });
+
+                socket.on('disconnect', () =>
+                {
+                    const roomId = this.userListSubscriptionsBySocket.get(socket.id);
+                    if (roomId)
+                    {
+                        const previousValue = this.userListSubscriptionsByRoom.get(roomId)!;
+                        this.userListSubscriptionsByRoom.set(roomId, previousValue - 1);
+                    }
+
+                    this.userListSubscriptionsBySocket.delete(socket.id);
                 });
             }
         });
@@ -281,12 +336,12 @@ export class SocketHandler
         return this.io.of('/room').sockets.get(id)!;
     }
 
-    public emitTo(name: string, ev: string, ...args: unknown[]): boolean
+    public emitTo(namespace: string, name: string, ev: string, ...args: unknown[]): boolean
     {
-        return this.io.of('/room').to(name).emit(ev, ...args);
+        return this.io.of(`/${namespace}`).to(name).emit(ev, ...args);
     }
 
-    public emitToAll(ev: string, ...args: unknown[]) : boolean
+    public emitToAll(ev: string, ...args: unknown[]): boolean
     {
         return this.io.of('/room').emit(ev, ...args);
     }
