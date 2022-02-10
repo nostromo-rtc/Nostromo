@@ -15,8 +15,6 @@ import { SocketService } from './SocketService/SocketService';
 // mediasoup
 import { MediasoupService } from './MediasoupService';
 
-// комната
-import { RoomId, Room } from './Room';
 import { VideoCodec } from "nostromo-shared/types/RoomTypes";
 
 // логи
@@ -24,6 +22,8 @@ import { prepareLogs } from "./Logger";
 
 // для ввода в консоль
 import readline = require('readline');
+import { IRoomRepository, PlainRoomRepository } from "./RoomRepository";
+import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -67,29 +67,24 @@ function initApplication()
 
     // если конфиг не удалось загрузить
     if (!configLoadSuccess)
+    {
         throw new Error(`Отсутствует конфигурационный файл: ${DEFAULT_CONFIG_PATH}`);
+    }
 
 }
 
 // инициализация тестовой комнаты
 async function initTestRoom(
-    mediasoup: MediasoupService,
-    socketHandler: SocketService,
-    rooms: Map<RoomId, Room>,
-    fileHandler: FileService
+    roomRepository: IRoomRepository
 ): Promise<void>
 {
-    rooms.set('0',
-        await Room.create(
-            '0',
-            process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
-            process.env.DEV_TESTROOM_PASS ?? 'testik1',
-            VideoCodec.VP8,
-            mediasoup,
-            socketHandler,
-            fileHandler
-        )
-    );
+    const info: NewRoomInfo = {
+        name: process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
+        pass: process.env.DEV_TESTROOM_PASS ?? 'testik1',
+        videoCodec: VideoCodec.VP8
+    };
+
+    await roomRepository.create(info);
 }
 
 // главная функция
@@ -97,22 +92,21 @@ async function main()
 {
     try
     {
-        // инициализируем приложение
+        // Инициализируем приложение.
         initApplication();
 
-        // создание класса-обработчика mediasoup
+        // Количество логических ядер (потоков) процессора.
         const numWorkers = os.cpus().length;
-        // укажем, что хотим создать столько mediasoup workers, сколько ядер у сервера
-        const mediasoup = await MediasoupService.create(numWorkers);
+        // Сервис для работы с медиапотоками.
+        const mediasoupService = await MediasoupService.create(numWorkers);
+        // Сервис для работы с файлами.
+        const fileService = new FileService();
+        // Репозиторий комнат.
+        const roomRepository = new PlainRoomRepository(mediasoupService, fileService);
+        // Express веб-сервис.
+        const express = new WebService(roomRepository, fileService);
 
-        // комнаты
-        const rooms = new Map<RoomId, Room>();
-
-        const fileHandler = new FileService();
-
-        const Express = new WebService(rooms, fileHandler);
-
-        const httpServer: http.Server = http.createServer(Express.app);
+        const httpServer: http.Server = http.createServer(express.app);
         const httpPort = process.env.HTTP_PORT;
 
         httpServer.listen(httpPort, () =>
@@ -126,24 +120,24 @@ async function main()
             cert: fs.readFileSync(path.resolve(process.cwd(), 'config', 'ssl', process.env.SSL_PUBLIC_CERT!), 'utf8')
         };
 
-        const server: https.Server = https.createServer(httpsOptions, Express.app);
+        const httpsServer: https.Server = https.createServer(httpsOptions, express.app);
         const port = process.env.HTTPS_PORT;
 
-        server.listen(port, () =>
+        httpsServer.listen(port, () =>
         {
             console.log(`Https server running on port: ${port!}`);
         });
 
-        const socketHandlerInstance = new SocketService(
-            server,
-            Express.sessionMiddleware,
-            mediasoup,
-            fileHandler,
-            rooms, 0
+        const socketService = new SocketService(
+            httpsServer,
+            express.sessionMiddleware,
+            mediasoupService,
+            fileService,
+            roomRepository
         );
 
-        // создаем тестовую комнату
-        await initTestRoom(mediasoup, socketHandlerInstance, rooms, fileHandler);
+        // Создаем тестовую комнату.
+        await initTestRoom(roomRepository);
     }
     catch (err)
     {

@@ -10,6 +10,6 @@
         "sourceMap": false,
         "noEmitOnError": true
     },
-    "include": ["*.ts", "../node_modules/nostromo-shared/api/*.ts", "SocketService/SocketService.ts", "SocketService/AdminEvents.ts", "FileService/FileService.ts"],
+    "include": ["*.ts", "../node_modules/nostromo-shared/api/*.ts", "SocketService/SocketService.ts", "SocketService/AdminSocketService.ts", "FileService/FileService.ts"],
     "exclude": ["../node_modules/*"]
 }

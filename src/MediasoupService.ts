@@ -14,6 +14,11 @@ export interface ConsumerAppData
     clientPaused: boolean;
 }
 
+export interface IMediasoupService
+{
+    
+}
+
 export class MediasoupService
 {
     // массив workers, задел под многопоточность

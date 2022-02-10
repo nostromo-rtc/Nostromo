@@ -1,11 +1,11 @@
-import { FileHandlerConstants, FileHandlerResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileHandlerTypes";
+import { FileServiceConstants, FileServiceResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileServiceTypes";
 import { FileInfo } from "./FileService";
 import express = require("express");
 import fs = require("fs");
-export class TusHeadResponse implements FileHandlerResponse
+export class TusHeadResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
-        "Tus-Resumable": FileHandlerConstants.TUS_VERSION,
+        "Tus-Resumable": FileServiceConstants.TUS_VERSION,
         "Cache-Control": "no-store"
     };
     public statusCode: number;
@@ -13,7 +13,7 @@ export class TusHeadResponse implements FileHandlerResponse
     constructor(req: express.Request, fileInfo: FileInfo | undefined)
     {
         // проверяем версию Tus
-        if (req.header("Tus-Resumable") != FileHandlerConstants.TUS_VERSION)
+        if (req.header("Tus-Resumable") != FileServiceConstants.TUS_VERSION)
         {
             this.statusCode = 412;
         }
@@ -45,10 +45,10 @@ export class TusHeadResponse implements FileHandlerResponse
     }
 }
 
-export class TusPatchResponse implements FileHandlerResponse
+export class TusPatchResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
-        "Tus-Resumable": FileHandlerConstants.TUS_VERSION,
+        "Tus-Resumable": FileServiceConstants.TUS_VERSION,
         "Cache-Control": "no-store"
     };
     public statusCode: number;
@@ -58,7 +58,7 @@ export class TusPatchResponse implements FileHandlerResponse
         const contentLength = Number(req.header("Content-Length"));
 
         // проверяем версию Tus
-        if (req.header("Tus-Resumable") != FileHandlerConstants.TUS_VERSION)
+        if (req.header("Tus-Resumable") != FileServiceConstants.TUS_VERSION)
         {
             this.statusCode = 412;
         }
@@ -110,22 +110,22 @@ export class TusPatchResponse implements FileHandlerResponse
     }
 }
 
-export class TusOptionsResponse implements FileHandlerResponse
+export class TusOptionsResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
         "Tus-Extension": "creation",
-        "Tus-Version": FileHandlerConstants.TUS_VERSION,
-        "Tus-Resumable": FileHandlerConstants.TUS_VERSION,
+        "Tus-Version": FileServiceConstants.TUS_VERSION,
+        "Tus-Resumable": FileServiceConstants.TUS_VERSION,
         "Tus-Max-Size": process.env.FILE_MAX_SIZE
     };
     public statusCode = 204;
     public successful = true;
 }
 
-export class TusPostCreationResponse implements FileHandlerResponse
+export class TusPostCreationResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
-        "Tus-Resumable": FileHandlerConstants.TUS_VERSION
+        "Tus-Resumable": FileServiceConstants.TUS_VERSION
     };
     public statusCode: number;
 
@@ -151,7 +151,7 @@ export class TusPostCreationResponse implements FileHandlerResponse
     constructor(req: express.Request, fileId: string, ownerId: string, roomId: string)
     {
         // проверяем версию Tus
-        if (req.header("Tus-Resumable") != FileHandlerConstants.TUS_VERSION)
+        if (req.header("Tus-Resumable") != FileServiceConstants.TUS_VERSION)
         {
             this.statusCode = 412;
             return;
@@ -197,7 +197,7 @@ export class TusPostCreationResponse implements FileHandlerResponse
     }
 }
 
-export class GetResponse implements FileHandlerResponse
+export class GetResponse implements FileServiceResponse
 {
     public statusCode: number;
     public statusMsg?: string;

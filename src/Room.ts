@@ -1,10 +1,9 @@
-import { ConsumerAppData, MediasoupService, MediasoupTypes } from "./MediasoupService";
-import { SocketService, SocketId, HandshakeSession } from "./SocketService/SocketService";
-import { FileService } from "./FileService/FileService";
+import {  IMediasoupService, ConsumerAppData, MediasoupTypes } from "./MediasoupService";
+import { SocketService, HandshakeSession } from "./SocketService/SocketService";
+import { IFileService } from "./FileService/FileService";
 import
 {
-    RoomId,
-    NewUserInfo,
+    UserInfo,
     NewConsumerInfo,
     JoinInfo,
     NewWebRtcTransportInfo,
@@ -17,12 +16,11 @@ import
 } from "nostromo-shared/types/RoomTypes";
 import { Socket } from "socket.io";
 
-export { RoomId };
-
 /** Пользователь комнаты. */
 export class User
 {
-    public userId: SocketId;
+    public userId: string;
+    public username = "Гость";
     public rtpCapabilities?: MediasoupTypes.RtpCapabilities;
     public consumerTransport?: MediasoupTypes.WebRtcTransport;
     public producerTransport?: MediasoupTypes.WebRtcTransport;
@@ -46,9 +44,9 @@ export class User
     }
 
 
-    constructor(_userId: SocketId)
+    constructor(id: string)
     {
-        this.userId = _userId;
+        this.userId = id;
     }
 }
 
@@ -56,7 +54,7 @@ export class User
 export class Room
 {
     /** Идентификатор комнаты. */
-    public readonly id: RoomId;
+    public readonly id: string;
 
     /** Название комнаты. */
     public readonly name: string;
@@ -66,32 +64,28 @@ export class Room
     public get password(): string { return this._password; }
     public set password(value: string) { this._password = value; }
 
-    /** Для работы с медиапотоками Mediasoup. */
-    private mediasoup: MediasoupService;
+    /** Сервис для работы с медиапотоками Mediasoup. */
+    private mediasoup: IMediasoupService;
     /** Массив роутеров (каждый роутер на своём ядре процессора). */
     private mediasoupRouters: MediasoupTypes.Router[];
     /** Индекс последнего задействованного роутера. */
     private latestRouterIdx = 1;
 
-    /** Для работы с сокетами. */
-    private socketHandler: SocketService;
-
     /** Для работы с файлами. */
-    private fileHandler: FileService;
+    private fileService: IFileService;
 
     /** Пользователи в комнате. */
-    public readonly users = new Map<SocketId, User>();
+    public readonly users = new Map<string, User>();
 
     /** Максимальный битрейт (Кбит) для аудио в этой комнате. */
     private maxAudioBitrate = 64 * 1024;
 
     /** Создать комнату. */
     public static async create(
-        roomId: RoomId,
+        roomId: string,
         name: string, password: string, videoCodec: VideoCodec,
-        mediasoup: MediasoupService,
-        socketHandler: SocketService,
-        fileHandler: FileService
+        mediasoup: IMediasoupService,
+        fileService: IFileService
     ): Promise<Room>
     {
         // для каждой комнаты свои роутеры
@@ -101,15 +95,15 @@ export class Room
             roomId,
             name, password,
             mediasoup, routers, videoCodec,
-            socketHandler, fileHandler
+            fileService
         );
     }
 
     private constructor(
-        roomId: RoomId,
+        roomId: string,
         name: string, password: string,
-        mediasoup: MediasoupService, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec,
-        socketHandler: SocketService, fileHandler: FileService
+        mediasoup: IMediasoupService, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec,
+        fileService: IFileService
     )
     {
         console.log(`[Room] creating a new Room [#${roomId}, ${name}, ${videoCodec}]`);
@@ -121,8 +115,7 @@ export class Room
         this.mediasoup = mediasoup;
         this.mediasoupRouters = mediasoupRouters;
 
-        this.socketHandler = socketHandler;
-        this.fileHandler = fileHandler;
+        this.fileService = fileService;
     }
 
     /** Получить RTP возможности (кодеки) роутера. */
@@ -315,7 +308,7 @@ export class Room
 
         socket.on('chatFile', (fileId: string) =>
         {
-            const fileInfo = this.fileHandler.getFileInfo(fileId);
+            const fileInfo = this.fileService.getFileInfo(fileId);
             if (!fileInfo) return;
 
             const username = socket.handshake.session!.username!;
@@ -330,33 +323,6 @@ export class Room
         {
             this.joinEvDisconnect(socket, session, reason);
         });
-    }
-
-    /** Отправить список пользователей в комнате. */
-    public sendUserList()
-    {
-        // TODO: пока так, на любое изменение весь список отправляется заново.
-        // Но надо сделать чтобы конкретно отсылалась инфа о зашедшем, вышедшем и о сменившем ник.
-        type UserInfo = {
-            id: string,
-            name: string;
-        };
-
-        const userList: UserInfo[] = [];
-
-        for (const user of this.users)
-        {
-            const username = this.socketHandler.getSocketById(user[0]).handshake.session!.username;
-            userList.push({ id: user[0], name: username ?? "Гость" });
-        }
-
-        const subscriptionsCount = this.socketHandler.userListSubscriptionsByRoom.get(this.id);
-
-        if (subscriptionsCount != undefined
-            && subscriptionsCount > 0)
-        {
-            this.socketHandler.emitTo('admin', `userList-${this.id}`, 'userList', userList);
-        }
     }
 
     /** Поставить consumer на паузу. */
@@ -497,7 +463,7 @@ export class Room
                     await this.createConsumer(user, anotherUser[0], producer, socket);
                 }
 
-                const anotherUserInfo: NewUserInfo = {
+                const anotherUserInfo: UserInfo = {
                     id: anotherUser[0],
                     name: this.socketHandler
                         .getSocketById(anotherUser[0])
@@ -507,7 +473,7 @@ export class Room
                 // сообщаем новому пользователю о пользователе anotherUser
                 socket.emit('newUser', anotherUserInfo);
 
-                const thisUserInfo: NewUserInfo = {
+                const thisUserInfo: UserInfo = {
                     id: socket.id,
                     name: name
                 };
@@ -700,7 +666,7 @@ export class Room
     {
         session.username = username;
 
-        const userInfo: NewUserInfo = {
+        const userInfo: UserInfo = {
             id: socket.id,
             name: username
         };

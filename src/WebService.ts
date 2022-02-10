@@ -2,33 +2,39 @@ import express = require('express');
 import session = require('express-session');
 import path = require('path');
 
-import { RoomId, Room } from './Room';
-import { FileService } from "./FileService/FileService";
+import { IFileService } from "./FileService/FileService";
+import { IRoomRepository } from "./RoomRepository";
 
-import { FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
+import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
-// добавляю в сессию необходимые параметры
+// Добавляю в сессию необходимые параметры.
 declare module 'express-session' {
     interface SessionData
     {
-        auth: boolean;              // авторизован?
-        username: string;           // ник
-        authRoomsId: string[];      // список авторизованных комнат
-        joined: boolean;            // в данный момент в комнате?
-        joinedRoomId: string;       // номер комнаты, в которой находится пользователь
-        admin: boolean;             // администратор?
+        /** Авторизован ли пользователь? */
+        auth: boolean;
+        /** Имя пользователя. */
+        username: string;
+        /** Список комнат, в которых пользователь авторизован. */
+        authRoomsId: string[];
+        /** В данный момент пользователь находится в комнате? */
+        joined: boolean;
+        /** Id комнаты, в которой находится пользователь. */
+        joinedRoomId: string;
+        /** Является ли пользователь администратором? */
+        admin: boolean;
     }
 }
 
-/** HTTP веб-сервер. */
+/** HTTP веб-сервис. */
 export class WebService
 {
     /** Приложение Express. */
     public app: express.Express = express();
 
-    /** Обработчик сессий */
+    /** Обработчик сессий. */
     public sessionMiddleware: express.RequestHandler = session({
         secret: process.env.EXPRESS_SESSION_KEY!,
         name: 'sessionId',
@@ -41,20 +47,21 @@ export class WebService
     });
 
     /** Комнаты. */
-    private rooms: Map<RoomId, Room>;
+    private roomRepository: IRoomRepository;
 
     /** Обработчик файлов. */
-    private fileHandler: FileService;
+    private fileService: IFileService;
 
-    constructor(_rooms: Map<RoomId, Room>, _fileHandler: FileService)
+    constructor(
+        roomRepository: IRoomRepository,
+        fileService: IFileService
+    )
     {
-        this.rooms = _rooms;
-        this.fileHandler = _fileHandler;
+        this.roomRepository = roomRepository;
+        this.fileService = fileService;
 
         this.app.use(WebService.wwwMiddleware);
-
         this.app.use(WebService.httpsMiddleware);
-
         this.app.use(this.sessionMiddleware);
 
         this.app.disable('x-powered-by');
@@ -62,7 +69,6 @@ export class WebService
         this.app.use(WebService.rejectRequestWithBodyMiddleware);
 
         this.handleRoutes();
-
         this.handleStatic();
 
         this.app.use(WebService.preventFloodMiddleware);
@@ -219,71 +225,74 @@ export class WebService
         };
 
         // проверяем наличие запрашиваемой комнаты
-        const roomId: RoomId = req.params.roomId;
-        if (this.rooms.has(roomId))
+        const roomId: string = req.params.roomId;
+        const room = this.roomRepository.get(roomId);
+
+        if (!room)
         {
-            // если пользователь авторизован в этой комнате
-            if (req.session.auth && req.session.authRoomsId?.includes(roomId))
+            return;
+        }
+
+        // если пользователь авторизован в этой комнате
+        if (req.session.auth && req.session.authRoomsId?.includes(roomId))
+        {
+            return joinInRoom(roomId);
+        }
+
+        // если не авторизован, но есть пароль в query
+        const pass = req.query.p as string || undefined;
+        if (pass)
+        {
+            if (pass == room.password)
             {
+                // если у пользователя не было сессии
+                if (!req.session.auth)
+                {
+                    req.session.auth = true;
+                    req.session.authRoomsId = new Array<string>();
+                }
+                // запоминаем для этого пользователя авторизованную комнату
+                req.session.authRoomsId!.push(roomId);
                 return joinInRoom(roomId);
             }
-
-            // если не авторизован, но есть пароль в query
-            const pass = req.query.p as string || undefined;
-            if (pass)
-            {
-                if (pass == this.rooms.get(roomId)!.password)
-                {
-                    // если у пользователя не было сессии
-                    if (!req.session.auth)
-                    {
-                        req.session.auth = true;
-                        req.session.authRoomsId = new Array<string>();
-                    }
-                    // запоминаем для этого пользователя авторизованную комнату
-                    req.session.authRoomsId!.push(roomId);
-                    return joinInRoom(roomId);
-                }
-                return res.send("неправильный пароль");
-            }
-
-            req.session.joinedRoomId = roomId;
-            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
+            return res.send("неправильный пароль");
         }
-        return res.sendStatus(404);
+
+        req.session.joinedRoomId = roomId;
+        return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
     }
 
     /** Обрабатываем маршруты, связанные с файлами. */
     private handleFilesRoutes(): void
     {
         // Tus Head Request (узнать, сколько осталось докачать)
-        this.app.head(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        this.app.head(`${FileServiceConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.tusHeadInfo(req, res);
+            this.fileService.tusHeadInfo(req, res);
         });
 
         // Tus Patch Request (заливка файла)
-        this.app.patch(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
+        this.app.patch(`${FileServiceConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
         {
-            await this.fileHandler.tusPatchFile(req, res);
+            await this.fileService.tusPatchFile(req, res);
         });
 
         // Tus Options Request (узнать информацию о конфигурации Tus на сервере)
-        this.app.options(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        this.app.options(`${FileServiceConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.tusOptionsInfo(req, res);
+            this.fileService.tusOptionsInfo(req, res);
         });
 
         // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
-        this.app.post(`${FileHandlerConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        this.app.post(`${FileServiceConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.tusPostCreateFile(req, res);
+            this.fileService.tusPostCreateFile(req, res);
         });
 
         // скачать файл
-        this.app.get(`${FileHandlerConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        this.app.get(`${FileServiceConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
         {
-            this.fileHandler.downloadFile(req, res);
+            this.fileService.downloadFile(req, res);
         });
     }
 

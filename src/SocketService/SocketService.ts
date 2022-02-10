@@ -1,17 +1,20 @@
 import https = require('https');
 import session = require('express-session');
+import { RequestHandler } from 'express';
+
 import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
-import { RequestHandler } from 'express';
-import { RoomId, Room } from '../Room';
-import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
-import { MediasoupService } from '../MediasoupService';
-import { FileService } from "../FileService/FileService";
 
-export type SocketId = string;
+import { Room } from '../Room';
+import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
+import { IMediasoupService } from '../MediasoupService';
+import { IFileService } from "../FileService/FileService";
+import { IRoomRepository } from "../RoomRepository";
+import { AdminSocketService, IAdminSocketService } from "./AdminSocketService";
+import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
+
 type Socket = SocketIO.Socket;
-type RoomForUser = { id: RoomId, name: Room["name"]; };
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -40,18 +43,17 @@ declare module "express"
 /** Обработчик веб-сокетов. */
 export class SocketService
 {
+    /** SocketIO сервер. */
     private io: SocketIO.Server;
-
+    /** Middleware для поддержки сессий. */
     private sessionMiddleware: RequestHandler;
-    private mediasoup: MediasoupService;
-    private fileHandler: FileService;
-    private rooms: Map<RoomId, Room>;
-    private roomIndex: number;
-    /** Подписан ли кто-то на получение списка пользователей в этой комнате, или нет. */
-    public userListSubscriptionsByRoom = new Map<RoomId, number>();
-    /** Кто подписан на изменение списка пользователя в этой комнате. */
-    private userListSubscriptionsBySocket = new Map<SocketId, RoomId>();
+    /** Сервис для работы с комнатами. */
+    private roomRepository: IRoomRepository;
 
+    private generalSocketService: IGeneralSocketService;
+    private adminSocketService: IAdminSocketService;
+
+    /** Создать SocketIO сервер. */
     private createSocketServer(server: https.Server): SocketIO.Server
     {
         return new SocketIO.Server(server, {
@@ -63,184 +65,35 @@ export class SocketService
     }
 
     constructor(
-        _server: https.Server,
-        _sessionMiddleware: RequestHandler,
-        _mediasoup: MediasoupService,
-        _fileHandler: FileService,
-        _rooms: Map<RoomId, Room>,
-        _roomIndex: number)
+        server: https.Server,
+        sessionMiddleware: RequestHandler,
+        mediasoup: IMediasoupService,
+        fileHandler: IFileService,
+        roomRepository: IRoomRepository)
     {
-        this.io = this.createSocketServer(_server);
-
-        this.sessionMiddleware = _sessionMiddleware;
-        this.mediasoup = _mediasoup;
-        this.fileHandler = _fileHandler;
-        this.rooms = _rooms;
-        this.roomIndex = _roomIndex;
+        this.io = this.createSocketServer(server);
+        this.sessionMiddleware = sessionMiddleware;
+        this.roomRepository = roomRepository;
 
         // [Главная страница]
-        this.io.of('/').on('connection', (socket: Socket) =>
-        {
-            socket.emit('roomList', this.getRoomList());
-        });
+        this.generalSocketService = new GeneralSocketService(
+            this.io.of("/"),
+            roomRepository
+        );
 
         // [Админка]
-        this.handleAdmin();
+        this.adminSocketService = new AdminSocketService(
+            this.io.of("/admin"),
+            this.generalSocketService,
+            roomRepository,
+            sessionMiddleware
+        );
 
         // [Авторизация в комнату]
         this.handleRoomAuth();
 
         // [Комната]
         this.handleRoom();
-    }
-
-    private getRoomList(): RoomForUser[]
-    {
-        const roomList: RoomForUser[] = [];
-        for (const room of this.rooms)
-        {
-            roomList.push({ id: room[0], name: room[1].name });
-        }
-        return roomList;
-    }
-
-    private handleAdmin(): void
-    {
-        this.io.of('/admin').use((socket: Socket, next) =>
-        {
-            this.sessionMiddleware(socket.handshake, {}, next);
-        });
-
-        this.io.of('/admin').use((socket: Socket, next) =>
-        {
-            // если с недоверенного ip, то не открываем вебсокет-соединение
-            if ((socket.handshake.address == process.env.ALLOW_ADMIN_IP)
-                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
-            {
-                return next();
-            }
-            return next(new Error("unauthorized"));
-        });
-
-        this.io.of('/admin').on('connection', (socket: Socket) =>
-        {
-            const session = socket.handshake.session!;
-            if (!session.admin)
-            {
-                socket.on('joinAdmin', (pass: string) =>
-                {
-                    if (pass == process.env.ADMIN_PASS)
-                    {
-                        session.admin = true;
-                        session.save();
-                        socket.emit('result', true);
-                    }
-                    else
-                    {
-                        socket.emit('result', false);
-                    }
-                });
-            }
-            else
-            {
-                socket.emit('roomList', this.getRoomList(), this.roomIndex);
-
-                socket.on('deleteRoom', (id: RoomId) =>
-                {
-                    this.removeRoom(id);
-                    this.io.of('/').emit('deletedRoom', id);
-                });
-
-                socket.on('createRoom', async (info: NewRoomInfo) =>
-                {
-                    const roomId: RoomId = String(++this.roomIndex);
-                    await this.createRoom(roomId, info);
-
-                    const roomInfo: RoomForUser = {
-                        id: roomId,
-                        name: info.name
-                    };
-
-                    this.io.of('/').emit('newRoom', roomInfo);
-                });
-
-                socket.on('userList', async (roomId: string) =>
-                {
-                    // Если такой комнаты вообще нет.
-                    if (!this.rooms.has(roomId))
-                    {
-                        return;
-                    }
-
-                    const previousSelectedRoom = this.userListSubscriptionsBySocket.get(socket.id);
-
-                    // Если новая выбранная комната на самом деле не новая, а та же самая.
-                    if (previousSelectedRoom != undefined
-                        && previousSelectedRoom == roomId)
-                    {
-                        return;
-                    }
-
-                    // Смотрим счётчик подписавшихся на комнату.
-                    let previousValue = this.userListSubscriptionsByRoom.get(roomId);
-                    if (previousValue == undefined)
-                    {
-                        this.userListSubscriptionsByRoom.set(roomId, 0);
-                        previousValue = 0;
-                    }
-
-                    // Если до этого были подписаны на изменение списка юзеров
-                    // в другой комнате, то отписываемся.
-                    if (previousSelectedRoom)
-                    {
-                        this.userListSubscriptionsByRoom.set(previousSelectedRoom, previousValue - 1);
-                    }
-
-                    this.userListSubscriptionsBySocket.set(socket.id, roomId);
-                    this.userListSubscriptionsByRoom.set(roomId, previousValue + 1);
-
-                    await socket.join(`userList-${roomId}`);
-
-                    this.rooms.get(roomId)!.sendUserList();
-                });
-
-                socket.on('disconnect', () =>
-                {
-                    const roomId = this.userListSubscriptionsBySocket.get(socket.id);
-                    if (roomId)
-                    {
-                        const previousValue = this.userListSubscriptionsByRoom.get(roomId)!;
-                        this.userListSubscriptionsByRoom.set(roomId, previousValue - 1);
-                    }
-
-                    this.userListSubscriptionsBySocket.delete(socket.id);
-                });
-            }
-        });
-    }
-
-    private removeRoom(id: string): void
-    {
-        if (this.rooms.has(id))
-        {
-            this.rooms.get(id)!.close();
-            this.rooms.delete(id);
-        }
-    }
-
-    private async createRoom(roomId: RoomId, info: NewRoomInfo): Promise<void>
-    {
-        const { name, pass, videoCodec } = info;
-
-        this.rooms.set(roomId, await Room.create(
-            roomId,
-            name,
-            pass,
-            videoCodec,
-            this.mediasoup,
-            this,
-            this.fileHandler
-        ));
     }
 
     private handleRoomAuth(): void
@@ -331,23 +184,23 @@ export class SocketService
         });
     }
 
-    public getSocketById(id: SocketId): Socket
+    public getSocketById(namespace: string, id: string): Socket
     {
-        return this.io.of('/room').sockets.get(id)!;
+        return this.io.of(namespace).sockets.get(id)!;
     }
 
     public emitTo(namespace: string, name: string, ev: string, ...args: unknown[]): boolean
     {
-        return this.io.of(`/${namespace}`).to(name).emit(ev, ...args);
+        return this.io.of(namespace).to(name).emit(ev, ...args);
     }
 
-    public emitToAll(ev: string, ...args: unknown[]): boolean
+    public emitToAll(namespace: string, ev: string, ...args: unknown[]): boolean
     {
-        return this.io.of('/room').emit(ev, ...args);
+        return this.io.of(namespace).emit(ev, ...args);
     }
 
-    public getSocketsCount(): number
+    public getSocketsCount(namespace: string): number
     {
-        return this.io.of('/room').sockets.size;
+        return this.io.of(namespace).sockets.size;
     }
 }

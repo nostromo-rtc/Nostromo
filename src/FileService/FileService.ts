@@ -2,7 +2,7 @@ import express = require("express");
 import path = require("path");
 import { nanoid } from "nanoid";
 import fs = require('fs');
-import { FileHandlerResponse, FileHandlerConstants } from "nostromo-shared/types/FileHandlerTypes";
+import { FileServiceResponse, FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
 import { WebService } from "../WebService";
 
@@ -28,10 +28,40 @@ export type FileInfo = {
     originalMetadata?: string;
 };
 
-/** Обработчик файлов. */
-export class FileService
+export interface IFileService
 {
-    private readonly FILES_PATH = path.join(process.cwd(), FileHandlerConstants.FILES_ROUTE);
+    getFileInfo(fileId: string): FileInfo | undefined;
+
+    tusHeadInfo(
+        req: express.Request,
+        res: express.Response
+    ): void;
+
+    tusPatchFile(
+        req: express.Request,
+        res: express.Response
+    ): Promise<void>;
+
+    tusOptionsInfo(
+        req: express.Request,
+        res: express.Response
+    ): void;
+
+    tusPostCreateFile(
+        req: express.Request,
+        res: express.Response
+    ): void;
+
+    downloadFile(
+        req: express.Request,
+        res: express.Response
+    ): void;
+}
+
+/** Обработчик файлов. */
+export class FileService implements IFileService
+{
+    private readonly FILES_PATH = path.join(process.cwd(), FileServiceConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
 
     constructor()
@@ -47,7 +77,7 @@ export class FileService
         return this.fileStorage.get(fileId);
     }
 
-    private assignHeaders(fromTus: FileHandlerResponse, toExpress: express.Response)
+    private assignHeaders(fromTus: FileServiceResponse, toExpress: express.Response)
     {
         for (const header in fromTus.headers)
         {
