@@ -10,7 +10,7 @@ import { WebService } from './WebService';
 import { FileService } from "./FileService/FileService";
 
 // сокеты
-import { SocketService } from './SocketService/SocketService';
+import { SocketManager } from './SocketService/SocketManager';
 
 // mediasoup
 import { MediasoupService } from './MediasoupService';
@@ -128,7 +128,7 @@ async function main()
             console.log(`Https server running on port: ${port!}`);
         });
 
-        const socketService = new SocketService(
+        const socketService = new SocketManager(
             httpsServer,
             express.sessionMiddleware,
             mediasoupService,

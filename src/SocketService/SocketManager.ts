@@ -7,12 +7,12 @@ import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 
 import { Room } from '../Room';
-import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IMediasoupService } from '../MediasoupService';
 import { IFileService } from "../FileService/FileService";
 import { IRoomRepository } from "../RoomRepository";
 import { AdminSocketService, IAdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
+import { AuthSocketService, IAuthSocketService } from "./AuthSocketService";
 
 type Socket = SocketIO.Socket;
 
@@ -41,7 +41,7 @@ declare module "express"
 }
 
 /** Обработчик веб-сокетов. */
-export class SocketService
+export class SocketManager
 {
     /** SocketIO сервер. */
     private io: SocketIO.Server;
@@ -52,6 +52,7 @@ export class SocketService
 
     private generalSocketService: IGeneralSocketService;
     private adminSocketService: IAdminSocketService;
+    private authSocketService: IAuthSocketService;
 
     /** Создать SocketIO сервер. */
     private createSocketServer(server: https.Server): SocketIO.Server
@@ -75,67 +76,29 @@ export class SocketService
         this.sessionMiddleware = sessionMiddleware;
         this.roomRepository = roomRepository;
 
-        // [Главная страница]
+        // главная страница (общие события)
         this.generalSocketService = new GeneralSocketService(
             this.io.of("/"),
-            roomRepository
+            this.roomRepository
         );
 
-        // [Админка]
+        // события администратора
         this.adminSocketService = new AdminSocketService(
             this.io.of("/admin"),
             this.generalSocketService,
-            roomRepository,
-            sessionMiddleware
+            this.roomRepository,
+            this.sessionMiddleware
         );
 
-        // [Авторизация в комнату]
-        this.handleRoomAuth();
+        // авторизация
+        this.authSocketService = new AuthSocketService(
+            this.io.of("/auth"),
+            this.roomRepository,
+            this.sessionMiddleware
+        )
 
-        // [Комната]
+        // события комнаты
         this.handleRoom();
-    }
-
-    private handleRoomAuth(): void
-    {
-        this.io.of('/auth').use((socket: Socket, next) =>
-        {
-            this.sessionMiddleware(socket.handshake, {}, next);
-        });
-
-        this.io.of('/auth').on('connection', (socket: Socket) =>
-        {
-            const session = socket.handshake.session!;
-            const roomId: string | undefined = session.joinedRoomId;
-
-            // если в сессии нет номера комнаты, или такой комнаты не существует
-            if (!roomId || !this.rooms.has(roomId))
-                return;
-
-            const room: Room = this.rooms.get(roomId)!;
-
-            socket.emit('roomName', room.name);
-
-            socket.on('joinRoom', (pass: string) =>
-            {
-                let result = false;
-                if (pass == room.password)
-                {
-                    // если у пользователя не было сессии
-                    if (!session.auth)
-                    {
-                        session.auth = true;
-                        session.authRoomsId = new Array<string>();
-                    }
-                    // запоминаем для этого пользователя авторизованную комнату
-                    session.authRoomsId!.push(roomId);
-                    session.save();
-
-                    result = true;
-                }
-                socket.emit('result', result);
-            });
-        });
     }
 
     private async joinRoom(room: Room, socket: Socket): Promise<void>

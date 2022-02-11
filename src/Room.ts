@@ -1,5 +1,5 @@
 import {  IMediasoupService, ConsumerAppData, MediasoupTypes } from "./MediasoupService";
-import { SocketService, HandshakeSession } from "./SocketService/SocketService";
+import { SocketManager, HandshakeSession } from "./SocketService/SocketManager";
 import { IFileService } from "./FileService/FileService";
 import
 {

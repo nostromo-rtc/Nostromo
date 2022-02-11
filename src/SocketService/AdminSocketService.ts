@@ -2,7 +2,7 @@
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
 
-import { HandshakeSession } from "./SocketService";
+import { HandshakeSession } from "./SocketManager";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../RoomRepository";
@@ -109,7 +109,7 @@ export class AdminSocketService implements IAdminSocketService
                 await socket.join(`${SE.UserList}-${roomId}`);
 
                 // отправляем список пользователей этой комнаты
-                this.parent.sendUserListToSubscriber(socket.id, roomId);
+                this.sendUserListToSubscriber(socket.id, roomId);
             });
 
             socket.on(SE.UnsubscribeUserList, async (roomId: string) =>
