@@ -16,10 +16,21 @@ export interface ConsumerAppData
 
 export interface IMediasoupService
 {
-    
+    /** Создать роутеры. */
+    createRouters(codecChoice: VideoCodec): Promise<MediasoupTypes.Router[]>;
+
+    /**
+     * Создать транспортный канал для user.
+     * @param consuming Канал для отдачи потоков от сервера клиенту?
+     */
+    createWebRtcTransport(
+        user: User,
+        consuming: boolean,
+        router: MediasoupTypes.Router
+    ): Promise<MediasoupTypes.WebRtcTransport>;
 }
 
-export class MediasoupService
+export class MediasoupService implements IMediasoupService
 {
     // массив workers, задел под многопоточность
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
@@ -117,7 +128,6 @@ export class MediasoupService
         this.mediasoupWorkers = workers;
     }
 
-    // создать роутеры для комнаты
     public async createRouters(codecChoice: VideoCodec): Promise<MediasoupTypes.Router[]>
     {
         // сначала звуковой кодек opus
@@ -139,10 +149,6 @@ export class MediasoupService
 
         return routers;
     }
-
-    // создать транспортный канал для user
-    // если consuming = true,   то канал для приема потоков
-    // если consuming = false,  то канал для отдачи потоков
     public async createWebRtcTransport(
         user: User,
         consuming: boolean,
@@ -152,7 +158,10 @@ export class MediasoupService
         const transport = await router.createWebRtcTransport({
             listenIps: [
                 { ip: process.env.MEDIASOUP_LOCAL_IP! },
-                { ip: process.env.MEDIASOUP_LOCAL_IP!, announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP! }
+                {
+                    ip: process.env.MEDIASOUP_LOCAL_IP!,
+                    announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP!
+                }
             ],
             initialAvailableOutgoingBitrate: 600000,
             enableUdp: true
@@ -160,20 +169,30 @@ export class MediasoupService
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
         {
-            const remoteIp = transport.iceSelectedTuple?.remoteIp;
-            if (!remoteIp) return;
+            const iceTuple = transport.iceSelectedTuple;
 
-            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${remoteIp} ${state}`);
+            if (!iceTuple)
+            {
+                return;
+            }
+
+            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${state} | `, iceTuple);
 
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
         {
-            const remoteIp = transport.iceSelectedTuple?.remoteIp;
-            if (!remoteIp) return;
+            const iceTuple = transport.iceSelectedTuple;
+
+            if (!iceTuple)
+            {
+                return;
+            }
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
-                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${remoteIp} ${dtlsstate}`);
+            {
+                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate} | `, iceTuple);
+            }
         });
 
         if (consuming)

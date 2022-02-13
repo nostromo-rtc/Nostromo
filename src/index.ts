@@ -128,7 +128,7 @@ async function main()
             console.log(`Https server running on port: ${port!}`);
         });
 
-        const socketService = new SocketManager(
+        const socketManager = new SocketManager(
             httpsServer,
             express.sessionMiddleware,
             mediasoupService,

@@ -11,7 +11,7 @@ type Socket = SocketIO.Socket;
 // в этом месте, а из AdminSocketService авторизацию убрать
 // т.е AdminSocketService должен юзать этот сервис
 
-export class AuthSocketService implements AuthSocketService
+export class AuthSocketService
 {
     private authIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;

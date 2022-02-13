@@ -1,4 +1,4 @@
-import {  IMediasoupService, ConsumerAppData, MediasoupTypes } from "./MediasoupService";
+import { IMediasoupService, ConsumerAppData, MediasoupTypes } from "./MediasoupService";
 import { SocketManager, HandshakeSession } from "./SocketService/SocketManager";
 import { IFileService } from "./FileService/FileService";
 import
@@ -43,7 +43,6 @@ export class User
         return undefined;
     }
 
-
     constructor(id: string)
     {
         this.userId = id;
@@ -78,7 +77,7 @@ export class Room
     public readonly users = new Map<string, User>();
 
     /** Максимальный битрейт (Кбит) для аудио в этой комнате. */
-    private maxAudioBitrate = 64 * 1024;
+    public maxAudioBitrate = 64 * 1024;
 
     /** Создать комнату. */
     public static async create(
@@ -176,155 +175,6 @@ export class Room
         }
     }
 
-    /** Пользователь заходит в комнату. */
-    public join(socket: Socket): void
-    {
-        const session = socket.handshake.session;
-        if (!session)
-        {
-            throw `[Room] Error: session is missing for (${socket.id})`;
-        }
-
-        console.log(`[Room] [#${this._id}, ${this._name}]: ${socket.id} (${session.username ?? "Гость"}) user connected`);
-        this._users.set(socket.id, new User(socket.id));
-
-        const user: User = this.users.get(socket.id)!;
-
-        // Сообщаем заинтересованным новый список пользователей в комнате.
-        this.sendUserList();
-
-        // сообщаем пользователю название комнаты
-        socket.emit('roomName', this.name);
-
-        // сообщаем пользователю макс. битрейт аудио в комнате
-        socket.emit('maxAudioBitrate', this.maxAudioBitrate);
-
-        // сообщаем пользователю RTP возможности (кодеки) сервера
-        socket.emit('routerRtpCapabilities', this.routerRtpCapabilities);
-
-        // создание транспортного канала на сервере (с последующей отдачей информации о канале клиенту)
-        socket.on('createWebRtcTransport', async (consuming: boolean) =>
-        {
-            await this.joinEvCreateWebRtcTransport(user, socket, consuming);
-        });
-
-        // подключение к транспортному каналу со стороны сервера
-        socket.on('connectWebRtcTransport', async (
-            connectWebRtcTransportInfo: ConnectWebRtcTransportInfo
-        ) =>
-        {
-            await this.joinEvConnectWebRtcTransport(user, connectWebRtcTransportInfo);
-        });
-
-        // пользователь заходит в комнату (т.е уже создал транспортные каналы)
-        // и готов к получению потоков (готов к получению consumers)
-        socket.once('join', async (joinInfo: JoinInfo) =>
-        {
-            await this.joinEvJoin(user, socket, session, joinInfo);
-        });
-
-        // клиент ставит consumer на паузу
-        socket.on('pauseConsumer', async (consumerId: string) =>
-        {
-            const consumer = user.consumers.get(consumerId);
-
-            if (!consumer)
-                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
-
-            // запоминаем, что клиент поставил на паузу вручную
-            (consumer.appData as ConsumerAppData).clientPaused = true;
-
-            await this.pauseConsumer(consumer);
-        });
-
-        // клиент снимает consumer с паузы
-        socket.on('resumeConsumer', async (consumerId: string) =>
-        {
-            const consumer = user.consumers.get(consumerId);
-
-            if (!consumer)
-                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
-
-            // клиент хотел снять с паузы consumer, поэтому выключаем флаг ручной паузы
-            (consumer.appData as ConsumerAppData).clientPaused = false;
-
-            await this.resumeConsumer(consumer);
-        });
-        // создание нового producer
-        socket.on('newProducer', async (newProducerInfo: NewProducerInfo) =>
-        {
-            await this.createProducer(user, socket, newProducerInfo);
-        });
-
-        // клиент закрывает producer
-        socket.on('closeProducer', (producerId: string) =>
-        {
-            const producer = user.producers.get(producerId);
-
-            if (!producer)
-                throw new Error(`[Room] producer with id "${producerId}" not found`);
-
-            producer.close();
-
-            this.closeProducer(user, producer);
-        });
-
-        // клиент ставит producer на паузу (например, временно выключает микрофон)
-        socket.on('pauseProducer', async (producerId: string) =>
-        {
-            const producer = user.producers.get(producerId);
-
-            if (!producer)
-                throw new Error(`[Room] producer with id "${producerId}" not found`);
-
-            await this.pauseProducer(producer);
-        });
-
-        // клиент снимает producer с паузы (например, включает микрофон обратно)
-        socket.on('resumeProducer', async (producerId: string) =>
-        {
-            const producer = user.producers.get(producerId);
-
-            if (!producer)
-                throw new Error(`[Room] producer with id "${producerId}" not found`);
-
-            await this.resumeProducer(producer);
-        });
-
-        // новый ник пользователя
-        socket.on('newUsername', (username: string) =>
-        {
-            this.joinEvNewUsername(socket, session, username);
-        });
-
-        socket.on('chatMsg', (msg: string) =>
-        {
-            const chatMsgInfo: ChatMsgInfo = {
-                name: socket.handshake.session!.username!,
-                msg: msg.trim()
-            };
-            socket.to(this.id).emit('chatMsg', chatMsgInfo);
-        });
-
-        socket.on('chatFile', (fileId: string) =>
-        {
-            const fileInfo = this.fileService.getFileInfo(fileId);
-            if (!fileInfo) return;
-
-            const username = socket.handshake.session!.username!;
-
-            const chatFileInfo: ChatFileInfo = { fileId, filename: fileInfo.name, size: fileInfo.size, username };
-
-            socket.to(this.id).emit('chatFile', chatFileInfo);
-        });
-
-        // пользователь отсоединился
-        socket.on('disconnect', (reason: string) =>
-        {
-            this.joinEvDisconnect(socket, session, reason);
-        });
-    }
-
     /** Поставить consumer на паузу. */
     private async pauseConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
     {
@@ -375,50 +225,24 @@ export class Room
         }
     }
 
-    // обработка события 'createWebRtcTransport' в методе join
-    private async joinEvCreateWebRtcTransport(
+    /**
+     * Создать транспортный канал по запросу клиента.
+     * @param consuming Канал для отдачи потоков от сервера клиенту?
+     */
+    public async createWebRtcTransport(
         user: User,
-        socket: Socket,
         consuming: boolean
-    )
+    ): Promise<MediasoupTypes.WebRtcTransport>
     {
-        try
-        {
-            const router = this.getRouter(consuming);
+        const router = this.getRouter(consuming);
 
-            const transport = await this.mediasoup.createWebRtcTransport(
-                user,
-                consuming,
-                router
-            );
+        const transport = await this.mediasoup.createWebRtcTransport(
+            user,
+            consuming,
+            router
+        );
 
-            transport.on('routerclose', () =>
-            {
-                if (consuming)
-                {
-                    user.consumerTransport = undefined;
-                }
-                else
-                {
-                    user.producerTransport = undefined;
-                }
-
-                socket.emit('closeTransport', transport.id);
-            });
-
-            const info: NewWebRtcTransportInfo = {
-                id: transport.id,
-                iceParameters: transport.iceParameters,
-                iceCandidates: transport.iceCandidates as NewWebRtcTransportInfo['iceCandidates'],
-                dtlsParameters: transport.dtlsParameters
-            };
-
-            socket.emit(consuming ? 'createRecvTransport' : 'createSendTransport', info);
-        }
-        catch (error)
-        {
-            console.error(`[Room] createWebRtcTransport for User ${user.userId} error: `, (error as Error).message);
-        }
+        return transport;
     }
 
     // обработка события 'connectWebRtcTransport' в методе join

@@ -6,13 +6,13 @@ import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 
-import { Room } from '../Room';
 import { IMediasoupService } from '../MediasoupService';
 import { IFileService } from "../FileService/FileService";
 import { IRoomRepository } from "../RoomRepository";
 import { AdminSocketService, IAdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
-import { AuthSocketService, IAuthSocketService } from "./AuthSocketService";
+import { AuthSocketService } from "./AuthSocketService";
+import { RoomSocketService } from "./RoomSocketService";
 
 type Socket = SocketIO.Socket;
 
@@ -52,7 +52,8 @@ export class SocketManager
 
     private generalSocketService: IGeneralSocketService;
     private adminSocketService: IAdminSocketService;
-    private authSocketService: IAuthSocketService;
+    private authSocketService: AuthSocketService;
+    private roomSocketService: RoomSocketService;
 
     /** Создать SocketIO сервер. */
     private createSocketServer(server: https.Server): SocketIO.Server
@@ -95,56 +96,15 @@ export class SocketManager
             this.io.of("/auth"),
             this.roomRepository,
             this.sessionMiddleware
-        )
+        );
 
         // события комнаты
-        this.handleRoom();
-    }
-
-    private async joinRoom(room: Room, socket: Socket): Promise<void>
-    {
-        await socket.join(room.id);
-        room.join(socket);
-    }
-
-    private handleRoom(): void
-    {
-        this.io.of('/room').use((socket: Socket, next) =>
-        {
-            this.sessionMiddleware(socket.handshake, {}, next);
-        });
-
-        this.io.of('/room').use((socket: Socket, next) =>
-        {
-            const session = socket.handshake.session!;
-            // у пользователя есть сессия
-            if (session.auth)
-            {
-                // если он авторизован в запрашиваемой комнате
-                if (session.joinedRoomId
-                    && session.authRoomsId?.includes(session.joinedRoomId)
-                    && session.joined == false)
-                {
-                    session.joined = true;
-                    session.save();
-                    return next();
-                }
-            }
-            return next(new Error("unauthorized"));
-        });
-
-        // [Комната] обрабатываем подключение нового юзера
-        this.io.of('/room').on('connection', async (socket: Socket) =>
-        {
-            const session = socket.handshake.session!;
-            const roomId: string = session.joinedRoomId!;
-
-            if (!this.rooms.has(roomId)) { return; }
-
-            const room: Room = this.rooms.get(roomId)!;
-
-            await this.joinRoom(room, socket);
-        });
+        this.roomSocketService = new RoomSocketService(
+            this.io.of("/room"),
+            this.adminSocketService,
+            this.roomRepository,
+            this.sessionMiddleware
+        );
     }
 
     public getSocketById(namespace: string, id: string): Socket
