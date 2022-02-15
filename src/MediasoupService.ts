@@ -28,6 +28,21 @@ export interface IMediasoupService
         consuming: boolean,
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.WebRtcTransport>;
+    /** Создать поток-потребитель для пользователя. */
+    createConsumer(
+        user: User,
+        producer: MediasoupTypes.Producer,
+        router: MediasoupTypes.Router
+    ): Promise<MediasoupTypes.Consumer>;
+    /** Увеличить счётчик потоков-потребителей на сервере. */
+    increaseConsumersCount(kind: MediasoupTypes.MediaKind): void
+    /** Уменьшить счётчик потоков-потребителей на сервере. */
+    decreaseConsumersCount(kind: MediasoupTypes.MediaKind): void
+    /** Увеличить счётчик потоков-производителей на сервере. */
+    increaseProducersCount(kind: MediasoupTypes.MediaKind): void
+    /** Уменьшить счётчик потоков-производителей на сервере. */
+    decreaseProducersCount(kind: MediasoupTypes.MediaKind): void
+
 }
 
 export class MediasoupService implements IMediasoupService
@@ -176,7 +191,7 @@ export class MediasoupService implements IMediasoupService
                 return;
             }
 
-            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${state} | `, iceTuple);
+            console.log(`[Mediasoup] User: ${user.id} > WebRtcTransport > icestatechange event: ${state} | `, iceTuple);
 
         });
 
@@ -191,7 +206,7 @@ export class MediasoupService implements IMediasoupService
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
-                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate} | `, iceTuple);
+                console.error(`[Mediasoup] User: ${user.id} > WebRtcTransport > dtlsstatechange event: ${dtlsstate} | `, iceTuple);
             }
         });
 
@@ -242,14 +257,13 @@ export class MediasoupService implements IMediasoupService
         return producer;
     }
 
-    // создаем потребителя (consumer) для user
     public async createConsumer(
         user: User,
         producer: MediasoupTypes.Producer,
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.Consumer>
     {
-        // не создаем consumer, если пользователь не может потреблять медиапоток
+        // Не создаем consumer, если пользователь не может потреблять медиапоток.
         if (!user.rtpCapabilities ||
             !router.canConsume({
                 producerId: producer.id,
@@ -260,7 +274,7 @@ export class MediasoupService implements IMediasoupService
             throw new Error(`[Mediasoup] User can't consume`);
         }
 
-        // берем Transport пользователя, предназначенный для потребления
+        // Берем Transport пользователя, предназначенный для потребленияю
         const transport = user.consumerTransport;
 
         if (!transport)
@@ -268,7 +282,7 @@ export class MediasoupService implements IMediasoupService
             throw new Error(`[Mediasoup] Transport for consuming not found`);
         }
 
-        // создаем Consumer в режиме паузы
+        // Создаем Consumer в режиме паузы.
         let consumer: MediasoupTypes.Consumer;
 
         try
@@ -278,9 +292,9 @@ export class MediasoupService implements IMediasoupService
                 rtpCapabilities: user.rtpCapabilities,
                 paused: true
             });
-            // поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
+            // Поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
             // когда клиент запросит снятие consumer с паузы, этот флаг сменится на false
-            // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне
+            // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне.
             (consumer.appData as ConsumerAppData).clientPaused = true;
         }
         catch (error)

@@ -19,7 +19,7 @@ import { Socket } from "socket.io";
 /** Пользователь комнаты. */
 export class User
 {
-    public userId: string;
+    public id: string;
     public username = "Гость";
     public rtpCapabilities?: MediasoupTypes.RtpCapabilities;
     public consumerTransport?: MediasoupTypes.WebRtcTransport;
@@ -45,7 +45,7 @@ export class User
 
     constructor(id: string)
     {
-        this.userId = id;
+        this.id = id;
     }
 }
 
@@ -175,56 +175,6 @@ export class Room
         }
     }
 
-    /** Поставить consumer на паузу. */
-    private async pauseConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
-    {
-        // если уже не на паузе
-        if (!consumer.paused)
-        {
-            await consumer.pause();
-
-            // поскольку consumer поставлен на паузу,
-            // то уменьшаем счетчик и перерасчитываем битрейт
-            this.mediasoup.decreaseConsumersCount(consumer.kind);
-            this.calculateAndEmitNewMaxVideoBitrate();
-        }
-        // Сообщаем клиенту, чтобы он тоже поставил на паузу, если только это не он попросил.
-        // То есть сообщаем клиенту, что сервер поставил или хотел поставить на паузу. Хотел в том случае,
-        // если до этого клиент уже поставил на паузу, а после соответствующий producer был поставлен на паузу.
-        // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер НЕ ГОТОВ снимать с паузы consumer.
-        if (socket)
-        {
-            socket.emit('pauseConsumer', consumer.id);
-        }
-    }
-
-    /** Снять consumer с паузы. */
-    private async resumeConsumer(consumer: MediasoupTypes.Consumer, socket?: Socket)
-    {
-        // проверяем чтобы:
-        // 1) consumer был на паузе,
-        // 2) соответствующий producer был не на паузе
-        // 3) клиент ГОТОВ к снятию паузы у этого consumer
-        if (consumer.paused
-            && !consumer.producerPaused
-            && !(consumer.appData as ConsumerAppData).clientPaused)
-        {
-            await consumer.resume();
-
-            // поскольку consumer снят с паузы,
-            // то увеличиваем счетчик и перерасчитываем битрейт
-            this.mediasoup.increaseConsumersCount(consumer.kind);
-            this.calculateAndEmitNewMaxVideoBitrate();
-        }
-        // Сообщаем клиенту, чтобы он тоже снял с паузы, если только это не он попросил.
-        // То есть сообщаем клиенту, что сервер снял или хотел снять паузу.
-        // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер ГОТОВ снимать с паузы consumer.
-        if (socket)
-        {
-            socket.emit('resumeConsumer', consumer.id);
-        }
-    }
-
     /**
      * Создать транспортный канал по запросу клиента.
      * @param consuming Канал для отдачи потоков от сервера клиенту?
@@ -245,145 +195,156 @@ export class Room
         return transport;
     }
 
-    // обработка события 'connectWebRtcTransport' в методе join
-    private async joinEvConnectWebRtcTransport(
+    /** Транспортный канал был закрыт, поэтому необходимо обработать это событие. */
+    public transportClosed(
         user: User,
-        connectWebRtcTransportInfo: ConnectWebRtcTransportInfo
-    )
+        consuming: boolean
+    ): void
     {
-        const { transportId, dtlsParameters } = connectWebRtcTransportInfo;
+        if (consuming)
+        {
+            user.consumerTransport = undefined;
+        }
+        else
+        {
+            user.producerTransport = undefined;
+        }
+    }
+
+    /** Подключиться к транспортному каналу по запросу клиента. */
+    public async connectWebRtcTransport(
+        user: User,
+        info: ConnectWebRtcTransportInfo
+    ): Promise<void>
+    {
+        const { transportId, dtlsParameters } = info;
 
         const transport = user.getTransportById(transportId);
 
         if (!transport)
         {
-            throw new Error(`[Room] transport with id "${transportId}" not found`);
+            console.error(`[Room] connectWebRtcTransport for User ${user.id} error: transport with id "${transportId}" not found.`);
+            return;
         }
 
         await transport.connect({ dtlsParameters });
     }
 
-    // обработка события 'join' в методе join
-    private async joinEvJoin(
-        user: User,
-        socket: Socket,
-        session: HandshakeSession,
-        joinInfo: JoinInfo
-    )
+    /**
+     * Создание потока-потребителя для пользователя consumerUser
+     * из потока-производителя пользователя producerUserId.
+     */
+    public async createConsumer(
+        consumerUser: User,
+        producer: MediasoupTypes.Producer
+    ): Promise<MediasoupTypes.Consumer>
     {
-        const { name, rtpCapabilities } = joinInfo;
+        // Создаем потребителя на сервере в режиме паузы
+        // (транспорт на сервере уже должен быть создан у этого клиента).
+        const consumer = await this.mediasoup.createConsumer(
+            consumerUser,
+            producer,
+            this.mediasoupRouters[0]
+        );
 
-        // запоминаем имя в сессии
-        session.username = name;
-        user.rtpCapabilities = rtpCapabilities;
+        consumerUser.consumers.set(consumer.id, consumer);
 
-        // перебираем всех пользователей, кроме нового
-        for (const anotherUser of this.users)
-        {
-            if (anotherUser[0] != socket.id)
-            {
-                for (const producer of anotherUser[1].producers.values())
-                {
-                    await this.createConsumer(user, anotherUser[0], producer, socket);
-                }
+        // Так как изначально consumer создается на паузе
+        // не будем пока увеличивать счетчик consumersCount в классе mediasoup.
 
-                const anotherUserInfo: UserInfo = {
-                    id: anotherUser[0],
-                    name: this.socketHandler
-                        .getSocketById(anotherUser[0])
-                        .handshake.session!.username!
-                };
-
-                // сообщаем новому пользователю о пользователе anotherUser
-                socket.emit('newUser', anotherUserInfo);
-
-                const thisUserInfo: UserInfo = {
-                    id: socket.id,
-                    name: name
-                };
-
-                // сообщаем пользователю anotherUser о новом пользователе
-                this.socketHandler.emitTo('room', anotherUser[0], 'newUser', thisUserInfo);
-            }
-        }
+        return consumer;
     }
 
-    // создание потребителя для пользователя user
-    // из изготовителя пользователя producerUserId
-    private async createConsumer(
-        user: User,
-        producerUserId: SocketId,
-        producer: MediasoupTypes.Producer,
-        socket: Socket
-    )
-    {
-        try
-        {
-            // создаем потребителя на сервере в режиме паузы
-            // (транспорт на сервере уже должен быть создан у этого клиента)
-            const consumer = await this.mediasoup.createConsumer(
-                user,
-                producer,
-                this.mediasoupRouters[0]
-            );
-
-            user.consumers.set(consumer.id, consumer);
-
-            // так как изначально consumer создается на паузе
-            // не будем пока увеличивать счетчик consumersCount в классе mediasoup
-
-            // обрабатываем события у Consumer
-            this.handleConsumerEvents(consumer, user, producerUserId, socket);
-
-            // сообщаем клиенту всю информацию об этом потребителе
-            const newConsumer: NewConsumerInfo = {
-                producerUserId,
-                id: consumer.id,
-                producerId: producer.id,
-                kind: consumer.kind,
-                rtpParameters: consumer.rtpParameters
-            };
-
-            socket.emit('newConsumer', newConsumer);
-        }
-        catch (error)
-        {
-            console.error(`[Room] createConsumer error for User ${user.userId} | `, (error as Error).message);
-        }
-    }
-
-    // обработка событий у потребителя Consumer
-    private handleConsumerEvents(
+    /** Поток-потребитель был завершен, поэтому необходимо обработать это событие. */
+    public consumerClosed(
         consumer: MediasoupTypes.Consumer,
-        user: User,
-        producerUserId: SocketId,
-        socket: Socket
+        consumerUser: User
     ): void
     {
-        const closeConsumer = () =>
+        consumerUser.consumers.delete(consumer.id);
+
+        // Если он и так был на паузе, то не учитывать его удаление в расчете битрейта.
+        if (!consumer.paused)
         {
-            user.consumers.delete(consumer.id);
+            this.mediasoup.decreaseConsumersCount(consumer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
+    }
 
-            // если он и так был на паузе, то не учитывать его удаление
-            // в расчете битрейта
-            if (!consumer.paused)
-            {
-                this.mediasoup.decreaseConsumersCount(consumer.kind);
-                this.calculateAndEmitNewMaxVideoBitrate();
-            }
+    /** Пользователь user запросил поставить на паузу поток-потребитель с идентификатором consumerId. */
+    public async userRequestedPauseConsumer(
+        user: User,
+        consumerId: string
+    )
+    {
+        const consumer = user.consumers.get(consumerId);
 
-            const closeConsumerInfo: CloseConsumerInfo = {
-                consumerId: consumer.id,
-                producerUserId
-            };
+        if (!consumer)
+        {
+            console.error(`[Room] pauseConsumer for User ${user.id} error | consumer with id "${consumerId}" not found.`);
+            return;
+        }
 
-            socket.emit('closeConsumer', closeConsumerInfo);
-        };
+        // Запоминаем, что клиент поставил на паузу вручную.
+        (consumer.appData as ConsumerAppData).clientPaused = true;
 
-        consumer.on('transportclose', closeConsumer);
-        consumer.on('producerclose', closeConsumer);
-        consumer.on('producerpause', async () => { await this.pauseConsumer(consumer, socket); });
-        consumer.on('producerresume', async () => { await this.resumeConsumer(consumer, socket); });
+        await this.pauseConsumer(consumer);
+    }
+
+    /** Поставить consumer на паузу. */
+    public async pauseConsumer(consumer: MediasoupTypes.Consumer)
+    {
+        // Если уже не на паузе.
+        if (!consumer.paused)
+        {
+            await consumer.pause();
+
+            // Поскольку consumer поставлен на паузу,
+            // то уменьшаем счетчик и перерасчитываем битрейт.
+            this.mediasoup.decreaseConsumersCount(consumer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
+    }
+
+    /** Пользователь user запросил снять с паузы поток-потребитель с идентификатором consumerId. */
+    public async userRequestedResumeConsumer(
+        user: User,
+        consumerId: string
+    )
+    {
+        const consumer = user.consumers.get(consumerId);
+
+        if (!consumer)
+        {
+            console.error(`[Room] resumeConsumer for User ${user.id} error | consumer with id "${consumerId}" not found.`);
+            return;
+        }
+
+        // Клиент хотел снять с паузы consumer, поэтому выключаем флаг ручной паузы.
+        (consumer.appData as ConsumerAppData).clientPaused = false;
+
+        await this.resumeConsumer(consumer);
+    }
+
+
+    /** Снять consumer с паузы. */
+    public async resumeConsumer(consumer: MediasoupTypes.Consumer)
+    {
+        // проверяем чтобы:
+        // 1) consumer был на паузе,
+        // 2) соответствующий producer был не на паузе
+        // 3) клиент ГОТОВ к снятию паузы у этого consumer
+        if (consumer.paused
+            && !consumer.producerPaused
+            && !(consumer.appData as ConsumerAppData).clientPaused)
+        {
+            await consumer.resume();
+
+            // Поскольку consumer снят с паузы,
+            // то увеличиваем счетчик и перерасчитываем битрейт.
+            this.mediasoup.increaseConsumersCount(consumer.kind);
+            this.calculateAndEmitNewMaxVideoBitrate();
+        }
     }
 
     private async createProducer(
@@ -426,7 +387,7 @@ export class Room
         }
         catch (error)
         {
-            console.error(`[Room] createProducer error for User ${user.userId} | `, (error as Error).message);
+            console.error(`[Room] createProducer error for User ${user.id} | `, (error as Error).message);
         }
     }
 
@@ -499,7 +460,7 @@ export class Room
 
         // Сообщаем заинтересованным новый список пользователей в комнате.
         this.sendUserList();
-    }
+    };
 
     /** Пользователь покинул комнату. */
     public userLeft(
@@ -523,7 +484,7 @@ export class Room
         user.producerTransport?.close();
 
         this.users.delete(socket.id);
-    }
+    };
 
     /** Закрыть комнату */
     public close(): void

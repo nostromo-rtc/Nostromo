@@ -5,6 +5,9 @@ import { Room, User } from "../Room";
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IAdminSocketService } from "./AdminSocketService";
+import { CloseConsumerInfo, ConnectWebRtcTransportInfo, JoinInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { HandshakeSession } from "./SocketManager";
+import { MediasoupTypes } from "../MediasoupService";
 
 type Socket = SocketIO.Socket;
 
@@ -31,7 +34,7 @@ export class RoomSocketService
     }
 
     /** Применяем middlware для сессий. */
-    private applySessionMiddleware(sessionMiddleware: RequestHandler)
+    private applySessionMiddleware(sessionMiddleware: RequestHandler): void
     {
         this.roomIo.use((socket: Socket, next) =>
         {
@@ -39,7 +42,8 @@ export class RoomSocketService
         });
     }
 
-    private checkAuth()
+    /** Проверка авторизации в комнате. */
+    private checkAuth(): void
     {
         this.roomIo.use((socket: Socket, next) =>
         {
@@ -62,7 +66,7 @@ export class RoomSocketService
     }
 
     /** Клиент подключился. */
-    private clientConnected()
+    private clientConnected(): void
     {
         this.roomIo.on('connection', async (socket: Socket) =>
         {
@@ -77,15 +81,17 @@ export class RoomSocketService
             }
 
             await socket.join(room.id);
-            this.clientJoined(socket, room);
+            this.clientJoined(socket, session, room);
         });
     }
 
     /** Пользователь заходит в комнату. */
-    private clientJoined(socket: Socket, room: Room): void
+    private clientJoined(
+        socket: Socket,
+        session: HandshakeSession,
+        room: Room
+    ): void
     {
-        const session = socket.handshake.session!;
-
         console.log(`[Room] [#${room.id}, ${room.name}]: ${socket.id} (${session.username ?? "Гость"}) user connected`);
         room.users.set(socket.id, new User(socket.id));
 
@@ -106,53 +112,35 @@ export class RoomSocketService
         // Создание транспортного канала на сервере (с последующей отдачей информации о канале клиенту).
         socket.on(SE.CreateWebRtcTransport, async (consuming: boolean) =>
         {
-            await this.сreateWebRtcTransport(user, socket, consuming);
+            await this.requestCreateWebRtcTransport(socket, room, user, consuming);
         });
 
-        // подключение к транспортному каналу со стороны сервера
-        socket.on('connectWebRtcTransport', async (
-            connectWebRtcTransportInfo: ConnectWebRtcTransportInfo
-        ) =>
+        // Подключение к транспортному каналу со стороны сервера.
+        socket.on(SE.ConnectWebRtcTransport, async (info: ConnectWebRtcTransportInfo) =>
         {
-            await this.joinEvConnectWebRtcTransport(user, connectWebRtcTransportInfo);
+            await room.connectWebRtcTransport(user, info);
         });
 
-        // пользователь заходит в комнату (т.е уже создал транспортные каналы)
-        // и готов к получению потоков (готов к получению consumers)
-        socket.once('join', async (joinInfo: JoinInfo) =>
+        // Пользователь уже создал транспортные каналы
+        // и готов к получению потоков (готов к получению consumers).
+        socket.once(SE.Ready, async (joinInfo: JoinInfo) =>
         {
-            await this.joinEvJoin(user, socket, session, joinInfo);
+            await this.userReady(socket, room, user, session, joinInfo);
         });
 
-        // клиент ставит consumer на паузу
-        socket.on('pauseConsumer', async (consumerId: string) =>
+        // Клиент ставит consumer на паузу.
+        socket.on(SE.PauseConsumer, async (consumerId: string) =>
         {
-            const consumer = user.consumers.get(consumerId);
-
-            if (!consumer)
-                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
-
-            // запоминаем, что клиент поставил на паузу вручную
-            (consumer.appData as ConsumerAppData).clientPaused = true;
-
-            await this.pauseConsumer(consumer);
+            await room.userRequestedPauseConsumer(user, consumerId);
         });
 
         // клиент снимает consumer с паузы
-        socket.on('resumeConsumer', async (consumerId: string) =>
+        socket.on(SE.ResumeConsumer, async (consumerId: string) =>
         {
-            const consumer = user.consumers.get(consumerId);
-
-            if (!consumer)
-                throw new Error(`[Room] consumer with id "${consumerId}" not found`);
-
-            // клиент хотел снять с паузы consumer, поэтому выключаем флаг ручной паузы
-            (consumer.appData as ConsumerAppData).clientPaused = false;
-
-            await this.resumeConsumer(consumer);
+            await room.userRequestedResumeConsumer(user, consumerId);
         });
         // создание нового producer
-        socket.on('newProducer', async (newProducerInfo: NewProducerInfo) =>
+        socket.on(SE.NewProducer, async (newProducerInfo: NewProducerInfo) =>
         {
             await this.createProducer(user, socket, newProducerInfo);
         });
@@ -227,48 +215,180 @@ export class RoomSocketService
     }
 
     /**
-     * Создать транспортный канал по запросу клиента.
+     * Запросить создание транспортного канала по запросу клиента.
      * @param consuming Канал для отдачи потоков от сервера клиенту?
      */
-    private async сreateWebRtcTransport(
+    private async requestCreateWebRtcTransport(
+        socket: Socket,
         room: Room,
         user: User,
-        socket: Socket,
         consuming: boolean
-    )
+    ): Promise<void>
     {
         try
         {
             const transport = await room.createWebRtcTransport(user, consuming);
 
-            transport.on
-
             transport.on('routerclose', () =>
             {
-                if (consuming)
-                {
-                    user.consumerTransport = undefined;
-                }
-                else
-                {
-                    user.producerTransport = undefined;
-                }
-
-                socket.emit('closeTransport', transport.id);
+                room.transportClosed(user, consuming);
+                socket.emit(SE.CloseTransport, transport.id);
             });
 
-            const info: NewWebRtcTransportInfo = {
+            const transportInfo: NewWebRtcTransportInfo = {
                 id: transport.id,
                 iceParameters: transport.iceParameters,
                 iceCandidates: transport.iceCandidates as NewWebRtcTransportInfo['iceCandidates'],
                 dtlsParameters: transport.dtlsParameters
             };
 
-            socket.emit(consuming ? 'createRecvTransport' : 'createSendTransport', info);
+            socket.emit(consuming ? SE.CreateConsumerTransport : SE.CreateProducerTransport, transportInfo);
         }
         catch (error)
         {
-            console.error(`[Room] createWebRtcTransport for User ${user.userId} error: `, (error as Error).message);
+            console.error(`[Room] createWebRtcTransport for User ${user.id} error: `, (error as Error).message);
         }
+    }
+
+    /**
+     * Запросить потоки других пользователей для нового пользователя.
+     * Также оповестить всех о новом пользователе.
+     */
+    private async userReady(
+        socket: Socket,
+        room: Room,
+        user: User,
+        session: HandshakeSession,
+        joinInfo: JoinInfo
+    ): Promise<void>
+    {
+        const { name, rtpCapabilities } = joinInfo;
+
+        // Запоминаем имя и RTP кодеки клиента.
+        session.username = name;
+        user.username = name;
+        user.rtpCapabilities = rtpCapabilities;
+
+        /** Запросить потоки пользователя producerUser для пользователя consumerUser. */
+        const requestCreatingConsumers = async (producerUser: User) =>
+        {
+            for (const producer of producerUser.producers.values())
+            {
+                await this.requestCreateConsumer(socket, room, user, producerUser.id, producer);
+            }
+        };
+
+        // Перебираем всех пользователей, кроме нового.
+        for (const otherUser of room.users)
+        {
+            if (otherUser[0] != socket.id)
+            {
+                // Запросим потоки другого пользователя для этого нового пользователя.
+                await requestCreatingConsumers(otherUser[1]);
+
+                const otherUserInfo: UserInfo = {
+                    id: otherUser[0],
+                    name: otherUser[1].username
+                };
+
+                // Сообщаем новому пользователю о пользователе otherUser.
+                socket.emit(SE.NewUser, otherUserInfo);
+
+                const thisUserInfo: UserInfo = {
+                    id: socket.id,
+                    name: name
+                };
+
+                // Сообщаем другому пользователю о новом пользователе.
+                this.roomIo.to(otherUser[0]).emit(SE.NewUser, thisUserInfo);
+            }
+        }
+    }
+
+    /**
+     * Запросить создание потока-потребителя для пользователя consumerUser
+     * из потока-производителя пользователя producerUserId.
+     */
+    private async requestCreateConsumer(
+        socket: Socket,
+        room: Room,
+        consumerUser: User,
+        producerUserId: string,
+        producer: MediasoupTypes.Producer
+    )
+    {
+        try
+        {
+            const consumer = await room.createConsumer(consumerUser, producer);
+
+            // Обрабатываем события у Consumer.
+            this.handleConsumerEvents(socket, room, consumer, consumerUser, producerUserId);
+
+            // сообщаем клиенту всю информацию об этом потребителе
+            const newConsumerInfo: NewConsumerInfo = {
+                producerUserId,
+                id: consumer.id,
+                producerId: producer.id,
+                kind: consumer.kind,
+                rtpParameters: consumer.rtpParameters
+            };
+
+            socket.emit(SE.NewConsumer, newConsumerInfo);
+        }
+        catch (error)
+        {
+            console.error(`[Room] createConsumer error for User ${consumerUser.id} | `, (error as Error).message);
+        }
+    }
+
+    /** Обработка событий у потока-потребителя. */
+    private handleConsumerEvents(
+        socket: Socket,
+        room: Room,
+        consumer: MediasoupTypes.Consumer,
+        consumerUser: User,
+        producerUserId: string
+    ): void
+    {
+        /** Действия после автоматического закрытия consumer. */
+        const consumerClosed = () =>
+        {
+            room.consumerClosed(consumer, consumerUser);
+
+            const closeConsumerInfo: CloseConsumerInfo = {
+                consumerId: consumer.id,
+                producerUserId
+            };
+
+            socket.emit(SE.CloseConsumer, closeConsumerInfo);
+        };
+
+        /** Поставить на паузу consumer. */
+        const pauseConsumer = async () =>
+        {
+            await room.pauseConsumer(consumer);
+
+            // Сообщаем клиенту, чтобы он тоже поставил на паузу, если только это не он попросил.
+            // То есть сообщаем клиенту, что сервер поставил или хотел поставить на паузу. Хотел в том случае,
+            // если до этого клиент уже поставил на паузу, а после соответствующий producer был поставлен на паузу.
+            // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер НЕ ГОТОВ снимать с паузы consumer.
+            socket.emit(SE.PauseConsumer, consumer.id);
+        };
+
+        /** Снять consumer c паузы. */
+        const resumeConsumer = async () =>
+        {
+            await room.pauseConsumer(consumer);
+
+            // Сообщаем клиенту, чтобы он тоже снял с паузы, если только это не он попросил.
+            // То есть сообщаем клиенту, что сервер снял или хотел снять паузу.
+            // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер ГОТОВ снимать с паузы consumer.
+            socket.emit('resumeConsumer', consumer.id);
+        };
+
+        consumer.on('transportclose', consumerClosed);
+        consumer.on('producerclose', consumerClosed);
+        consumer.on('producerpause', async () => { await pauseConsumer(); });
+        consumer.on('producerresume', async () => { await resumeConsumer(); });
     }
 }
