@@ -96,7 +96,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         for (const user of room.users)
         {
-            userList.push({ id: user[0], name: user[1].username });
+            userList.push({ id: user[0], name: user[1].name });
         }
 
         return userList;

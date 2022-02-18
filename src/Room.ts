@@ -20,7 +20,7 @@ import { Socket } from "socket.io";
 export class User
 {
     public id: string;
-    public username = "Гость";
+    public name = "Гость";
     public rtpCapabilities?: MediasoupTypes.RtpCapabilities;
     public consumerTransport?: MediasoupTypes.WebRtcTransport;
     public producerTransport?: MediasoupTypes.WebRtcTransport;
@@ -347,54 +347,35 @@ export class Room
         }
     }
 
-    private async createProducer(
+    /** Создать поток-производитель, который описан с помощью newProducerInfo, для пользователя user. */
+    public async createProducer(
         user: User,
-        socket: Socket,
         newProducerInfo: NewProducerInfo
     )
     {
-        try
-        {
-            const producer = await this.mediasoup.createProducer(user, newProducerInfo, this.mediasoupRouters);
+        const producer = await this.mediasoup.createProducer(
+            user,
+            newProducerInfo,
+            this.mediasoupRouters
+        );
 
-            user.producers.set(producer.id, producer);
+        user.producers.set(producer.id, producer);
 
-            this.mediasoup.increaseProducersCount(producer.kind);
-            this.calculateAndEmitNewMaxVideoBitrate();
+        this.mediasoup.increaseProducersCount(producer.kind);
+        this.calculateAndEmitNewMaxVideoBitrate();
 
-            producer.on('transportclose', () =>
-            {
-                this.closeProducer(user, producer);
-                socket.emit('closeProducer', producer.id);
-            });
-
-            // перебираем всех пользователей, кроме текущего
-            // и создадим для них consumer
-            for (const anotherUser of this.users)
-            {
-                if (anotherUser[0] != socket.id)
-                {
-                    await this.createConsumer(
-                        anotherUser[1],
-                        socket.id,
-                        producer,
-                        this.socketHandler.getSocketById(anotherUser[0])
-                    );
-                }
-            }
-
-            socket.emit('newProducer', producer.id);
-        }
-        catch (error)
-        {
-            console.error(`[Room] createProducer error for User ${user.id} | `, (error as Error).message);
-        }
+        return producer;
     }
 
-    private closeProducer(user: User, producer: MediasoupTypes.Producer)
+    /** Поток-потребитель был завершен, поэтому необходимо обработать это событие. */
+    public producerClosed(
+        producer: MediasoupTypes.Producer,
+        user: User
+    ): void
     {
         user.producers.delete(producer.id);
 
+        // Если он и так был на паузе, то не учитывать его удаление в расчете битрейта.
         if (!producer.paused)
         {
             this.mediasoup.decreaseProducersCount(producer.kind);
@@ -402,6 +383,45 @@ export class Room
         }
     }
 
+    /** Пользователь user запросил закрыть поток-производитель с идентификатором producerId. */
+    public userRequestedCloseProducer(
+        user: User,
+        producerId: string
+    ): void
+    {
+        const producer = user.producers.get(producerId);
+
+        if (!producer)
+        {
+            console.error(`[Room] closeProducer for User ${user.id} error | producer with id "${producerId}" not found.`);
+            return;
+        }
+
+        // Завершаем поток.
+        producer.close();
+
+        // Обрабатываем это событие.
+        this.producerClosed(producer, user);
+    }
+
+    /** Пользователь user запросил поставить на паузу поток-производитель с идентификатором producerId. */
+    public async userRequestedPauseProducer(
+        user: User,
+        producerId: string
+    )
+    {
+        const producer = user.producers.get(producerId);
+
+        if (!producer)
+        {
+            console.error(`[Room] pauseProducer for User ${user.id} error | producer with id "${producerId}" not found.`);
+            return;
+        }
+
+        await this.pauseProducer(producer);
+    }
+
+    /** Поставить на паузу поток-производитель producer. */
     private async pauseProducer(producer: MediasoupTypes.Producer)
     {
         if (!producer.paused)
@@ -413,6 +433,24 @@ export class Room
         }
     }
 
+    /** Пользователь user запросил снять с паузы поток-производитель с идентификатором producerId. */
+    public async userRequestedResumeProducer(
+        user: User,
+        producerId: string
+    )
+    {
+        const producer = user.producers.get(producerId);
+
+        if (!producer)
+        {
+            console.error(`[Room] resumeProducer for User ${user.id} error | producer with id "${producerId}" not found.`);
+            return;
+        }
+
+        await this.resumeProducer(producer);
+    }
+
+    /** Снять с паузы поток-производитель producer. */
     private async resumeProducer(producer: MediasoupTypes.Producer)
     {
         if (producer.paused)
@@ -424,66 +462,20 @@ export class Room
         }
     }
 
-    // обработка события 'disconnect' в методе join
-    private joinEvDisconnect(
-        socket: Socket,
-        session: HandshakeSession,
-        reason: string
-    )
+    /** Пользователь отключился из комнаты. */
+    public userDisconnected(userId: string): void
     {
-        session.joined = false;
-        session.save();
-
-        this.userLeft(socket, session, reason);
-
-        // Сообщаем заинтересованным новый список пользователей в комнате.
-        this.sendUserList();
-
-        this.socketHandler.emitTo('room', this.id, 'userDisconnected', socket.id);
-    }
-
-    // обработка события 'newUsername' в методе join
-    private joinEvNewUsername(
-        socket: Socket,
-        session: HandshakeSession,
-        username: string
-    ): void
-    {
-        session.username = username;
-
-        const userInfo: UserInfo = {
-            id: socket.id,
-            name: username
-        };
-
-        socket.to(this.id).emit('newUsername', userInfo);
-
-        // Сообщаем заинтересованным новый список пользователей в комнате.
-        this.sendUserList();
-    };
-
-    /** Пользователь покинул комнату. */
-    public userLeft(
-        socket: Socket,
-        session: HandshakeSession,
-        reason: string
-    ): void
-    {
-        const username = session.username ?? "Гость";
-
-        const user = this.users.get(socket.id);
+        const user = this.users.get(userId);
 
         if (!user)
         {
             return;
         }
 
-        console.log(`[Room] [#${this.id}, ${this.name}]: ${socket.id} (${username}) user disconnected > ${reason}`);
-
         user.consumerTransport?.close();
         user.producerTransport?.close();
 
-        this.users.delete(socket.id);
+        this.users.delete(userId);
     };
 
     /** Закрыть комнату */

@@ -14,8 +14,6 @@ import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketServ
 import { AuthSocketService } from "./AuthSocketService";
 import { RoomSocketService } from "./RoomSocketService";
 
-type Socket = SocketIO.Socket;
-
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
 // расширяю класс Handshake у сокетов, добавляя в него Express сессии
@@ -45,10 +43,6 @@ export class SocketManager
 {
     /** SocketIO сервер. */
     private io: SocketIO.Server;
-    /** Middleware для поддержки сессий. */
-    private sessionMiddleware: RequestHandler;
-    /** Сервис для работы с комнатами. */
-    private roomRepository: IRoomRepository;
 
     private generalSocketService: IGeneralSocketService;
     private adminSocketService: IAdminSocketService;
@@ -70,60 +64,39 @@ export class SocketManager
         server: https.Server,
         sessionMiddleware: RequestHandler,
         mediasoup: IMediasoupService,
-        fileHandler: IFileService,
+        fileService: IFileService,
         roomRepository: IRoomRepository)
     {
         this.io = this.createSocketServer(server);
-        this.sessionMiddleware = sessionMiddleware;
-        this.roomRepository = roomRepository;
 
         // главная страница (общие события)
         this.generalSocketService = new GeneralSocketService(
             this.io.of("/"),
-            this.roomRepository
+            roomRepository
         );
 
         // события администратора
         this.adminSocketService = new AdminSocketService(
             this.io.of("/admin"),
             this.generalSocketService,
-            this.roomRepository,
-            this.sessionMiddleware
+            roomRepository,
+            sessionMiddleware
         );
 
         // авторизация
         this.authSocketService = new AuthSocketService(
             this.io.of("/auth"),
-            this.roomRepository,
-            this.sessionMiddleware
+            roomRepository,
+            sessionMiddleware
         );
 
         // события комнаты
         this.roomSocketService = new RoomSocketService(
             this.io.of("/room"),
             this.adminSocketService,
-            this.roomRepository,
-            this.sessionMiddleware
+            roomRepository,
+            sessionMiddleware,
+            fileService
         );
-    }
-
-    public getSocketById(namespace: string, id: string): Socket
-    {
-        return this.io.of(namespace).sockets.get(id)!;
-    }
-
-    public emitTo(namespace: string, name: string, ev: string, ...args: unknown[]): boolean
-    {
-        return this.io.of(namespace).to(name).emit(ev, ...args);
-    }
-
-    public emitToAll(namespace: string, ev: string, ...args: unknown[]): boolean
-    {
-        return this.io.of(namespace).emit(ev, ...args);
-    }
-
-    public getSocketsCount(namespace: string): number
-    {
-        return this.io.of(namespace).sockets.size;
     }
 }

@@ -35,13 +35,19 @@ export interface IMediasoupService
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.Consumer>;
     /** Увеличить счётчик потоков-потребителей на сервере. */
-    increaseConsumersCount(kind: MediasoupTypes.MediaKind): void
+    increaseConsumersCount(kind: MediasoupTypes.MediaKind): void;
     /** Уменьшить счётчик потоков-потребителей на сервере. */
-    decreaseConsumersCount(kind: MediasoupTypes.MediaKind): void
+    decreaseConsumersCount(kind: MediasoupTypes.MediaKind): void;
     /** Увеличить счётчик потоков-производителей на сервере. */
-    increaseProducersCount(kind: MediasoupTypes.MediaKind): void
+    increaseProducersCount(kind: MediasoupTypes.MediaKind): void;
     /** Уменьшить счётчик потоков-производителей на сервере. */
-    decreaseProducersCount(kind: MediasoupTypes.MediaKind): void
+    decreaseProducersCount(kind: MediasoupTypes.MediaKind): void;
+    /** Создать поток-производитель для пользователя. */
+    createProducer(
+        user: User,
+        newProducerInfo: NewProducerInfo,
+        routers: MediasoupTypes.Router[]
+    ): Promise<MediasoupTypes.Producer>;
 
 }
 

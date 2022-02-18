@@ -28,6 +28,7 @@ export type FileInfo = {
     originalMetadata?: string;
 };
 
+/** Сервис для работы с файлами. */
 export interface IFileService
 {
     getFileInfo(fileId: string): FileInfo | undefined;
@@ -58,7 +59,6 @@ export interface IFileService
     ): void;
 }
 
-/** Обработчик файлов. */
 export class FileService implements IFileService
 {
     private readonly FILES_PATH = path.join(process.cwd(), FileServiceConstants.FILES_ROUTE);

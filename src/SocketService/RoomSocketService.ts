@@ -5,9 +5,10 @@ import { Room, User } from "../Room";
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IAdminSocketService } from "./AdminSocketService";
-import { CloseConsumerInfo, ConnectWebRtcTransportInfo, JoinInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, JoinInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { HandshakeSession } from "./SocketManager";
 import { MediasoupTypes } from "../MediasoupService";
+import { IFileService } from "../FileService/FileService";
 
 type Socket = SocketIO.Socket;
 
@@ -17,16 +18,20 @@ export class RoomSocketService
     private roomIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
     private adminSocketService: IAdminSocketService;
+    private fileService: IFileService;
+
     constructor(
         roomIo: SocketIO.Namespace,
         adminSocketService: IAdminSocketService,
         roomRepository: IRoomRepository,
-        sessionMiddleware: RequestHandler
+        sessionMiddleware: RequestHandler,
+        fileService: IFileService
     )
     {
         this.roomIo = roomIo;
         this.adminSocketService = adminSocketService;
         this.roomRepository = roomRepository;
+        this.fileService = fileService;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.checkAuth();
@@ -92,13 +97,10 @@ export class RoomSocketService
         room: Room
     ): void
     {
-        console.log(`[Room] [#${room.id}, ${room.name}]: ${socket.id} (${session.username ?? "Гость"}) user connected`);
+        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user joined.`);
         room.users.set(socket.id, new User(socket.id));
 
         const user: User = room.users.get(socket.id)!;
-
-        // Сообщаем заинтересованным новый список пользователей в комнате.
-        this.adminSocketService.sendUserListToAllSubscribers(room.id);
 
         // Сообщаем пользователю название комнаты.
         socket.emit(SE.RoomName, room.name);
@@ -125,7 +127,7 @@ export class RoomSocketService
         // и готов к получению потоков (готов к получению consumers).
         socket.once(SE.Ready, async (joinInfo: JoinInfo) =>
         {
-            await this.userReady(socket, room, user, session, joinInfo);
+            await this.userReady(socket, room, user, joinInfo);
         });
 
         // Клиент ставит consumer на паузу.
@@ -134,83 +136,58 @@ export class RoomSocketService
             await room.userRequestedPauseConsumer(user, consumerId);
         });
 
-        // клиент снимает consumer с паузы
+        // Клиент снимает consumer с паузы.
         socket.on(SE.ResumeConsumer, async (consumerId: string) =>
         {
             await room.userRequestedResumeConsumer(user, consumerId);
         });
-        // создание нового producer
+
+        // Создание нового producer.
         socket.on(SE.NewProducer, async (newProducerInfo: NewProducerInfo) =>
         {
-            await this.createProducer(user, socket, newProducerInfo);
+            await this.requestCreateProducer(socket, room, user, newProducerInfo);
         });
 
-        // клиент закрывает producer
-        socket.on('closeProducer', (producerId: string) =>
+        // Клиент закрывает producer.
+        socket.on(SE.CloseProducer, (producerId: string) =>
         {
-            const producer = user.producers.get(producerId);
-
-            if (!producer)
-                throw new Error(`[Room] producer with id "${producerId}" not found`);
-
-            producer.close();
-
-            this.closeProducer(user, producer);
+            room.userRequestedCloseProducer(user, producerId);
         });
 
-        // клиент ставит producer на паузу (например, временно выключает микрофон)
-        socket.on('pauseProducer', async (producerId: string) =>
+        // Клиент ставит producer на паузу (например, временно выключает микрофон).
+        socket.on(SE.PauseProducer, async (producerId: string) =>
         {
-            const producer = user.producers.get(producerId);
-
-            if (!producer)
-                throw new Error(`[Room] producer with id "${producerId}" not found`);
-
-            await this.pauseProducer(producer);
+            await room.userRequestedPauseProducer(user, producerId);
         });
 
-        // клиент снимает producer с паузы (например, включает микрофон обратно)
-        socket.on('resumeProducer', async (producerId: string) =>
+        // Клиент снимает producer с паузы (например, включает микрофон обратно).
+        socket.on(SE.ResumeProducer, async (producerId: string) =>
         {
-            const producer = user.producers.get(producerId);
-
-            if (!producer)
-                throw new Error(`[Room] producer with id "${producerId}" not found`);
-
-            await this.resumeProducer(producer);
+            await room.userRequestedResumeProducer(user, producerId);
         });
 
-        // новый ник пользователя
-        socket.on('newUsername', (username: string) =>
+        // Новый ник пользователя.
+        socket.on(SE.NewUsername, (username: string) =>
         {
-            this.joinEvNewUsername(socket, session, username);
+            this.userChangedName(socket, room.id, user, username);
         });
 
-        socket.on('chatMsg', (msg: string) =>
+        // Новое сообщение в чате.
+        socket.on(SE.ChatMsg, (msg: string) =>
         {
-            const chatMsgInfo: ChatMsgInfo = {
-                name: socket.handshake.session!.username!,
-                msg: msg.trim()
-            };
-            socket.to(this.id).emit('chatMsg', chatMsgInfo);
+            this.userSentChatMsg(socket, room.id, user.name, msg);
         });
 
-        socket.on('chatFile', (fileId: string) =>
+        // Новый файл в чате (ссылка на файл).
+        socket.on(SE.ChatFile, (fileId: string) =>
         {
-            const fileInfo = this.fileService.getFileInfo(fileId);
-            if (!fileInfo) return;
-
-            const username = socket.handshake.session!.username!;
-
-            const chatFileInfo: ChatFileInfo = { fileId, filename: fileInfo.name, size: fileInfo.size, username };
-
-            socket.to(this.id).emit('chatFile', chatFileInfo);
+            this.userSentChatFile(socket, user.name, room.id, fileId);
         });
 
         // пользователь отсоединился
-        socket.on('disconnect', (reason: string) =>
+        socket.on(SE.Disconnect, (reason: string) =>
         {
-            this.joinEvDisconnect(socket, session, reason);
+            this.userDisconnected(socket, session, room, user.name, reason);
         });
     }
 
@@ -258,16 +235,19 @@ export class RoomSocketService
         socket: Socket,
         room: Room,
         user: User,
-        session: HandshakeSession,
         joinInfo: JoinInfo
     ): Promise<void>
     {
         const { name, rtpCapabilities } = joinInfo;
 
+        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user (${name}) ready to get consumers.`);
+
         // Запоминаем имя и RTP кодеки клиента.
-        session.username = name;
-        user.username = name;
+        user.name = name;
         user.rtpCapabilities = rtpCapabilities;
+
+        // Сообщаем заинтересованным новый список пользователей в комнате.
+        this.adminSocketService.sendUserListToAllSubscribers(room.id);
 
         /** Запросить потоки пользователя producerUser для пользователя consumerUser. */
         const requestCreatingConsumers = async (producerUser: User) =>
@@ -288,7 +268,7 @@ export class RoomSocketService
 
                 const otherUserInfo: UserInfo = {
                     id: otherUser[0],
-                    name: otherUser[1].username
+                    name: otherUser[1].name
                 };
 
                 // Сообщаем новому пользователю о пользователе otherUser.
@@ -315,7 +295,7 @@ export class RoomSocketService
         consumerUser: User,
         producerUserId: string,
         producer: MediasoupTypes.Producer
-    )
+    ): Promise<void>
     {
         try
         {
@@ -390,5 +370,144 @@ export class RoomSocketService
         consumer.on('producerclose', consumerClosed);
         consumer.on('producerpause', async () => { await pauseConsumer(); });
         consumer.on('producerresume', async () => { await resumeConsumer(); });
+    }
+
+    /**
+     * Запросить создание потока-производителя для пользователя user.
+     */
+    private async requestCreateProducer(
+        socket: Socket,
+        room: Room,
+        user: User,
+        newProducerInfo: NewProducerInfo
+    ): Promise<void>
+    {
+        try
+        {
+            const producer = await room.createProducer(user, newProducerInfo);
+
+            // Обрабатываем события у Producer.
+            this.handleProducerEvents(socket, room, user, producer);
+
+            // Перебираем всех пользователей, кроме текущего
+            // и создадим для них consumer.
+            for (const otherUser of room.users)
+            {
+                if (otherUser[0] != socket.id)
+                {
+                    const otherUserSocket = this.getSocketById(otherUser[0])!;
+
+                    await this.requestCreateConsumer(otherUserSocket, room, otherUser[1], socket.id, producer);
+                }
+            }
+
+            socket.emit(SE.NewProducer, producer.id);
+        }
+        catch (error)
+        {
+            console.error(`[Room] createProducer error for User ${user.id} | `, (error as Error).message);
+        }
+    }
+
+    /** Обработка событий у потока-производителя. */
+    private handleProducerEvents(
+        socket: Socket,
+        room: Room,
+        user: User,
+        producer: MediasoupTypes.Producer
+    ): void
+    {
+        /** Действия после автоматического закрытия producer. */
+        const producerClosed = () =>
+        {
+            room.producerClosed(producer, user);
+            socket.emit(SE.CloseProducer, producer.id);
+        };
+
+        producer.on('transportclose', producerClosed);
+    }
+
+    /** Получить веб-сокет соединение по Id. */
+    private getSocketById(id: string): Socket | undefined
+    {
+        return this.roomIo.sockets.get(id);
+    }
+
+    /** Пользователь изменил ник. */
+    private userChangedName(
+        socket: Socket,
+        roomId: string,
+        user: User,
+        username: string
+    ): void
+    {
+        user.name = username;
+
+        const info: UserInfo = {
+            id: socket.id,
+            name: username
+        };
+
+        socket.to(roomId).emit(SE.NewUsername, info);
+
+        // Сообщаем заинтересованным новый список пользователей в комнате.
+        this.adminSocketService.sendUserListToAllSubscribers(roomId);
+    }
+
+    /** Пользователь отправил сообщение в чат. */
+    private userSentChatMsg(
+        socket: Socket,
+        roomId: string,
+        username: string,
+        msg: string
+    )
+    {
+        const chatMsgInfo: ChatMsgInfo = {
+            name: username,
+            msg: msg.trim()
+        };
+        socket.to(roomId).emit(SE.ChatMsg, chatMsgInfo);
+    }
+
+    /** Пользователь отправил ссылку на файл в чат. */
+    private userSentChatFile(
+        socket: Socket,
+        username: string,
+        roomId: string,
+        fileId: string
+    )
+    {
+        const fileInfo = this.fileService.getFileInfo(fileId);
+        if (!fileInfo)
+        {
+            return;
+        }
+
+        const chatFileInfo: ChatFileInfo = { fileId, filename: fileInfo.name, size: fileInfo.size, username };
+
+        socket.to(roomId).emit(SE.ChatFile, chatFileInfo);
+    }
+
+    /** Пользователь отключился. */
+    private userDisconnected(
+        socket: Socket,
+        session: HandshakeSession,
+        room: Room,
+        username: string,
+        reason: string
+    )
+    {
+        session.joined = false;
+        session.save();
+
+        room.userDisconnected(socket.id);
+
+        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user (${username}) disconnected: ${reason}.`);
+
+        // Сообщаем заинтересованным новый список пользователей в комнате.
+        this.adminSocketService.sendUserListToAllSubscribers(room.id);
+
+        // Сообщаем всем в комнате, что пользователь отключился.
+        this.roomIo.to(room.id).emit(SE.UserDisconnected, socket.id);
     }
 }
