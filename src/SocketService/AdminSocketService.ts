@@ -94,6 +94,7 @@ export class AdminSocketService implements IAdminSocketService
                     name: info.name
                 };
 
+                socket.emit(SE.RoomCreated, newRoomInfo);
                 this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
             });
 

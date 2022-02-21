@@ -25,6 +25,7 @@ export interface IRoomRepository
 export class PlainRoomRepository implements IRoomRepository
 {
     private rooms = new Map<string, IRoom>();
+
     private latestRoomIndex = 0;
 
     private mediasoup: IMediasoupService;
