@@ -102,7 +102,7 @@ async function main()
         // Сервис для работы с файлами.
         const fileService = new FileService();
         // Репозиторий комнат.
-        const roomRepository = new PlainRoomRepository(mediasoupService, fileService);
+        const roomRepository = new PlainRoomRepository(mediasoupService);
         // Express веб-сервис.
         const express = new WebService(roomRepository, fileService);
 

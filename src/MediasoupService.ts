@@ -16,6 +16,30 @@ export interface ConsumerAppData
 
 export interface IMediasoupService
 {
+    /** Входящая скорость сервера (в мегабитах Mbit). */
+    readonly networkIncomingCapability: number;
+
+    /** Исходящая скорость сервера (в мегабитах Mbit). */
+    readonly networkOutcomingCapability: number;
+
+    /** Максимальный битрейт (Кбит) для видеопотоков на сервере. */
+    maxVideoBitrate: number;
+
+    /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
+    maxAudioBitrate: number;
+
+    /** Количество видеопотоков-потребителей. */
+    get videoConsumersCount(): number;
+
+    /** Количество аудиопотоков-потребителей. */
+    get audioConsumersCount(): number;
+
+    /** Количество видеопотоков-производителей. */
+    get videoProducersCount(): number;
+
+    /** Количество аудиопотоков-производителей. */
+    get audioProducersCount(): number;
+
     /** Создать роутеры. */
     createRouters(codecChoice: VideoCodec): Promise<MediasoupTypes.Router[]>;
 
@@ -28,20 +52,26 @@ export interface IMediasoupService
         consuming: boolean,
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.WebRtcTransport>;
+
     /** Создать поток-потребитель для пользователя. */
     createConsumer(
         user: User,
         producer: MediasoupTypes.Producer,
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.Consumer>;
+
     /** Увеличить счётчик потоков-потребителей на сервере. */
     increaseConsumersCount(kind: MediasoupTypes.MediaKind): void;
+
     /** Уменьшить счётчик потоков-потребителей на сервере. */
     decreaseConsumersCount(kind: MediasoupTypes.MediaKind): void;
+
     /** Увеличить счётчик потоков-производителей на сервере. */
     increaseProducersCount(kind: MediasoupTypes.MediaKind): void;
+
     /** Уменьшить счётчик потоков-производителей на сервере. */
     decreaseProducersCount(kind: MediasoupTypes.MediaKind): void;
+
     /** Создать поток-производитель для пользователя. */
     createProducer(
         user: User,
@@ -49,26 +79,29 @@ export interface IMediasoupService
         routers: MediasoupTypes.Router[]
     ): Promise<MediasoupTypes.Producer>;
 
+    /** Рассчитываем новый максимальный битрейт для видеопотоков. */
+    calculateNewMaxVideoBitrate(): void;
 }
 
 export class MediasoupService implements IMediasoupService
 {
-    // массив workers, задел под многопоточность
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
-    // сетевые возможности сервера (в мегабитах Mbit)
-    // для расчета максимального битрейта видеопотока клиента
     public readonly networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
     public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
 
-    // количество потребителей на сервере
+    /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
+    public maxAudioBitrate = 64 * 1024;
+
+    /** Максимальный битрейт (Кбит) для видеопотоков на сервере. */
+    public maxVideoBitrate = -1;
+
     private _videoConsumersCount = 0;
     public get videoConsumersCount(): number { return this._videoConsumersCount; }
 
     private _audioConsumersCount = 0;
     public get audioConsumersCount(): number { return this._audioConsumersCount; }
 
-    // количество производителей на сервере
     private _videoProducersCount = 0;
     public get videoProducersCount(): number { return this._videoProducersCount; }
 
@@ -315,30 +348,80 @@ export class MediasoupService implements IMediasoupService
     public increaseConsumersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
+        {
             ++this._videoConsumersCount;
+        }
         else
+        {
             ++this._audioConsumersCount;
+        }
     }
     public decreaseConsumersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
+        {
             --this._videoConsumersCount;
+        }
         else
+        {
             --this._audioConsumersCount;
+        }
     }
 
     public increaseProducersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
+        {
             ++this._videoProducersCount;
+        }
         else
+        {
             ++this._audioProducersCount;
+        }
     }
     public decreaseProducersCount(kind: MediasoupTypes.MediaKind): void
     {
         if (kind == 'video')
+        {
             --this._videoProducersCount;
+        }
         else
+        {
             --this._audioProducersCount;
+        }
+    }
+
+    public calculateNewMaxVideoBitrate(): void
+    {
+        const MEGA = 1024 * 1024;
+
+        // Максимальный битрейт для аудио в мегабитах.
+        const maxAudioBitrateMbs = this.maxAudioBitrate / MEGA;
+
+        // Количество видеопотоков-производителей.
+        const producersCount: number = this.videoProducersCount;
+
+        if (producersCount > 0)
+        {
+            // Количество видеопотоков-потребителей.
+            const consumersCount: number = (this.videoConsumersCount != 0) ? this.videoConsumersCount : 1;
+
+            // Входящая и исходящая скорость сервера за вычетом затрат на аудиопотоки.
+            const availableIncomingCapability = this.networkIncomingCapability - (maxAudioBitrateMbs * this.audioProducersCount);
+            const availableOutcomingCapability = this.networkOutcomingCapability - (maxAudioBitrateMbs * this.audioConsumersCount);
+
+            const maxVideoBitrate: number = Math.min(
+                availableIncomingCapability / producersCount,
+                availableOutcomingCapability / consumersCount
+            ) * MEGA;
+
+            if (maxVideoBitrate > 0)
+            {
+                this.maxVideoBitrate = maxVideoBitrate;
+                return;
+            }
+        }
+
+        this.maxVideoBitrate = -1;
     }
 }

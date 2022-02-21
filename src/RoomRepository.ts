@@ -1,37 +1,39 @@
 
 import { NewRoomInfo, RoomLinkInfo } from "nostromo-shared/types/AdminTypes";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
-import { IFileService } from "./FileService/FileService";
 import { IMediasoupService } from "./MediasoupService";
-import { Room } from "./Room";
+import { IRoom, Room } from "./Room";
 
 export interface IRoomRepository
 {
     /** Создать комнату. */
     create(info: NewRoomInfo): Promise<string>;
+
     /** Удалить комнату. */
     remove(id: string): void;
-    get(id: string): Room | undefined;
+
+    get(id: string): IRoom | undefined;
+
     has(id: string): boolean,
+
     getRoomLinkList(): RoomLinkInfo[];
+
+    /** Получить список пользователей в комнате roomId. */
     getUserList(roomId: string): UserInfo[];
 }
 
 export class PlainRoomRepository implements IRoomRepository
 {
-    private rooms = new Map<string, Room>();
+    private rooms = new Map<string, IRoom>();
     private latestRoomIndex = 0;
 
     private mediasoup: IMediasoupService;
-    private fileService: IFileService;
 
     constructor(
-        mediasoup: IMediasoupService,
-        fileService: IFileService
+        mediasoup: IMediasoupService
     )
     {
         this.mediasoup = mediasoup;
-        this.fileService = fileService;
     }
 
     public async create(info: NewRoomInfo): Promise<string>
@@ -42,8 +44,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         this.rooms.set(id, await Room.create(
             id, name, pass, videoCodec,
-            this.mediasoup,
-            this.fileService
+            this.mediasoup
         ));
 
         return id;
@@ -60,7 +61,7 @@ export class PlainRoomRepository implements IRoomRepository
         }
     }
 
-    public get(id: string): Room | undefined
+    public get(id: string): IRoom | undefined
     {
         return this.rooms.get(id);
     }
@@ -82,7 +83,6 @@ export class PlainRoomRepository implements IRoomRepository
         return roomList;
     }
 
-    /** Получить список пользователей в комнате roomId. */
     public getUserList(roomId: string): UserInfo[]
     {
         const room = this.rooms.get(roomId);

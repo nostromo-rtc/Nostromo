@@ -1,7 +1,6 @@
 
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
-import { Room } from "../Room";
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 
@@ -51,7 +50,7 @@ export class AuthSocketService
                 return;
             }
 
-            const room: Room = this.roomRepository.get(roomId)!;
+            const room = this.roomRepository.get(roomId)!;
 
             socket.emit(SE.RoomName, room.name);
 

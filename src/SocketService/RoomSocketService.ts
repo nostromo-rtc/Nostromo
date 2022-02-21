@@ -1,7 +1,7 @@
 
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
-import { Room, User } from "../Room";
+import { IRoom, User } from "../Room";
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IAdminSocketService } from "./AdminSocketService";
@@ -19,6 +19,7 @@ export class RoomSocketService
     private roomRepository: IRoomRepository;
     private adminSocketService: IAdminSocketService;
     private fileService: IFileService;
+    private latestMaxVideoBitrate = -1;
 
     constructor(
         roomIo: SocketIO.Namespace,
@@ -94,7 +95,7 @@ export class RoomSocketService
     private clientJoined(
         socket: Socket,
         session: HandshakeSession,
-        room: Room
+        room: IRoom
     ): void
     {
         console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user joined.`);
@@ -105,7 +106,7 @@ export class RoomSocketService
         // Сообщаем пользователю название комнаты.
         socket.emit(SE.RoomName, room.name);
 
-        // Сообщаем пользователю максимальный битрейт аудио в комнате.
+        // Сообщаем пользователю максимальный битрейт для аудиопотоков.
         socket.emit(SE.MaxAudioBitrate, room.maxAudioBitrate);
 
         // Сообщаем пользователю RTP возможности (кодеки) сервера.
@@ -133,13 +134,27 @@ export class RoomSocketService
         // Клиент ставит consumer на паузу.
         socket.on(SE.PauseConsumer, async (consumerId: string) =>
         {
-            await room.userRequestedPauseConsumer(user, consumerId);
+            const paused = await room.userRequestedPauseConsumer(user, consumerId);
+
+            if (paused)
+            {
+                // Поток был поставлен на паузу и соответственно был перерасчёт
+                // максимального битрейта для видеопотоков.
+                this.emitMaxVideoBitrate(room);
+            }
         });
 
         // Клиент снимает consumer с паузы.
         socket.on(SE.ResumeConsumer, async (consumerId: string) =>
         {
-            await room.userRequestedResumeConsumer(user, consumerId);
+            const resumed = await room.userRequestedResumeConsumer(user, consumerId);
+
+            if (resumed)
+            {
+                // Поток был снят с паузы и соответственно был перерасчёт
+                // максимального битрейта для видеопотоков.
+                this.emitMaxVideoBitrate(room);
+            }
         });
 
         // Создание нового producer.
@@ -152,18 +167,36 @@ export class RoomSocketService
         socket.on(SE.CloseProducer, (producerId: string) =>
         {
             room.userRequestedCloseProducer(user, producerId);
+
+            // Поскольку поток был завершен,
+            // возможно был перерасчёт максимального битрейта для видеопотоков.
+            this.emitMaxVideoBitrate(room);
         });
 
         // Клиент ставит producer на паузу (например, временно выключает микрофон).
         socket.on(SE.PauseProducer, async (producerId: string) =>
         {
-            await room.userRequestedPauseProducer(user, producerId);
+            const paused = await room.userRequestedPauseProducer(user, producerId);
+
+            if (paused)
+            {
+                // Поток был поставлен на паузу и соответственно был перерасчёт
+                // максимального битрейта для видеопотоков.
+                this.emitMaxVideoBitrate(room);
+            }
         });
 
         // Клиент снимает producer с паузы (например, включает микрофон обратно).
         socket.on(SE.ResumeProducer, async (producerId: string) =>
         {
-            await room.userRequestedResumeProducer(user, producerId);
+            const resumed = await room.userRequestedResumeProducer(user, producerId);
+
+            if (resumed)
+            {
+                // Поток был снят с паузы и соответственно был перерасчёт
+                // максимального битрейта для видеопотоков.
+                this.emitMaxVideoBitrate(room);
+            }
         });
 
         // Новый ник пользователя.
@@ -197,7 +230,7 @@ export class RoomSocketService
      */
     private async requestCreateWebRtcTransport(
         socket: Socket,
-        room: Room,
+        room: IRoom,
         user: User,
         consuming: boolean
     ): Promise<void>
@@ -233,7 +266,7 @@ export class RoomSocketService
      */
     private async userReady(
         socket: Socket,
-        room: Room,
+        room: IRoom,
         user: User,
         joinInfo: JoinInfo
     ): Promise<void>
@@ -291,7 +324,7 @@ export class RoomSocketService
      */
     private async requestCreateConsumer(
         socket: Socket,
-        room: Room,
+        room: IRoom,
         consumerUser: User,
         producerUserId: string,
         producer: MediasoupTypes.Producer
@@ -324,7 +357,7 @@ export class RoomSocketService
     /** Обработка событий у потока-потребителя. */
     private handleConsumerEvents(
         socket: Socket,
-        room: Room,
+        room: IRoom,
         consumer: MediasoupTypes.Consumer,
         consumerUser: User,
         producerUserId: string
@@ -334,6 +367,10 @@ export class RoomSocketService
         const consumerClosed = () =>
         {
             room.consumerClosed(consumer, consumerUser);
+
+            // Поскольку поток был завершен,
+            // возможно был перерасчёт максимального битрейта для видеопотоков.
+            this.emitMaxVideoBitrate(room);
 
             const closeConsumerInfo: CloseConsumerInfo = {
                 consumerId: consumer.id,
@@ -346,7 +383,14 @@ export class RoomSocketService
         /** Поставить на паузу consumer. */
         const pauseConsumer = async () =>
         {
-            await room.pauseConsumer(consumer);
+            const paused = await room.pauseConsumer(consumer);
+
+            if (paused)
+            {
+                // Поток был поставлен на паузу и соответственно был перерасчёт
+                // максимального битрейта для видеопотоков.
+                this.emitMaxVideoBitrate(room);
+            }
 
             // Сообщаем клиенту, чтобы он тоже поставил на паузу, если только это не он попросил.
             // То есть сообщаем клиенту, что сервер поставил или хотел поставить на паузу. Хотел в том случае,
@@ -358,12 +402,19 @@ export class RoomSocketService
         /** Снять consumer c паузы. */
         const resumeConsumer = async () =>
         {
-            await room.pauseConsumer(consumer);
+            const resumed = await room.resumeConsumer(consumer);
+
+            if (resumed)
+            {
+                // Поток был снят с паузы и соответственно был перерасчёт
+                // максимального битрейта для видеопотоков.
+                this.emitMaxVideoBitrate(room);
+            }
 
             // Сообщаем клиенту, чтобы он тоже снял с паузы, если только это не он попросил.
             // То есть сообщаем клиенту, что сервер снял или хотел снять паузу.
             // Это необходимо, чтобы клиент знал при попытке снять с паузы, что сервер ГОТОВ снимать с паузы consumer.
-            socket.emit('resumeConsumer', consumer.id);
+            socket.emit(SE.ResumeConsumer, consumer.id);
         };
 
         consumer.on('transportclose', consumerClosed);
@@ -377,7 +428,7 @@ export class RoomSocketService
      */
     private async requestCreateProducer(
         socket: Socket,
-        room: Room,
+        room: IRoom,
         user: User,
         newProducerInfo: NewProducerInfo
     ): Promise<void>
@@ -385,6 +436,10 @@ export class RoomSocketService
         try
         {
             const producer = await room.createProducer(user, newProducerInfo);
+
+            // Был создан новый поток-производитель,
+            // следовательно был перерасчёт максимального битрейта для видеопотоков.
+            this.emitMaxVideoBitrate(room);
 
             // Обрабатываем события у Producer.
             this.handleProducerEvents(socket, room, user, producer);
@@ -412,7 +467,7 @@ export class RoomSocketService
     /** Обработка событий у потока-производителя. */
     private handleProducerEvents(
         socket: Socket,
-        room: Room,
+        room: IRoom,
         user: User,
         producer: MediasoupTypes.Producer
     ): void
@@ -421,6 +476,11 @@ export class RoomSocketService
         const producerClosed = () =>
         {
             room.producerClosed(producer, user);
+
+            // Поскольку поток был завершен,
+            // возможно был перерасчёт максимального битрейта для видеопотоков.
+            this.emitMaxVideoBitrate(room);
+
             socket.emit(SE.CloseProducer, producer.id);
         };
 
@@ -492,7 +552,7 @@ export class RoomSocketService
     private userDisconnected(
         socket: Socket,
         session: HandshakeSession,
-        room: Room,
+        room: IRoom,
         username: string,
         reason: string
     )
@@ -509,5 +569,16 @@ export class RoomSocketService
 
         // Сообщаем всем в комнате, что пользователь отключился.
         this.roomIo.to(room.id).emit(SE.UserDisconnected, socket.id);
+    }
+
+    /** Разослать клиентам во всех комнатах новое значение максимального битрейта для видеопотоков. */
+    private emitMaxVideoBitrate(room: IRoom)
+    {
+        if (room.maxVideoBitrate != -1
+            && room.maxVideoBitrate != this.latestMaxVideoBitrate)
+        {
+            this.roomIo.emit(SE.NewMaxVideoBitrate, room.maxVideoBitrate);
+            this.latestMaxVideoBitrate = room.maxVideoBitrate;
+        }
     }
 }
