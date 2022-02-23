@@ -7,31 +7,31 @@ import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../RoomRepository";
 import { NewRoomInfo, RoomLinkInfo } from "nostromo-shared/types/AdminTypes";
+import { IRoomSocketService } from "./RoomSocketService";
 type Socket = SocketIO.Socket;
 
-export interface IAdminSocketService
-{
-    /** Отправить новый список пользователей комнаты roomId всем подписчикам. */
-    sendUserListToAllSubscribers(roomId: string): void;
-    /** Отправить список пользователей комнаты roomId подписчику subscriberId. */
-    sendUserListToSubscriber(subscriberId: string, roomId: string): void;
-}
-
-export class AdminSocketService implements IAdminSocketService
+export class AdminSocketService
 {
     private adminIo: SocketIO.Namespace;
+
     private generalSocketService: IGeneralSocketService;
+
+    private roomSocketService: IRoomSocketService;
+
     private roomRepository: IRoomRepository;
 
     constructor(
         adminIo: SocketIO.Namespace,
         generalSocketService: IGeneralSocketService,
+        roomSocketService: IRoomSocketService,
         roomRepository: IRoomRepository,
         sessionMiddleware: RequestHandler
     )
     {
         this.adminIo = adminIo;
         this.generalSocketService = generalSocketService;
+        this.roomSocketService = roomSocketService;
+
         this.roomRepository = roomRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
@@ -98,31 +98,9 @@ export class AdminSocketService implements IAdminSocketService
                 this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
             });
 
-            socket.on(SE.SubscribeUserList, async (roomId: string) =>
+            socket.on(SE.KickUser, (userId: string) =>
             {
-                // Если такой комнаты вообще нет.
-                if (!this.roomRepository.has(roomId))
-                {
-                    return;
-                }
-
-                // подписываемся на получение списка юзеров в комнате roomId
-                await socket.join(`${SE.UserList}-${roomId}`);
-
-                // отправляем список пользователей этой комнаты
-                this.sendUserListToSubscriber(socket.id, roomId);
-            });
-
-            socket.on(SE.UnsubscribeUserList, async (roomId: string) =>
-            {
-                // Если такой комнаты вообще нет.
-                if (!this.roomRepository.has(roomId))
-                {
-                    return;
-                }
-
-                // отписываемся от получения списка юзеров в комнате roomId
-                await socket.leave(`${SE.UserList}-${roomId}`);
+                this.roomSocketService.kickUser(userId);
             });
         });
     }
@@ -142,15 +120,5 @@ export class AdminSocketService implements IAdminSocketService
 
             socket.emit(SE.Result, result);
         });
-    }
-    public sendUserListToAllSubscribers(roomId: string): void
-    {
-        const userList = this.roomRepository.getUserList(roomId);
-        this.adminIo.to(`${SE.UserList}-${roomId}`).emit(SE.UserList, userList);
-    }
-    public sendUserListToSubscriber(subscriberId: string, roomId: string): void
-    {
-        const userList = this.roomRepository.getUserList(roomId);
-        this.adminIo.to(subscriberId).emit(SE.UserList, userList);
     }
 }

@@ -6,13 +6,12 @@ import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 
-import { IMediasoupService } from '../MediasoupService';
 import { IFileService } from "../FileService/FileService";
 import { IRoomRepository } from "../RoomRepository";
-import { AdminSocketService, IAdminSocketService } from "./AdminSocketService";
+import { AdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
 import { AuthSocketService } from "./AuthSocketService";
-import { RoomSocketService } from "./RoomSocketService";
+import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -45,9 +44,9 @@ export class SocketManager
     private io: SocketIO.Server;
 
     private generalSocketService: IGeneralSocketService;
-    private adminSocketService: IAdminSocketService;
+    private adminSocketService: AdminSocketService;
     private authSocketService: AuthSocketService;
-    private roomSocketService: RoomSocketService;
+    private roomSocketService: IRoomSocketService;
 
     /** Создать SocketIO сервер. */
     private createSocketServer(server: https.Server): SocketIO.Server
@@ -63,7 +62,6 @@ export class SocketManager
     constructor(
         server: https.Server,
         sessionMiddleware: RequestHandler,
-        mediasoup: IMediasoupService,
         fileService: IFileService,
         roomRepository: IRoomRepository)
     {
@@ -73,14 +71,6 @@ export class SocketManager
         this.generalSocketService = new GeneralSocketService(
             this.io.of("/"),
             roomRepository
-        );
-
-        // события администратора
-        this.adminSocketService = new AdminSocketService(
-            this.io.of("/admin"),
-            this.generalSocketService,
-            roomRepository,
-            sessionMiddleware
         );
 
         // авторизация
@@ -93,10 +83,19 @@ export class SocketManager
         // события комнаты
         this.roomSocketService = new RoomSocketService(
             this.io.of("/room"),
-            this.adminSocketService,
+            this.generalSocketService,
             roomRepository,
             sessionMiddleware,
             fileService
+        );
+
+        // события администратора
+        this.adminSocketService = new AdminSocketService(
+            this.io.of("/admin"),
+            this.generalSocketService,
+            this.roomSocketService,
+            roomRepository,
+            sessionMiddleware
         );
     }
 }

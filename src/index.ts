@@ -131,7 +131,6 @@ async function main()
         const socketManager = new SocketManager(
             httpsServer,
             express.sessionMiddleware,
-            mediasoupService,
             fileService,
             roomRepository
         );
