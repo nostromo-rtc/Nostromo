@@ -16,6 +16,12 @@ export interface IRoomSocketService
 {
     /** Выгнать пользователя userId из комнаты. */
     kickUser(userId: string): void;
+
+    /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват видеодорожки. */
+    stopUserVideo(userId: string): void;
+
+    /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват аудиодорожки. */
+    stopUserAudio(userId: string): void;
 }
 
 /** Обработчик событий комнаты. */
@@ -588,7 +594,6 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    /** Выгнать пользователя userId из комнаты. */
     public kickUser(userId: string): void
     {
         const userSocket = this.getSocketById(userId);
@@ -596,6 +601,26 @@ export class RoomSocketService implements IRoomSocketService
         if (userSocket)
         {
             userSocket.emit(SE.Redirect, "main-page");
+        }
+    }
+
+    public stopUserVideo(userId: string): void
+    {
+        const userSocket = this.getSocketById(userId);
+
+        if (userSocket)
+        {
+            userSocket.emit(SE.StopUserVideo);
+        }
+    }
+
+    public stopUserAudio(userId: string): void
+    {
+        const userSocket = this.getSocketById(userId);
+
+        if (userSocket)
+        {
+            userSocket.emit(SE.StopUserAudio);
         }
     }
 }

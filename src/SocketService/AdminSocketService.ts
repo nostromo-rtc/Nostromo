@@ -102,6 +102,16 @@ export class AdminSocketService
             {
                 this.roomSocketService.kickUser(userId);
             });
+
+            socket.on(SE.StopUserVideo, (userId: string) =>
+            {
+                this.roomSocketService.stopUserVideo(userId);
+            });
+
+            socket.on(SE.StopUserAudio, (userId: string) =>
+            {
+                this.roomSocketService.stopUserAudio(userId);
+            });
         });
     }
 
