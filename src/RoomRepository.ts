@@ -30,9 +30,7 @@ export class PlainRoomRepository implements IRoomRepository
 
     private mediasoup: IMediasoupService;
 
-    constructor(
-        mediasoup: IMediasoupService
-    )
+    constructor(mediasoup: IMediasoupService)
     {
         this.mediasoup = mediasoup;
     }

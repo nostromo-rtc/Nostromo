@@ -93,7 +93,6 @@ export class MediasoupService implements IMediasoupService
     /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
     public maxAudioBitrate = 64 * 1024;
 
-    /** Максимальный битрейт (Кбит) для видеопотоков на сервере. */
     public maxVideoBitrate = -1;
 
     private _videoConsumersCount = 0;
