@@ -5,7 +5,7 @@ import { IRoom, User } from "../Room";
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
-import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, JoinInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { HandshakeSession } from "./SocketManager";
 import { MediasoupTypes } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
@@ -124,6 +124,12 @@ export class RoomSocketService implements IRoomSocketService
         // Сообщаем пользователю максимальный битрейт для аудиопотоков.
         socket.emit(SE.MaxAudioBitrate, room.maxAudioBitrate);
 
+        // Сообщаем пользователю текущий максимальный битрейт для видеопотоков.
+        if (this.latestMaxVideoBitrate != -1)
+        {
+            socket.emit(SE.MaxVideoBitrate, this.latestMaxVideoBitrate);
+        }
+
         // Сообщаем пользователю RTP возможности (кодеки) сервера.
         socket.emit(SE.RouterRtpCapabilities, room.routerRtpCapabilities);
 
@@ -141,9 +147,9 @@ export class RoomSocketService implements IRoomSocketService
 
         // Пользователь уже создал транспортные каналы
         // и готов к получению потоков (готов к получению consumers).
-        socket.once(SE.Ready, async (joinInfo: JoinInfo) =>
+        socket.once(SE.Ready, async (info: UserReadyInfo) =>
         {
-            await this.userReady(socket, room, user, joinInfo);
+            await this.userReady(socket, room, user, info);
         });
 
         // Клиент ставит consumer на паузу.
@@ -283,10 +289,10 @@ export class RoomSocketService implements IRoomSocketService
         socket: Socket,
         room: IRoom,
         user: User,
-        joinInfo: JoinInfo
+        info: UserReadyInfo
     ): Promise<void>
     {
-        const { name, rtpCapabilities } = joinInfo;
+        const { name, rtpCapabilities } = info;
 
         console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user (${name}) ready to get consumers.`);
 

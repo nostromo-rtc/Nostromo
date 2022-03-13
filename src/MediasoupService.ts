@@ -1,5 +1,5 @@
 import mediasoup = require('mediasoup');
-import { NewProducerInfo, VideoCodec } from "nostromo-shared/types/RoomTypes";
+import { NewProducerInfo, PrefixConstants, VideoCodec } from "nostromo-shared/types/RoomTypes";
 import { User } from './Room';
 import MediasoupTypes = mediasoup.types;
 
@@ -91,7 +91,7 @@ export class MediasoupService implements IMediasoupService
     public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
 
     /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
-    public maxAudioBitrate = 64 * 1024;
+    public maxAudioBitrate = 64 * PrefixConstants.KILO;
 
     public maxVideoBitrate = -1;
 
@@ -392,10 +392,8 @@ export class MediasoupService implements IMediasoupService
 
     public calculateNewMaxVideoBitrate(): void
     {
-        const MEGA = 1024 * 1024;
-
         // Максимальный битрейт для аудио в мегабитах.
-        const maxAudioBitrateMbs = this.maxAudioBitrate / MEGA;
+        const maxAudioBitrateMbs = this.maxAudioBitrate / PrefixConstants.MEGA;
 
         // Количество видеопотоков-производителей.
         const producersCount: number = this.videoProducersCount;
@@ -412,7 +410,7 @@ export class MediasoupService implements IMediasoupService
             const maxVideoBitrate: number = Math.min(
                 availableIncomingCapability / producersCount,
                 availableOutcomingCapability / consumersCount
-            ) * MEGA;
+            ) * PrefixConstants.MEGA;
 
             if (maxVideoBitrate > 0)
             {
