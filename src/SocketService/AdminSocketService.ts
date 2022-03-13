@@ -8,6 +8,7 @@ import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../RoomRepository";
 import { NewRoomInfo, RoomLinkInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
+import { UserInfo } from "nostromo-shared/types/RoomTypes";
 type Socket = SocketIO.Socket;
 
 export class AdminSocketService
@@ -111,6 +112,11 @@ export class AdminSocketService
             socket.on(SE.StopUserAudio, (userId: string) =>
             {
                 this.roomSocketService.stopUserAudio(userId);
+            });
+
+            socket.on(SE.ChangeUsername, (info: UserInfo) =>
+            {
+                this.roomSocketService.changeUsername(info);
             });
         });
     }

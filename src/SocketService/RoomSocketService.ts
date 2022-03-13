@@ -22,6 +22,9 @@ export interface IRoomSocketService
 
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват аудиодорожки. */
     stopUserAudio(userId: string): void;
+
+    /** Изменить имя пользователя. */
+    changeUsername(info: UserInfo): void;
 }
 
 /** Обработчик событий комнаты. */
@@ -621,6 +624,17 @@ export class RoomSocketService implements IRoomSocketService
         if (userSocket)
         {
             userSocket.emit(SE.StopUserAudio);
+        }
+    }
+
+    public changeUsername(info: UserInfo): void
+    {
+        const { id, name } = info;
+        const userSocket = this.getSocketById(id);
+
+        if (userSocket)
+        {
+            userSocket.emit(SE.ChangeUsername, name);
         }
     }
 }
