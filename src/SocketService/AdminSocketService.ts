@@ -80,10 +80,12 @@ export class AdminSocketService
 
             socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
 
-            socket.on(SE.DeleteRoom, (id: string) =>
+            socket.on(SE.DeleteRoom, (roomId: string) =>
             {
-                this.roomRepository.remove(id);
-                this.generalSocketService.notifyAboutDeletedRoom(id);
+                this.generalSocketService.notifyAboutDeletedRoom(roomId);
+                this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
+                this.roomSocketService.kickAllUsers(roomId);
+                this.roomRepository.remove(roomId);
             });
 
             socket.on(SE.CreateRoom, async (info: NewRoomInfo) =>
@@ -95,7 +97,6 @@ export class AdminSocketService
                     name: info.name
                 };
 
-                socket.emit(SE.RoomCreated, newRoomInfo);
                 this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
             });
 

@@ -17,6 +17,9 @@ export interface IRoomSocketService
     /** Выгнать пользователя userId из комнаты. */
     kickUser(userId: string): void;
 
+    /** Выгнать всех пользователей из комнаты. */
+    kickAllUsers(roomId: string): void;
+
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват видеодорожки. */
     stopUserVideo(userId: string): void;
 
@@ -610,6 +613,21 @@ export class RoomSocketService implements IRoomSocketService
         if (userSocket)
         {
             userSocket.emit(SE.Redirect, "main-page");
+        }
+    }
+
+    public kickAllUsers(roomId: string): void
+    {
+        const room = this.roomRepository.get(roomId);
+
+        if (!room)
+        {
+            return;
+        }
+
+        for (const user of room.users)
+        {
+            this.kickUser(user[0]);
         }
     }
 

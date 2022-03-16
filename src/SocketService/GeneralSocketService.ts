@@ -17,6 +17,9 @@ export interface IGeneralSocketService
 
     /** Отправить список пользователей комнаты roomId подписчику subscriberId. */
     sendUserListToSubscriber(subscriberId: string, roomId: string): void;
+
+    /** Отписать всех подписчиков комнаты от получения списка пользователей этой комнаты. */
+    unsubscribeAllUserListSubscribers(roomId: string): void;
 }
 
 export class GeneralSocketService implements IGeneralSocketService
@@ -73,23 +76,35 @@ export class GeneralSocketService implements IGeneralSocketService
 
     public notifyAboutCreatedRoom(info: RoomLinkInfo): void
     {
-        this.generalIo.emit(SE.RoomCreated as string, info);
+        this.generalIo.emit(SE.RoomCreated, info);
     }
 
     public notifyAboutDeletedRoom(id: string): void
     {
-        this.generalIo.emit(SE.RoomDeleted as string, id);
+        this.generalIo.emit(SE.RoomDeleted, id);
     }
 
     public sendUserListToAllSubscribers(roomId: string): void
     {
-        const userList = this.roomRepository.getUserList(roomId);
-        this.generalIo.to(`${SE.UserList}-${roomId}`).emit(SE.UserList, userList);
+        try
+        {
+            const userList = this.roomRepository.getUserList(roomId);
+            this.generalIo.to(`${SE.UserList}-${roomId}`).emit(SE.UserList, userList);
+        }
+        catch (e)
+        {
+            return;
+        }
     }
 
     public sendUserListToSubscriber(subscriberId: string, roomId: string): void
     {
         const userList = this.roomRepository.getUserList(roomId);
         this.generalIo.to(subscriberId).emit(SE.UserList, userList);
+    }
+
+    public unsubscribeAllUserListSubscribers(roomId: string): void
+    {
+        this.generalIo.socketsLeave(`${SE.UserList}-${roomId}`);
     }
 }
