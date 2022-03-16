@@ -163,9 +163,9 @@ export class WebService
         });
 
         // [комната]
-        this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response) =>
+        this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
-            this.roomRoute(req, res);
+            this.roomRoute(req, res, next);
         });
 
         // [админка]
@@ -206,7 +206,8 @@ export class WebService
     /** Маршруты для комнаты. */
     private roomRoute(
         req: express.Request,
-        res: express.Response
+        res: express.Response,
+        next: express.NextFunction
     ): void | express.Response
     {
         // запрещаем кешировать страницу с комнатой
@@ -228,7 +229,7 @@ export class WebService
 
         if (!room)
         {
-            return;
+            return next();
         }
 
         // если пользователь авторизован в этой комнате
