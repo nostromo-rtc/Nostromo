@@ -24,6 +24,7 @@ import { prepareLogs } from "./Logger";
 import readline = require('readline');
 import { IRoomRepository, PlainRoomRepository } from "./RoomRepository";
 import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { UserBanRepository } from "./UserBanRepository";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -103,8 +104,10 @@ async function main()
         const fileService = new FileService();
         // Репозиторий комнат.
         const roomRepository = new PlainRoomRepository(mediasoupService);
+        // Репозиторий блокировок пользователей.
+        const userBanRepository = new UserBanRepository();
         // Express веб-сервис.
-        const express = new WebService(roomRepository, fileService);
+        const express = new WebService(roomRepository, fileService, userBanRepository);
 
         const httpServer: http.Server = http.createServer(express.app);
         const httpPort = process.env.HTTP_PORT;
@@ -132,7 +135,8 @@ async function main()
             httpsServer,
             express.sessionMiddleware,
             fileService,
-            roomRepository
+            roomRepository,
+            userBanRepository
         );
 
         // Создаем тестовую комнату.

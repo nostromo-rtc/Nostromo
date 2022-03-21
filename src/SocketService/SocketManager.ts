@@ -12,6 +12,7 @@ import { AdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
 import { AuthSocketService } from "./AuthSocketService";
 import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
+import { IUserBanRepository } from "../UserBanRepository";
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -47,6 +48,7 @@ export class SocketManager
     private adminSocketService: AdminSocketService;
     private authSocketService: AuthSocketService;
     private roomSocketService: IRoomSocketService;
+    private userBanRepository: IUserBanRepository;
 
     /** Создать SocketIO сервер. */
     private createSocketServer(server: https.Server): SocketIO.Server
@@ -59,30 +61,55 @@ export class SocketManager
         });
     }
 
+    private applyCheckBanMiddleware(socket: SocketIO.Socket, next: (err?: ExtendedError) => void)
+    {
+        if (!this.userBanRepository.has(socket.handshake.address))
+        {
+            next();
+        }
+        else
+        {
+            next(new Error("banned"));
+        }
+    }
+
     constructor(
         server: https.Server,
         sessionMiddleware: RequestHandler,
         fileService: IFileService,
-        roomRepository: IRoomRepository)
+        roomRepository: IRoomRepository,
+        userBanRepository: IUserBanRepository
+    )
     {
         this.io = this.createSocketServer(server);
+        this.userBanRepository = userBanRepository;
+
+        const generalNS = this.io.of("/");
+        const authNS = this.io.of("/auth");
+        const roomNS = this.io.of("/room");
+        const adminNS = this.io.of("/admin");
+
+        generalNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
+        authNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
+        roomNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
+        adminNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
 
         // главная страница (общие события)
         this.generalSocketService = new GeneralSocketService(
-            this.io.of("/"),
+            generalNS,
             roomRepository
         );
 
         // авторизация
         this.authSocketService = new AuthSocketService(
-            this.io.of("/auth"),
+            authNS,
             roomRepository,
             sessionMiddleware
         );
 
         // события комнаты
         this.roomSocketService = new RoomSocketService(
-            this.io.of("/room"),
+            roomNS,
             this.generalSocketService,
             roomRepository,
             sessionMiddleware,
@@ -91,7 +118,7 @@ export class SocketManager
 
         // события администратора
         this.adminSocketService = new AdminSocketService(
-            this.io.of("/admin"),
+            adminNS,
             this.generalSocketService,
             this.roomSocketService,
             roomRepository,

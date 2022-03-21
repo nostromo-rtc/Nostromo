@@ -6,6 +6,7 @@ import { IFileService } from "./FileService/FileService";
 import { IRoomRepository } from "./RoomRepository";
 
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
+import { IUserBanRepository } from "./UserBanRepository";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
@@ -50,13 +51,20 @@ export class WebService
     /** Обработчик файлов. */
     private fileService: IFileService;
 
+    /** Блокировки пользователей. */
+    private userBanRepository: IUserBanRepository;
+
     constructor(
         roomRepository: IRoomRepository,
-        fileService: IFileService
+        fileService: IFileService,
+        userBanRepository: IUserBanRepository
     )
     {
         this.roomRepository = roomRepository;
         this.fileService = fileService;
+        this.userBanRepository = userBanRepository;
+
+        this.app.use((req, res, next) => this.checkBanMiddleware(req, res, next));
 
         this.app.use(WebService.wwwMiddleware);
         this.app.use(WebService.httpsMiddleware);
@@ -72,6 +80,19 @@ export class WebService
         this.app.use(WebService.preventFloodMiddleware);
 
         this.endPoint();
+    }
+
+    /** Проверяем на наличие блокировки по ip-адресу пользователя. */
+    private checkBanMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    {
+        if (!this.userBanRepository.has(req.ip))
+        {
+            next();
+        }
+        else
+        {
+            WebService.sendCodeAndDestroySocket(req, res, 403);
+        }
     }
 
     /** Убираем www из адреса. */
