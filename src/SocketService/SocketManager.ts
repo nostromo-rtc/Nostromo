@@ -43,7 +43,7 @@ export class SocketManager
 {
     /** SocketIO сервер. */
     private io: SocketIO.Server;
-
+    private namespaces = new Map<string, SocketIO.Namespace>();
     private generalSocketService: IGeneralSocketService;
     private adminSocketService: AdminSocketService;
     private authSocketService: AuthSocketService;
@@ -63,7 +63,7 @@ export class SocketManager
 
     private applyCheckBanMiddleware(socket: SocketIO.Socket, next: (err?: ExtendedError) => void)
     {
-        if (!this.userBanRepository.has(socket.handshake.address))
+        if (!this.userBanRepository.has(socket.handshake.address.substring(7)))
         {
             next();
         }
@@ -84,41 +84,43 @@ export class SocketManager
         this.io = this.createSocketServer(server);
         this.userBanRepository = userBanRepository;
 
-        const generalNS = this.io.of("/");
-        const authNS = this.io.of("/auth");
-        const roomNS = this.io.of("/room");
-        const adminNS = this.io.of("/admin");
+        this.namespaces.set("general", this.io.of("/"));
+        this.namespaces.set("auth", this.io.of("/auth"));
+        this.namespaces.set("room", this.io.of("/room"));
+        this.namespaces.set("admin", this.io.of("/admin"));
 
-        generalNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
-        authNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
-        roomNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
-        adminNS.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
+        for (const mapValue of this.namespaces)
+        {
+            const ns = mapValue[1];
+            ns.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
+        }
 
         // главная страница (общие события)
         this.generalSocketService = new GeneralSocketService(
-            generalNS,
+            this.namespaces.get("general")!,
             roomRepository
         );
 
         // авторизация
         this.authSocketService = new AuthSocketService(
-            authNS,
+            this.namespaces.get("auth")!,
             roomRepository,
             sessionMiddleware
         );
 
         // события комнаты
         this.roomSocketService = new RoomSocketService(
-            roomNS,
+            this.namespaces.get("room")!,
             this.generalSocketService,
             roomRepository,
             sessionMiddleware,
-            fileService
+            fileService,
+            userBanRepository
         );
 
         // события администратора
         this.adminSocketService = new AdminSocketService(
-            adminNS,
+            this.namespaces.get("admin")!,
             this.generalSocketService,
             this.roomSocketService,
             roomRepository,

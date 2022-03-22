@@ -9,6 +9,7 @@ import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInf
 import { HandshakeSession } from "./SocketManager";
 import { MediasoupTypes } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
+import { IUserBanRepository } from "../UserBanRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -16,6 +17,9 @@ export interface IRoomSocketService
 {
     /** Выгнать пользователя userId из комнаты. */
     kickUser(userId: string): void;
+
+    /** Заблокировать пользователя userId, находящегося в комнате, на сервере. */
+    banUser(userId: string): Promise<void>;
 
     /** Выгнать всех пользователей из комнаты. */
     kickAllUsers(roomId: string): void;
@@ -35,6 +39,7 @@ export class RoomSocketService implements IRoomSocketService
 {
     private roomIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
+    private userBanRepository: IUserBanRepository;
     private generalSocketService: IGeneralSocketService;
     private fileService: IFileService;
     private latestMaxVideoBitrate = -1;
@@ -44,13 +49,15 @@ export class RoomSocketService implements IRoomSocketService
         generalSocketService: IGeneralSocketService,
         roomRepository: IRoomRepository,
         sessionMiddleware: RequestHandler,
-        fileService: IFileService
+        fileService: IFileService,
+        userBanRepository: IUserBanRepository
     )
     {
         this.roomIo = roomIo;
         this.generalSocketService = generalSocketService;
         this.roomRepository = roomRepository;
         this.fileService = fileService;
+        this.userBanRepository = userBanRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.checkAuth();
@@ -116,7 +123,8 @@ export class RoomSocketService implements IRoomSocketService
         room: IRoom
     ): void
     {
-        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user joined.`);
+        const userIp = socket.handshake.address.substring(7);
+        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${userIp}] user joined.`);
         room.users.set(socket.id, new User(socket.id));
 
         const user: User = room.users.get(socket.id)!;
@@ -297,7 +305,8 @@ export class RoomSocketService implements IRoomSocketService
     {
         const { name, rtpCapabilities } = info;
 
-        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user (${name}) ready to get consumers.`);
+        const userIp = socket.handshake.address.substring(7);
+        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${userIp}] user (${name}) ready to get consumers.`);
 
         // Запоминаем имя и RTP кодеки клиента.
         user.name = name;
@@ -586,7 +595,9 @@ export class RoomSocketService implements IRoomSocketService
 
         room.userDisconnected(socket.id);
 
-        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${socket.handshake.address}] user (${username}) disconnected: ${reason}.`);
+        const userIp = socket.handshake.address.substring(7);
+
+        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${userIp}] user (${username}) disconnected: ${reason}.`);
 
         // Сообщаем заинтересованным новый список пользователей в комнате.
         this.generalSocketService.sendUserListToAllSubscribers(room.id);
@@ -659,6 +670,23 @@ export class RoomSocketService implements IRoomSocketService
         if (userSocket)
         {
             userSocket.emit(SE.ChangeUsername, name);
+        }
+    }
+
+    public async banUser(userId: string): Promise<void>
+    {
+        const userSocket = this.getSocketById(userId);
+
+        if (userSocket)
+        {
+            // Выясняем IP-адрес клиента.
+            const ip = userSocket.handshake.address.substring(7);
+
+            // Создаём запись о блокировке пользователя.
+            await this.userBanRepository.create({ip});
+
+            // Разрываем соединение веб-сокета с клиентом.
+            userSocket.disconnect(true);
         }
     }
 }

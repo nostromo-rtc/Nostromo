@@ -85,7 +85,7 @@ export class WebService
     /** Проверяем на наличие блокировки по ip-адресу пользователя. */
     private checkBanMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
-        if (!this.userBanRepository.has(req.ip))
+        if (!this.userBanRepository.has(req.ip.substring(7)))
         {
             next();
         }

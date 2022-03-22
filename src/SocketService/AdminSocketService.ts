@@ -106,12 +106,9 @@ export class AdminSocketService
                 this.roomSocketService.kickUser(userId);
             });
 
-            socket.on(SE.StopUserVideo, async (userId: string) =>
+            socket.on(SE.StopUserVideo, (userId: string) =>
             {
                 this.roomSocketService.stopUserVideo(userId);
-
-                //TODO: вместе с баном нужно дисконект сокета.
-                await this.userBanRepository.create({ ip: `::ffff:192.168.1.${1}` });
             });
 
             socket.on(SE.StopUserAudio, (userId: string) =>
@@ -122,6 +119,21 @@ export class AdminSocketService
             socket.on(SE.ChangeUsername, (info: UserInfo) =>
             {
                 this.roomSocketService.changeUsername(info);
+            });
+
+            socket.on(SE.BanUser, async (userId: string) =>
+            {
+                await this.roomSocketService.banUser(userId);
+            });
+
+            socket.on(SE.BanUserByIp, async (userIp: string) =>
+            {
+                await this.userBanRepository.create({ip: userIp});
+            });
+
+            socket.on(SE.UnbanUserByIp, async (userIp: string) =>
+            {
+                await this.userBanRepository.remove(userIp);
             });
         });
     }

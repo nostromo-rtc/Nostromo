@@ -21,16 +21,22 @@ export class UserBanRepository implements IUserBanRepository
 {
     private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "config", "bans.json");
     private bans = new Map<string, UserBanInfo>();
-    private bansFileWS : fs.WriteStream;
+    private bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8", flags: "a+" });
 
     constructor()
     {
-        this.bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8", flags: "a+" });
-        const fileContent = fs.readFileSync(this.BANS_FILE_PATH, 'utf-8');
-        if (fileContent)
+        if (fs.existsSync(this.BANS_FILE_PATH))
         {
-            const bansFromJson = JSON.parse(fileContent) as UserBanInfo[];
-            console.log(bansFromJson);
+            const fileContent = fs.readFileSync(this.BANS_FILE_PATH, 'utf-8');
+            if (fileContent)
+            {
+                const bansFromJson = JSON.parse(fileContent) as UserBanInfo[];
+                for (const banRecord of bansFromJson)
+                {
+                    this.bans.set(banRecord.ip, banRecord);
+                }
+                console.log(`[UserBanRepository] Info about ${this.bans.size} banned users has been loaded from the 'bans.json' file.`)
+            }
         }
     }
 
@@ -42,12 +48,7 @@ export class UserBanRepository implements IUserBanRepository
             // Создаём новый стрим для того, чтобы полностью перезаписать файл.
             const bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8" });
 
-            /*for (const ban of this.bans)
-            {
-                bansFileWS.write(JSON.stringify(ban[1]) + "\r\n");
-            }*/
-
-            bansFileWS.write(JSON.stringify(this.bans.values()));
+            bansFileWS.write(JSON.stringify(Array.from(this.bans.values()), null, 2));
 
             bansFileWS.on("finish", () =>
             {
