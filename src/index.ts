@@ -144,7 +144,15 @@ async function main()
     }
     catch (err)
     {
-        console.error(`[ОШИБКА] ${(err as Error).message}`);
+        const e = err as Error;
+        if (e.stack)
+        {
+            console.error(`[ERROR] ${e.stack}.`);
+        }
+        else
+        {
+            console.error(`[ERROR] ${e.name}: ${e.message}.`);
+        }
     }
 
     // для ввода в консоль сервера
