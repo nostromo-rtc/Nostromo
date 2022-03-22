@@ -5,10 +5,10 @@ import fs = require('fs');
 export interface IUserBanRepository
 {
     /** Создать запись о блокировке пользователя. */
-    create(info: UserBanInfo): string;
+    create(info: UserBanInfo): Promise<string>;
 
     /** Удалить запись о блокировке пользователя. */
-    remove(ip: string): void;
+    remove(ip: string): Promise<void>;
 
     /** Получить запись о блокировке пользователя по ip-адресу. */
     get(ip: string): UserBanInfo | undefined;
@@ -19,28 +19,91 @@ export interface IUserBanRepository
 
 export class UserBanRepository implements IUserBanRepository
 {
-    private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "config", "bans.txt");
+    private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "config", "bans.json");
     private bans = new Map<string, UserBanInfo>();
-    private bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { flags: 'a+', encoding: "utf8" });
+    private bansFileWS : fs.WriteStream;
 
-    public create(info: UserBanInfo): string
+    constructor()
+    {
+        this.bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8", flags: "a+" });
+        const fileContent = fs.readFileSync(this.BANS_FILE_PATH, 'utf-8');
+        if (fileContent)
+        {
+            const bansFromJson = JSON.parse(fileContent) as UserBanInfo[];
+            console.log(bansFromJson);
+        }
+    }
+
+    /** Полностью обновить содержимое файла с записями о блокировках пользователя. */
+    private async rewriteBansToFile(): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
+            const bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8" });
+
+            /*for (const ban of this.bans)
+            {
+                bansFileWS.write(JSON.stringify(ban[1]) + "\r\n");
+            }*/
+
+            bansFileWS.write(JSON.stringify(this.bans.values()));
+
+            bansFileWS.on("finish", () =>
+            {
+                resolve();
+            });
+
+            bansFileWS.on("error", (err: Error) =>
+            {
+                reject(err);
+            });
+
+            bansFileWS.end();
+        });
+    }
+
+    /** Полностью обновить содержимое файла с записями о блокировках пользователя. */
+    private async appendBanToFile(info: UserBanInfo): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // Дописываем в конец новую запись о блокировки пользователя.
+            this.bansFileWS.write(JSON.stringify(info) + "\r\n", (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                }
+                else
+                {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    public async create(info: UserBanInfo): Promise<string>
     {
         const { ip } = info;
 
         this.bans.set(ip, info);
 
-        //this.bansFileWS.write(info);
+        //await this.appendBanToFile(info);
+        await this.rewriteBansToFile();
 
         return ip;
     }
 
-    public remove(ip: string): void
+    public async remove(ip: string): Promise<void>
     {
         const ban = this.bans.get(ip);
 
         if (ban)
         {
             this.bans.delete(ip);
+
+            await this.rewriteBansToFile();
         }
     }
 

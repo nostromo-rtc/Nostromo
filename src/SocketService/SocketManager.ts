@@ -122,7 +122,8 @@ export class SocketManager
             this.generalSocketService,
             this.roomSocketService,
             roomRepository,
-            sessionMiddleware
+            sessionMiddleware,
+            userBanRepository
         );
     }
 }

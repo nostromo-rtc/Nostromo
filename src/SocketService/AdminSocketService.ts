@@ -9,24 +9,24 @@ import { IRoomRepository } from "../RoomRepository";
 import { NewRoomInfo, RoomLinkInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
+import { IUserBanRepository } from "../UserBanRepository";
 type Socket = SocketIO.Socket;
 
 export class AdminSocketService
 {
     private adminIo: SocketIO.Namespace;
-
     private generalSocketService: IGeneralSocketService;
-
     private roomSocketService: IRoomSocketService;
-
     private roomRepository: IRoomRepository;
+    private userBanRepository: IUserBanRepository;
 
     constructor(
         adminIo: SocketIO.Namespace,
         generalSocketService: IGeneralSocketService,
         roomSocketService: IRoomSocketService,
         roomRepository: IRoomRepository,
-        sessionMiddleware: RequestHandler
+        sessionMiddleware: RequestHandler,
+        userBanRepository: IUserBanRepository
     )
     {
         this.adminIo = adminIo;
@@ -34,6 +34,7 @@ export class AdminSocketService
         this.roomSocketService = roomSocketService;
 
         this.roomRepository = roomRepository;
+        this.userBanRepository = userBanRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.checkIp();
@@ -105,9 +106,12 @@ export class AdminSocketService
                 this.roomSocketService.kickUser(userId);
             });
 
-            socket.on(SE.StopUserVideo, (userId: string) =>
+            socket.on(SE.StopUserVideo, async (userId: string) =>
             {
                 this.roomSocketService.stopUserVideo(userId);
+
+                //TODO: вместе с баном нужно дисконект сокета.
+                await this.userBanRepository.create({ ip: `::ffff:192.168.1.${1}` });
             });
 
             socket.on(SE.StopUserAudio, (userId: string) =>
