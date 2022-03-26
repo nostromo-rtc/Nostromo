@@ -253,31 +253,37 @@ export class WebService
             return next();
         }
 
-        // если пользователь авторизован в этой комнате
+        // Если пользователь авторизован в этой комнате.
         if (req.session.auth && req.session.authRoomsId?.includes(roomId))
         {
             return joinInRoom(roomId);
         }
 
-        // если не авторизован, но есть пароль в query
         const pass = req.query.p as string || undefined;
-        if (pass)
+
+        // Если комната без пароля, или есть корректный пароль в query.
+        if (room.password.length == 0
+            || (pass && pass == room.password)
+        )
         {
-            if (pass == room.password)
+            // если у пользователя не было сессии
+            if (!req.session.auth)
             {
-                // если у пользователя не было сессии
-                if (!req.session.auth)
-                {
-                    req.session.auth = true;
-                    req.session.authRoomsId = new Array<string>();
-                }
-                // запоминаем для этого пользователя авторизованную комнату
-                req.session.authRoomsId!.push(roomId);
-                return joinInRoom(roomId);
+                req.session.auth = true;
+                req.session.authRoomsId = new Array<string>();
             }
-            return res.send("неправильный пароль");
+            // запоминаем для этого пользователя авторизованную комнату
+            req.session.authRoomsId!.push(roomId);
+            return joinInRoom(roomId);
         }
 
+        // Если пароль в query некорректный.
+        if (pass && pass != room.password)
+        {
+            return res.sendStatus(403);
+        }
+
+        // Иначе проходим авторизацию.
         req.session.joinedRoomId = roomId;
         return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
     }
