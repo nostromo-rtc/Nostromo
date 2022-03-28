@@ -64,26 +64,6 @@ export class UserBanRepository implements IUserBanRepository
         });
     }
 
-    /** Полностью обновить содержимое файла с записями о блокировках пользователя. */
-    private async appendBanToFile(info: UserBanInfo): Promise<void>
-    {
-        return new Promise((resolve, reject) =>
-        {
-            // Дописываем в конец новую запись о блокировки пользователя.
-            this.bansFileWS.write(JSON.stringify(info) + "\r\n", (err) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                }
-                else
-                {
-                    resolve();
-                }
-            });
-        });
-    }
-
     public async create(info: UserBanInfo): Promise<string>
     {
         const { ip } = info;
