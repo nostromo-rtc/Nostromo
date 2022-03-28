@@ -188,6 +188,10 @@ export class WebService
         {
             this.roomRoute(req, res, next);
         });
+        this.app.get('/r/:roomId', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            this.roomRoute(req, res, next);
+        });
 
         // [админка]
         this.app.get('/admin', (req: express.Request, res: express.Response) =>
@@ -339,6 +343,18 @@ export class WebService
         });
 
         this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        {
+            if (req.session.auth)
+            {
+                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
+            }
+            else
+            {
+                next();
+            }
+        });
+
+        this.app.use('/r', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
             if (req.session.auth)
             {
