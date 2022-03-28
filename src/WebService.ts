@@ -184,13 +184,22 @@ export class WebService
         });
 
         // [комната]
-        this.app.get('/rooms/:roomId', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+        this.app.get('/rooms/:roomId', async (
+            req: express.Request,
+            res: express.Response,
+            next: express.NextFunction
+        ) =>
         {
-            this.roomRoute(req, res, next);
+            await this.roomRoute(req, res, next);
         });
-        this.app.get('/r/:roomId', (req: express.Request, res: express.Response, next: express.NextFunction) =>
+
+        this.app.get('/r/:roomId', async (
+            req: express.Request,
+            res: express.Response,
+            next: express.NextFunction
+        ) =>
         {
-            this.roomRoute(req, res, next);
+            await this.roomRoute(req, res, next);
         });
 
         // [админка]
@@ -229,11 +238,11 @@ export class WebService
     }
 
     /** Маршруты для комнаты. */
-    private roomRoute(
+    private async roomRoute(
         req: express.Request,
         res: express.Response,
         next: express.NextFunction
-    ): void | express.Response
+    ): Promise<void | express.Response>
     {
         // запрещаем кешировать страницу с комнатой
         res.setHeader('Cache-Control', 'no-store');
@@ -263,33 +272,30 @@ export class WebService
             return joinInRoom(roomId);
         }
 
-        const pass = req.query.p as string || undefined;
+        // Берем пароль из query, а если его нет, то берем его как пустой пароль.
+        const pass = req.query.p as string ?? "";
 
-        // Если комната без пароля, или есть корректный пароль в query.
-        if (room.password.length == 0
-            || (pass && pass == room.password)
-        )
+        // Проверяем пароль.
+        const isPassCorrect = await this.roomRepository.checkPassword(room.id, pass);
+
+        // Корректный пароль в query.
+        if (isPassCorrect)
         {
-            // если у пользователя не было сессии
+            // Если у пользователя не было сессии.
             if (!req.session.auth)
             {
                 req.session.auth = true;
                 req.session.authRoomsId = new Array<string>();
             }
-            // запоминаем для этого пользователя авторизованную комнату
+            // Запоминаем для этого пользователя авторизованную комнату.
             req.session.authRoomsId!.push(roomId);
-            return joinInRoom(roomId);
+            joinInRoom(roomId);
         }
-
-        // Если пароль в query некорректный.
-        if (pass && pass != room.password)
+        else
         {
-            return res.sendStatus(403);
+            req.session.joinedRoomId = roomId;
+            res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
         }
-
-        // Иначе проходим авторизацию.
-        req.session.joinedRoomId = roomId;
-        return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
     }
 
     /** Обрабатываем маршруты, связанные с файлами. */

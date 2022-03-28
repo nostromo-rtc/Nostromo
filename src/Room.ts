@@ -58,6 +58,9 @@ export interface IRoom
     /** Пользователи в комнате. */
     readonly users: Map<string, User>;
 
+    /** Видеокодек для видеопотоков в комнате. */
+    readonly videoCodec: VideoCodec;
+
     /** Получить максимальный битрейт для видеопотоков в комнате. */
     get maxVideoBitrate(): number;
 
@@ -169,6 +172,8 @@ export class Room implements IRoom
     public get password(): string { return this._password; }
     public set password(value: string) { this._password = value; }
 
+    public readonly videoCodec: VideoCodec;
+
     /** Сервис для работы с медиапотоками Mediasoup. */
     private mediasoup: IMediasoupService;
 
@@ -218,6 +223,7 @@ export class Room implements IRoom
         this.id = roomId;
         this.name = name;
         this._password = password;
+        this.videoCodec = videoCodec;
 
         this.mediasoup = mediasoup;
         this.mediasoupRouters = mediasoupRouters;

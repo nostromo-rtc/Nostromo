@@ -15,15 +15,12 @@ import { SocketManager } from './SocketService/SocketManager';
 // mediasoup
 import { MediasoupService } from './MediasoupService';
 
-import { VideoCodec } from "nostromo-shared/types/RoomTypes";
-
 // логи
 import { prepareLogs } from "./Logger";
 
 // для ввода в консоль
 import readline = require('readline');
-import { IRoomRepository, PlainRoomRepository } from "./RoomRepository";
-import { NewRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { PlainRoomRepository } from "./RoomRepository";
 import { UserBanRepository } from "./UserBanRepository";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
@@ -74,20 +71,6 @@ function initApplication()
 
 }
 
-// инициализация тестовой комнаты
-async function initTestRoom(
-    roomRepository: IRoomRepository
-): Promise<void>
-{
-    const info: NewRoomInfo = {
-        name: process.env.DEV_TESTROOM_NAME ?? 'Тестовая',
-        pass: process.env.DEV_TESTROOM_PASS ?? 'testik1',
-        videoCodec: VideoCodec.VP8
-    };
-
-    await roomRepository.create(info);
-}
-
 // главная функция
 async function main()
 {
@@ -104,6 +87,7 @@ async function main()
         const fileService = new FileService();
         // Репозиторий комнат.
         const roomRepository = new PlainRoomRepository(mediasoupService);
+        await roomRepository.init();
         // Репозиторий блокировок пользователей.
         const userBanRepository = new UserBanRepository();
         // Express веб-сервис.
@@ -138,9 +122,6 @@ async function main()
             roomRepository,
             userBanRepository
         );
-
-        // Создаем тестовую комнату.
-        await initTestRoom(roomRepository);
     }
     catch (err)
     {

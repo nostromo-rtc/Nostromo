@@ -54,10 +54,12 @@ export class AuthSocketService
 
             socket.emit(SE.RoomName, room.name);
 
-            socket.on(SE.JoinRoom, (pass: string) =>
+            socket.on(SE.JoinRoom, async (pass: string) =>
             {
                 let result = false;
-                if (pass == room.password)
+                const authResult = await this.roomRepository.checkPassword(room.id, pass);
+
+                if (authResult)
                 {
                     // если у пользователя не было сессии
                     if (!session.auth)
