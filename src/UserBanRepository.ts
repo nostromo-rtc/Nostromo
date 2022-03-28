@@ -21,8 +21,6 @@ export class UserBanRepository implements IUserBanRepository
 {
     private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "config", "bans.json");
     private bans = new Map<string, UserBanInfo>();
-    private bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8", flags: "a+" });
-
     constructor()
     {
         if (fs.existsSync(this.BANS_FILE_PATH))
