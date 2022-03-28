@@ -33,7 +33,10 @@ export class UserBanRepository implements IUserBanRepository
                 {
                     this.bans.set(banRecord.ip, banRecord);
                 }
-                console.log(`[UserBanRepository] Info about ${this.bans.size} banned users has been loaded from the 'bans.json' file.`)
+                if (this.bans.size > 0)
+                {
+                    console.log(`[UserBanRepository] Info about ${this.bans.size} banned users has been loaded from the 'bans.json' file.`);
+                }
             }
         }
     }
