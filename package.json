@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc -p src/tsconfig.json",
-    "prepare": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
     "express-session": "1.17.2",
     "mediasoup": "3.9.6",
     "nanoid": "3.2.0",
+    "nostromo-web": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#dev",
     "socket.io": "4.4.1"
   },
   "devDependencies": {
@@ -30,7 +31,6 @@
     "@typescript-eslint/parser": "5.17.0",
     "eslint": "8.12.0",
     "nostromo-shared": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#dev",
-    "nostromo-web": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#dev",
     "typescript": "4.6.3"
   },
   "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme",
