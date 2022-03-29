@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc -p src/tsconfig.json",
-    "postinstall": "npm run build"
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -15,23 +15,26 @@
   "author": "SgAkErRu",
   "license": "BSD-3-Clause",
   "dependencies": {
-    "dotenv": "^10.0.0",
-    "express": "^4.17.2",
-    "express-session": "^1.17.2",
-    "mediasoup": "^3.9.6",
-    "nanoid": "^3.2.0",
-    "socket.io": "^4.4.1"
+    "dotenv": "10.0.0",
+    "express": "4.17.2",
+    "express-session": "1.17.2",
+    "mediasoup": "3.9.6",
+    "nanoid": "3.2.0",
+    "socket.io": "4.4.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.13",
-    "@types/express-session": "^1.17.4",
-    "@types/node": "^12.20.47",
-    "@typescript-eslint/eslint-plugin": "^5.10.1",
-    "@typescript-eslint/parser": "^5.10.1",
-    "eslint": "^8.7.0",
+    "@types/express": "4.17.13",
+    "@types/express-session": "1.17.4",
+    "@types/node": "12.20.47",
+    "@typescript-eslint/eslint-plugin": "5.17.0",
+    "@typescript-eslint/parser": "5.17.0",
+    "eslint": "8.12.0",
     "nostromo-shared": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#dev",
     "nostromo-web": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#dev",
-    "typescript": "^4.5.5"
+    "typescript": "4.6.3"
   },
-  "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme"
+  "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme",
+  "bundleDependencies": [
+    "nostromo-web"
+  ]
 }
