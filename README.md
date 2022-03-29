@@ -83,7 +83,8 @@ openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -ou
 
 ## Требования для запуска программы
 Данное требование обязательно, поскольку необходимо для запуска:
->`Node.js LTS` (тестировалось на v16.13.2).
+>`Node.js LTS` (тестировалось на v12.22.11).
+>`npm 8` (тестировалось на 8.5.5).
 
 ## Требования для сборки проекта
 Если вы решили собрать проект из исходников, должна быть установлена программа (пакет):
@@ -101,9 +102,9 @@ openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -ou
     * GNU make необходимо установить из MSYS из пакета [MinGW](https://sourceforge.net/projects/mingw/). Убедитесь, что путь до папки с бинарным файлом `make` прописан в параметре окружения `PATH` (например C:\MinGW\msys\1.0\bin).
 
 ### Linux (тестировалось на Debian 11 Bullseye)
-* python версии >= 3.6 с PIP (тестировалось на 3.10.2)
+* python версии >= 3.6 с PIP (тестировалось на 3.9.2-3)
 * make
-* gcc и g++ >= 4.9 или clang (с поддержкой C++11) (тестировалось на gcc 8.3.0-6)
+* gcc и g++ >= 4.9 или clang (с поддержкой C++11) (тестировалось на gcc 10.2.1-1)
 * команды (symlinks) cc и c++ указывающие на соответствущие исполняемые файлы gcc/g++ или clang/clang++.
 
 > В `Debian` и `Ubuntu` установите `build-essential` .deb пакет. Он включает в себя и make и gcc/g++.
@@ -221,7 +222,8 @@ openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -ou
 
 ## Requirements for launching program
 This requirement is mandatory, since it is necessary for launching program:
->`Node.js LTS` (tested on v16.13.2).
+>`Node.js LTS` (tested on v12.22.11).
+>`npm 8` (testen on 8.5.5).
 
 ## Requirements for building project
 If you decided to build project from sources, you have to install program (package):
@@ -239,9 +241,9 @@ In order to [build](https://mediasoup.org/documentation/v3/mediasoup/installatio
     * GNU make have to be installed with MSYS from [MinGW](https://sourceforge.net/projects/mingw/) and make sure to append the path of folder containing make to the Windows Path environment variable (e.g. C:\MinGW\msys\1.0\bin).
 
 ### Linux (tested on Debian 11 Bullseye)
-* python version >= 3.6 with PIP (tested on 3.10.2)
+* python version >= 3.6 with PIP (tested on 3.9.2-3)
 * make
-* gcc and g++ >= 4.9 or clang (with C++11 support) (tested on gcc 8.3.0-6)
+* gcc and g++ >= 4.9 or clang (with C++11 support) (tested on gcc 10.2.1-1)
 * cc and c++ commands (symlinks) pointing to the corresponding gcc/g++ or clang/clang++ executables.
 
 > On `Debian` and `Ubuntu` install the `build-essential` .deb package. It includes both make and gcc/g++.
