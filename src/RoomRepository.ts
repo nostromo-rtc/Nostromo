@@ -1,5 +1,6 @@
 
-import { NewRoomInfo, RoomLinkInfo } from "nostromo-shared/types/AdminTypes";
+import { NewRoomInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { RoomInfo, PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IMediasoupService } from "./MediasoupService";
 import { IRoom, Room } from "./Room";
@@ -8,10 +9,6 @@ import path = require('path');
 import fs = require('fs');
 import { scrypt } from "crypto";
 
-interface RoomInfo extends NewRoomInfo
-{
-    id: string;
-}
 
 export interface IRoomRepository
 {
@@ -21,6 +18,9 @@ export interface IRoomRepository
     /** Удалить комнату. */
     remove(id: string): Promise<void>;
 
+    /** Изменить информацию о комнате. */
+    update(info: UpdateRoomInfo): Promise<void>;
+
     /** Получить комнату. */
     get(id: string): IRoom | undefined;
 
@@ -28,7 +28,7 @@ export interface IRoomRepository
     has(id: string): boolean,
 
     /** Получить список ссылок на комнаты. */
-    getRoomLinkList(): RoomLinkInfo[];
+    getRoomLinkList(): PublicRoomInfo[];
 
     /** Получить список пользователей в комнате roomId. */
     getUserList(roomId: string): UserInfo[];
@@ -62,7 +62,7 @@ export class PlainRoomRepository implements IRoomRepository
                 for (const room of roomsFromJson)
                 {
                     this.rooms.set(room.id, await Room.create(
-                        room.id, room.name, room.pass, room.videoCodec,
+                        room.id, room.name, room.hashPassword, room.videoCodec,
                         this.mediasoup)
                     );
                 }
@@ -82,14 +82,14 @@ export class PlainRoomRepository implements IRoomRepository
 
     public async create(info: NewRoomInfo): Promise<string>
     {
-        const { name, pass, videoCodec } = info;
+        const { name, password, videoCodec } = info;
 
         const id = String(this.latestRoomIndex++);
 
         let hashPassword = "";
-        if (pass.length > 0)
+        if (password.length > 0)
         {
-            hashPassword = await this.generateHashPassword(pass);
+            hashPassword = await this.generateHashPassword(password);
         }
 
         this.rooms.set(id, await Room.create(
@@ -115,6 +115,31 @@ export class PlainRoomRepository implements IRoomRepository
         }
     }
 
+    public async update(info: UpdateRoomInfo)
+    {
+        const { id, name, password } = info;
+
+        const room = this.rooms.get(id)!;
+
+        if (name)
+        {
+            room.name = name;
+        }
+
+        if (password != undefined)
+        {
+            let hashPassword = "";
+            if (password.length > 0)
+            {
+                hashPassword = await this.generateHashPassword(password);
+            }
+
+            room.password = hashPassword;
+        }
+
+        await this.rewriteRoomsToFile();
+    }
+
     public get(id: string): IRoom | undefined
     {
         return this.rooms.get(id);
@@ -125,13 +150,18 @@ export class PlainRoomRepository implements IRoomRepository
         return this.rooms.has(id);
     }
 
-    public getRoomLinkList(): RoomLinkInfo[]
+    public getRoomLinkList(): PublicRoomInfo[]
     {
-        const roomList: RoomLinkInfo[] = [];
+        const roomList: PublicRoomInfo[] = [];
 
-        for (const room of this.rooms)
+        for (const roomRec of this.rooms)
         {
-            roomList.push({ id: room[0], name: room[1].name });
+            const room = roomRec[1];
+            roomList.push({
+                id: room.id,
+                name: room.name,
+                videoCodec: room.videoCodec
+            });
         }
 
         return roomList;
@@ -171,7 +201,7 @@ export class PlainRoomRepository implements IRoomRepository
                 roomsArr.push({
                     id: room.id,
                     name: room.name,
-                    pass: room.password,
+                    hashPassword: room.password,
                     videoCodec: room.videoCodec
                 });
             }

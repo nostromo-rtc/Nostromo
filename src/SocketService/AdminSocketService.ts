@@ -6,9 +6,9 @@ import { HandshakeSession } from "./SocketManager";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../RoomRepository";
-import { NewRoomInfo, RoomLinkInfo } from "nostromo-shared/types/AdminTypes";
+import { NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
-import { UserInfo } from "nostromo-shared/types/RoomTypes";
+import { PublicRoomInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../UserBanRepository";
 type Socket = SocketIO.Socket;
 
@@ -81,21 +81,22 @@ export class AdminSocketService
 
             socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
 
-            socket.on(SE.DeleteRoom, (roomId: string) =>
+            socket.on(SE.DeleteRoom, async (roomId: string) =>
             {
                 this.generalSocketService.notifyAboutDeletedRoom(roomId);
                 this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
                 this.roomSocketService.kickAllUsers(roomId);
-                this.roomRepository.remove(roomId);
+                await this.roomRepository.remove(roomId);
             });
 
             socket.on(SE.CreateRoom, async (info: NewRoomInfo) =>
             {
                 const id = await this.roomRepository.create(info);
 
-                const newRoomInfo: RoomLinkInfo = {
+                const newRoomInfo: PublicRoomInfo = {
                     id,
-                    name: info.name
+                    name: info.name,
+                    videoCodec: info.videoCodec
                 };
 
                 this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
@@ -128,12 +129,22 @@ export class AdminSocketService
 
             socket.on(SE.BanUserByIp, async (userIp: string) =>
             {
-                await this.userBanRepository.create({ip: userIp});
+                await this.userBanRepository.create({ ip: userIp });
             });
 
             socket.on(SE.UnbanUserByIp, async (userIp: string) =>
             {
                 await this.userBanRepository.remove(userIp);
+            });
+
+            socket.on(SE.ChangeRoomName, async (info: NewRoomNameInfo) =>
+            {
+                await this.changeRoomName(info);
+            });
+
+            socket.on(SE.ChangeRoomPass, async (info: NewRoomPassInfo) =>
+            {
+                await this.changeRoomPass(info);
             });
         });
     }
@@ -153,5 +164,37 @@ export class AdminSocketService
 
             socket.emit(SE.Result, result);
         });
+    }
+
+    /** Изменить название комнаты. */
+    private async changeRoomName(info: NewRoomNameInfo)
+    {
+        const { id, name } = info;
+        const room = this.roomRepository.get(id);
+
+        if (!room)
+        {
+            return;
+        }
+
+        const updateRoomInfo: UpdateRoomInfo = { id, name };
+        await this.roomRepository.update(updateRoomInfo);
+
+        this.generalSocketService.notifyAboutChangedRoomName({id, name});
+    }
+
+    /** Изменить пароль комнаты. */
+    private async changeRoomPass(info: NewRoomPassInfo)
+    {
+        const { id, password } = info;
+        const room = this.roomRepository.get(id);
+
+        if (!room)
+        {
+            return;
+        }
+
+        const updateRoomInfo: UpdateRoomInfo = { id, password };
+        await this.roomRepository.update(updateRoomInfo);
     }
 }

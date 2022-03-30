@@ -47,7 +47,10 @@ export interface IRoom
     readonly id: string;
 
     /** Название комнаты. */
-    readonly name: string;
+    get name(): string;
+
+    /** Установить название комнате. */
+    set name(value: string);
 
     /** Пароль от комнаты. */
     get password(): string;
@@ -165,7 +168,10 @@ export class Room implements IRoom
 {
     public readonly id: string;
 
-    public readonly name: string;
+    /** Название комнаты. */
+    private _name: string;
+    public get name(): string { return this._name; }
+    public set name(value: string) { this._name = value; }
 
     /** Пароль комнаты. */
     private _password: string;
@@ -221,7 +227,7 @@ export class Room implements IRoom
         console.log(`[Room] creating a new Room [#${roomId}, ${name}, ${videoCodec}]`);
 
         this.id = roomId;
-        this.name = name;
+        this._name = name;
         this._password = password;
         this.videoCodec = videoCodec;
 
