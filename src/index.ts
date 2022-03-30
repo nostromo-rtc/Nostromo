@@ -22,6 +22,7 @@ import { prepareLogs } from "./Logger";
 import readline = require('readline');
 import { PlainRoomRepository } from "./RoomRepository";
 import { UserBanRepository } from "./UserBanRepository";
+import { UserAccountRepository } from "./UserAccountRepository";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -83,15 +84,17 @@ async function main()
         const numWorkers = os.cpus().length;
         // Сервис для работы с медиапотоками.
         const mediasoupService = await MediasoupService.create(numWorkers);
+        // Репозиторий аккаунтов пользователей.
+        const userAccountRepository = new UserAccountRepository();
         // Сервис для работы с файлами.
-        const fileService = new FileService();
+        const fileService = new FileService(userAccountRepository);
         // Репозиторий комнат.
         const roomRepository = new PlainRoomRepository(mediasoupService);
         await roomRepository.init();
         // Репозиторий блокировок пользователей.
         const userBanRepository = new UserBanRepository();
         // Express веб-сервис.
-        const express = new WebService(roomRepository, fileService, userBanRepository);
+        const express = new WebService(roomRepository, fileService, userAccountRepository, userBanRepository);
 
         const httpServer: http.Server = http.createServer(express.app);
         const httpPort = process.env.HTTP_PORT;
@@ -120,6 +123,7 @@ async function main()
             express.sessionMiddleware,
             fileService,
             roomRepository,
+            userAccountRepository,
             userBanRepository
         );
     }

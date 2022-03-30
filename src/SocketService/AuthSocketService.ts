@@ -3,6 +3,7 @@ import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
+import { IUserAccountRepository } from "../UserAccountRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -14,14 +15,17 @@ export class AuthSocketService
 {
     private authIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
+    private userAccountRepository: IUserAccountRepository;
     constructor(
         authIo: SocketIO.Namespace,
         roomRepository: IRoomRepository,
+        userAccountRepository: IUserAccountRepository,
         sessionMiddleware: RequestHandler
     )
     {
         this.authIo = authIo;
         this.roomRepository = roomRepository;
+        this.userAccountRepository = userAccountRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.clientConnected();
@@ -61,14 +65,15 @@ export class AuthSocketService
 
                 if (authResult)
                 {
-                    // если у пользователя не было сессии
-                    if (!session.auth)
+                    let userId = session.userId;
+                    // Если у пользователя не было сессии.
+                    if (!userId)
                     {
-                        session.auth = true;
-                        session.authRoomsId = new Array<string>();
+                        userId = this.userAccountRepository.create({role: "user"});
+                        session.userId = userId;
                     }
-                    // запоминаем для этого пользователя авторизованную комнату
-                    session.authRoomsId!.push(roomId);
+                    // Запоминаем для этого пользователя авторизованную комнату.
+                    this.userAccountRepository.setAuthInRoom(userId, roomId);
                     session.save();
 
                     result = true;

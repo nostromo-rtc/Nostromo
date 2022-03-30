@@ -7,6 +7,7 @@ import { IRoomRepository } from "./RoomRepository";
 
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { IUserBanRepository } from "./UserBanRepository";
+import { IUserAccountRepository } from "./UserAccountRepository";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
@@ -14,15 +15,11 @@ const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 declare module 'express-session' {
     interface SessionData
     {
-        /** Авторизован ли пользователь? */
-        auth: boolean;
-        /** Список комнат, в которых пользователь авторизован. */
-        authRoomsId: string[];
-        /** В данный момент пользователь находится в комнате? */
-        joined: boolean;
+        /** Идентификатор аккаунта пользователя. */
+        userId: string;
         /** Id комнаты, в которой находится пользователь. */
         joinedRoomId: string;
-        /** Является ли пользователь администратором? */
+        /** Имеет ли пользователь права администратора на время сессии? */
         admin: boolean;
     }
 }
@@ -36,7 +33,7 @@ export class WebService
     /** Обработчик сессий. */
     public sessionMiddleware: express.RequestHandler = session({
         secret: process.env.EXPRESS_SESSION_KEY!,
-        name: 'sessionId',
+        name: 'session-id',
         resave: false,
         saveUninitialized: false,
         cookie: {
@@ -51,17 +48,22 @@ export class WebService
     /** Обработчик файлов. */
     private fileService: IFileService;
 
+    /** Аккаунты пользователей. */
+    private userAccountRepository: IUserAccountRepository;
+
     /** Блокировки пользователей. */
     private userBanRepository: IUserBanRepository;
 
     constructor(
         roomRepository: IRoomRepository,
         fileService: IFileService,
+        userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository
     )
     {
         this.roomRepository = roomRepository;
         this.fileService = fileService;
+        this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
 
         this.app.use((req, res, next) => this.checkBanMiddleware(req, res, next));
@@ -250,9 +252,6 @@ export class WebService
         // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
         const joinInRoom = (roomId: string): void =>
         {
-            // сокет сделает данный параметр true,
-            // joined нужен для предотвращения создания двух сокетов от одного юзера в одной комнате на одной вкладке
-            req.session.joined = false;
             req.session.joinedRoomId = roomId;
             return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
         };
@@ -266,8 +265,10 @@ export class WebService
             return next();
         }
 
+        const userId = req.session.userId;
+
         // Если пользователь авторизован в этой комнате.
-        if (req.session.auth && req.session.authRoomsId?.includes(roomId))
+        if (userId && this.userAccountRepository.isAuthInRoom(userId, roomId))
         {
             return joinInRoom(roomId);
         }
@@ -281,14 +282,17 @@ export class WebService
         // Корректный пароль в query.
         if (isPassCorrect)
         {
+            let userId = req.session.userId;
+
             // Если у пользователя не было сессии.
-            if (!req.session.auth)
+            if (!userId)
             {
-                req.session.auth = true;
-                req.session.authRoomsId = new Array<string>();
+                userId = this.userAccountRepository.create({ role: "user" });
+                req.session.userId = userId;
             }
+
             // Запоминаем для этого пользователя авторизованную комнату.
-            req.session.authRoomsId!.push(roomId);
+            this.userAccountRepository.setAuthInRoom(userId, roomId);
             joinInRoom(roomId);
         }
         else
@@ -337,39 +341,17 @@ export class WebService
     {
         this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
-            if ((req.ip == process.env.ALLOW_ADMIN_IP)
-                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
-            {
-                express.static(frontend_dirname + "/static/admin/")(req, res, next);
-            }
-            else
-            {
-                next();
-            }
+            express.static(frontend_dirname + "/static/admin/")(req, res, next);
         });
 
         this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
-            if (req.session.auth)
-            {
-                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
-            }
-            else
-            {
-                next();
-            }
+            express.static(frontend_dirname + "/static/rooms/")(req, res, next);
         });
 
         this.app.use('/r', (req: express.Request, res: express.Response, next: express.NextFunction) =>
         {
-            if (req.session.auth)
-            {
-                express.static(frontend_dirname + "/static/rooms/")(req, res, next);
-            }
-            else
-            {
-                next();
-            }
+            express.static(frontend_dirname + "/static/rooms/")(req, res, next);
         });
 
         this.app.use('/', express.static(frontend_dirname + "/static/public/"));

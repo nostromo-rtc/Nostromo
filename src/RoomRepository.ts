@@ -8,6 +8,7 @@ import { IRoom, Room } from "./Room";
 import path = require('path');
 import fs = require('fs');
 import { scrypt } from "crypto";
+import { nanoid } from "nanoid";
 
 
 export interface IRoomRepository
@@ -42,7 +43,6 @@ export class PlainRoomRepository implements IRoomRepository
     private readonly ROOMS_FILE_PATH = path.resolve(process.cwd(), "config", "rooms.json");
     private readonly hashSalt = Buffer.from(process.env.ROOM_PASS_HASH_SALT!, "hex");
     private rooms = new Map<string, IRoom>();
-    private latestRoomIndex = 0;
     private mediasoup: IMediasoupService;
 
     constructor(mediasoup: IMediasoupService)
@@ -67,11 +67,6 @@ export class PlainRoomRepository implements IRoomRepository
                     );
                 }
 
-                if (roomsFromJson.length > 0)
-                {
-                    this.latestRoomIndex = Number(roomsFromJson[roomsFromJson.length - 1].id) + 1;
-                }
-
                 if (this.rooms.size > 0)
                 {
                     console.log(`[PlainRoomRepository] Info about ${this.rooms.size} rooms has been loaded from the 'rooms.json' file.`);
@@ -84,7 +79,7 @@ export class PlainRoomRepository implements IRoomRepository
     {
         const { name, password, videoCodec } = info;
 
-        const id = String(this.latestRoomIndex++);
+        const id: string = nanoid(11);
 
         let hashPassword = "";
         if (password.length > 0)

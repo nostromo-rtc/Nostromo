@@ -13,6 +13,7 @@ import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketServ
 import { AuthSocketService } from "./AuthSocketService";
 import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
 import { IUserBanRepository } from "../UserBanRepository";
+import { IUserAccountRepository } from "../UserAccountRepository";
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -78,6 +79,7 @@ export class SocketManager
         sessionMiddleware: RequestHandler,
         fileService: IFileService,
         roomRepository: IRoomRepository,
+        userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository
     )
     {
@@ -105,6 +107,7 @@ export class SocketManager
         this.authSocketService = new AuthSocketService(
             this.namespaces.get("auth")!,
             roomRepository,
+            userAccountRepository,
             sessionMiddleware
         );
 
@@ -112,10 +115,11 @@ export class SocketManager
         this.roomSocketService = new RoomSocketService(
             this.namespaces.get("room")!,
             this.generalSocketService,
-            roomRepository,
-            sessionMiddleware,
             fileService,
-            userBanRepository
+            roomRepository,
+            userAccountRepository,
+            userBanRepository,
+            sessionMiddleware
         );
 
         // события администратора
@@ -124,8 +128,9 @@ export class SocketManager
             this.generalSocketService,
             this.roomSocketService,
             roomRepository,
-            sessionMiddleware,
-            userBanRepository
+            userAccountRepository,
+            userBanRepository,
+            sessionMiddleware
         );
     }
 }

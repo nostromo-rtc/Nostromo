@@ -10,6 +10,7 @@ import { HandshakeSession } from "./SocketManager";
 import { MediasoupTypes } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
 import { IUserBanRepository } from "../UserBanRepository";
+import { IUserAccountRepository } from "../UserAccountRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -39,6 +40,7 @@ export class RoomSocketService implements IRoomSocketService
 {
     private roomIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
+    private userAccountRepository: IUserAccountRepository;
     private userBanRepository: IUserBanRepository;
     private generalSocketService: IGeneralSocketService;
     private fileService: IFileService;
@@ -47,17 +49,19 @@ export class RoomSocketService implements IRoomSocketService
     constructor(
         roomIo: SocketIO.Namespace,
         generalSocketService: IGeneralSocketService,
-        roomRepository: IRoomRepository,
-        sessionMiddleware: RequestHandler,
         fileService: IFileService,
-        userBanRepository: IUserBanRepository
+        roomRepository: IRoomRepository,
+        userAccountRepository: IUserAccountRepository,
+        userBanRepository: IUserBanRepository,
+        sessionMiddleware: RequestHandler,
     )
     {
         this.roomIo = roomIo;
         this.generalSocketService = generalSocketService;
         this.roomRepository = roomRepository;
-        this.fileService = fileService;
+        this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
+        this.fileService = fileService;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.checkAuth();
@@ -79,18 +83,14 @@ export class RoomSocketService implements IRoomSocketService
         this.roomIo.use((socket: Socket, next) =>
         {
             const session = socket.handshake.session!;
-            // у пользователя есть сессия
-            if (session.auth)
+
+            const userId = session.userId;
+            const roomId = session.joinedRoomId;
+
+            // Если пользователь авторизован в запрашиваемой комнате
+            if (userId && roomId && this.userAccountRepository.isAuthInRoom(userId, roomId))
             {
-                // если он авторизован в запрашиваемой комнате
-                if (session.joinedRoomId
-                    && session.authRoomsId?.includes(session.joinedRoomId)
-                    && session.joined == false)
-                {
-                    session.joined = true;
-                    session.save();
-                    return next();
-                }
+                return next();
             }
             return next(new Error("unauthorized"));
         });
@@ -590,9 +590,6 @@ export class RoomSocketService implements IRoomSocketService
         reason: string
     )
     {
-        session.joined = false;
-        session.save();
-
         room.userDisconnected(socket.id);
 
         const userIp = socket.handshake.address.substring(7);
@@ -683,7 +680,7 @@ export class RoomSocketService implements IRoomSocketService
             const ip = userSocket.handshake.address.substring(7);
 
             // Создаём запись о блокировке пользователя.
-            await this.userBanRepository.create({ip});
+            await this.userBanRepository.create({ ip });
 
             // Разрываем соединение веб-сокета с клиентом.
             userSocket.disconnect(true);

@@ -5,6 +5,7 @@ import fs = require('fs');
 import { FileServiceResponse, FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
 import { WebService } from "../WebService";
+import { IUserAccountRepository } from "../UserAccountRepository";
 
 /** Случайный Id + расширение */
 type FileId = string;
@@ -20,7 +21,7 @@ export type FileInfo = {
     size: number;
     /** Сколько байт уже было получено сервером. */
     bytesWritten: number;
-    /** Id сессии пользователя, загружающего файл. */
+    /** Id аккаунта пользователя, загружающего файл. */
     ownerId: string;
     /** Id комнаты, в которой загружали файл. */
     roomId: string;
@@ -63,9 +64,11 @@ export class FileService implements IFileService
 {
     private readonly FILES_PATH = path.join(process.cwd(), FileServiceConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
+    private userAccountRepository: IUserAccountRepository;
 
-    constructor()
+    constructor(userAccountRepository: IUserAccountRepository)
     {
+        this.userAccountRepository = userAccountRepository;
         if (!process.env.FILE_MAX_SIZE)
         {
             process.env.FILE_MAX_SIZE = String(20 * 1024 * 1024 * 1024);
@@ -227,7 +230,7 @@ export class FileService implements IFileService
         console.log(`[FileHandler] User (${req.ip}) downloading file:`, fileInfo);
         const filePath = path.join(this.FILES_PATH, fileId);
 
-        const customRes = new GetResponse(req, fileInfo, filePath);
+        const customRes = new GetResponse(req, fileInfo, filePath, this.userAccountRepository);
 
         if (!customRes.successful)
         {
@@ -245,20 +248,21 @@ export class FileService implements IFileService
     {
         const conditionForPrevent = !WebService.requestHasNotBody(req);
 
-        // проверяем, имеет ли право пользователь
-        // выкладывать файл в комнату с номером Room-Id
+        // Проверяем, имеет ли право пользователь userId
+        // выкладывать файл в комнату с номером Room-Id.
         const roomId = req.header("Room-Id")?.toString();
-        if (!roomId || !req.session.authRoomsId?.includes(roomId))
+        const userId = req.session.userId;
+        if (!roomId || !userId || !this.userAccountRepository.isAuthInRoom(userId, roomId))
         {
             this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, 403);
             return;
         }
 
         // запоминаем владельца файла
-        const ownerId = req.session.id;
+        const ownerId = userId;
 
-        // генерируем уникальный Id для файла
-        // этот Id и является названием файла на сервере
+        // Генерируем уникальный Id для файла.
+        // Этот Id и является названием файла на сервере.
         const fileId: string = nanoid(32);
 
         const tusRes = new TusPostCreationResponse(req, fileId, ownerId, roomId);

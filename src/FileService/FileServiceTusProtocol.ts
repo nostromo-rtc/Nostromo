@@ -2,6 +2,7 @@ import { FileServiceConstants, FileServiceResponse, OutgoingHttpHeaders } from "
 import { FileInfo } from "./FileService";
 import express = require("express");
 import fs = require("fs");
+import { IUserAccountRepository } from "../UserAccountRepository";
 export class TusHeadResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
@@ -24,9 +25,9 @@ export class TusHeadResponse implements FileServiceResponse
             this.statusCode = 404;
         }
 
-        // если это не владелец файла
-        // то есть этот пользователь не вызывал post creation запрос
-        else if (fileInfo.ownerId != req.session.id)
+        // Если это не владелец файла,
+        // то есть этот пользователь не вызывал post creation запрос.
+        else if (fileInfo.ownerId != req.session.userId)
         {
             this.statusCode = 403;
         }
@@ -69,9 +70,9 @@ export class TusPatchResponse implements FileServiceResponse
             this.statusCode = 404;
         }
 
-        // если это не владелец файла
+        // Если это не владелец файла,
         // то есть этот пользователь не вызывал post creation запрос
-        else if (fileInfo.ownerId != req.session.id)
+        else if (fileInfo.ownerId != req.session.userId)
         {
             this.statusCode = 403;
         }
@@ -203,7 +204,12 @@ export class GetResponse implements FileServiceResponse
     public statusMsg?: string;
     public successful = false;
 
-    constructor(req: express.Request, fileInfo: FileInfo | undefined, filePath: string)
+    constructor(
+        req: express.Request,
+        fileInfo: FileInfo | undefined,
+        filePath: string,
+        userAccountRepository: IUserAccountRepository
+    )
     {
         // если файла не существует
         if (!fileInfo || !fs.existsSync(filePath))
@@ -212,11 +218,11 @@ export class GetResponse implements FileServiceResponse
             return;
         }
 
-        // если пользователь не авторизован в комнате
+        const userId = req.session.userId;
+
+        // Если пользователь не авторизован в комнате
         // и не имеет права качать этот файл
-        if (!req.session.auth ||
-            !req.session.authRoomsId?.includes(fileInfo.roomId)
-        )
+        if (!userId || !userAccountRepository.isAuthInRoom(userId, fileInfo.roomId))
         {
             this.statusCode = 403;
             return;

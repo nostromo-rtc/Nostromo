@@ -224,7 +224,7 @@ export class Room implements IRoom
         mediasoup: IMediasoupService, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec
     )
     {
-        console.log(`[Room] creating a new Room [#${roomId}, ${name}, ${videoCodec}]`);
+        console.log(`[Room] creating a new Room [ID: ${roomId}, ${name}, ${videoCodec}]`);
 
         this.id = roomId;
         this._name = name;
@@ -565,7 +565,7 @@ export class Room implements IRoom
     {
         // TODO: функционал этого метода пока что не проверялся.
         // Надо бы проверить.
-        console.log(`[Room] closing Room [${this.id}]`);
+        console.log(`[Room] closing Room [ID: ${this.id}]`);
 
         for (const router of this.mediasoupRouters)
         {

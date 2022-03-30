@@ -10,6 +10,8 @@ import { NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, UpdateRoomInfo } from "n
 import { IRoomSocketService } from "./RoomSocketService";
 import { PublicRoomInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../UserBanRepository";
+import { IUserAccountRepository } from "../UserAccountRepository";
+
 type Socket = SocketIO.Socket;
 
 export class AdminSocketService
@@ -18,6 +20,7 @@ export class AdminSocketService
     private generalSocketService: IGeneralSocketService;
     private roomSocketService: IRoomSocketService;
     private roomRepository: IRoomRepository;
+    private userAccountRepository: IUserAccountRepository;
     private userBanRepository: IUserBanRepository;
 
     constructor(
@@ -25,8 +28,9 @@ export class AdminSocketService
         generalSocketService: IGeneralSocketService,
         roomSocketService: IRoomSocketService,
         roomRepository: IRoomRepository,
-        sessionMiddleware: RequestHandler,
-        userBanRepository: IUserBanRepository
+        userAccountRepository: IUserAccountRepository,
+        userBanRepository: IUserBanRepository,
+        sessionMiddleware: RequestHandler
     )
     {
         this.adminIo = adminIo;
@@ -34,6 +38,7 @@ export class AdminSocketService
         this.roomSocketService = roomSocketService;
 
         this.roomRepository = roomRepository;
+        this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
@@ -83,23 +88,12 @@ export class AdminSocketService
 
             socket.on(SE.DeleteRoom, async (roomId: string) =>
             {
-                this.generalSocketService.notifyAboutDeletedRoom(roomId);
-                this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
-                this.roomSocketService.kickAllUsers(roomId);
-                await this.roomRepository.remove(roomId);
+                await this.deleteRoom(roomId);
             });
 
             socket.on(SE.CreateRoom, async (info: NewRoomInfo) =>
             {
-                const id = await this.roomRepository.create(info);
-
-                const newRoomInfo: PublicRoomInfo = {
-                    id,
-                    name: info.name,
-                    videoCodec: info.videoCodec
-                };
-
-                this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
+                await this.createRoom(info);
             });
 
             socket.on(SE.KickUser, (userId: string) =>
@@ -147,6 +141,29 @@ export class AdminSocketService
                 await this.changeRoomPass(info);
             });
         });
+    }
+
+    /** Создать комнату. */
+    private async createRoom(info: NewRoomInfo)
+    {
+        const id = await this.roomRepository.create(info);
+
+        const newRoomInfo: PublicRoomInfo = {
+            id,
+            name: info.name,
+            videoCodec: info.videoCodec
+        };
+
+        this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
+    }
+
+    /** Удалить комнату. */
+    private async deleteRoom(roomId: string)
+    {
+        this.generalSocketService.notifyAboutDeletedRoom(roomId);
+        this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
+        this.roomSocketService.kickAllUsers(roomId);
+        await this.roomRepository.remove(roomId);
     }
 
     /** Авторизация в админку. */
