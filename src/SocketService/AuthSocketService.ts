@@ -16,6 +16,7 @@ export class AuthSocketService
     private authIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
     private userAccountRepository: IUserAccountRepository;
+
     constructor(
         authIo: SocketIO.Namespace,
         roomRepository: IRoomRepository,
@@ -66,15 +67,16 @@ export class AuthSocketService
                 if (authResult)
                 {
                     let userId = session.userId;
+
                     // Если у пользователя не было сессии.
                     if (!userId)
                     {
-                        userId = this.userAccountRepository.create({role: "user"});
+                        userId = this.userAccountRepository.create({ role: "user" });
                         session.userId = userId;
+                        session.save();
                     }
                     // Запоминаем для этого пользователя авторизованную комнату.
-                    this.userAccountRepository.setAuthInRoom(userId, roomId);
-                    session.save();
+                    this.roomRepository.setAuthInRoom(roomId, userId);
 
                     result = true;
                 }

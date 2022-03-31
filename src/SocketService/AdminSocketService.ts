@@ -6,9 +6,9 @@ import { HandshakeSession } from "./SocketManager";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../RoomRepository";
-import { NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
-import { PublicRoomInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../UserBanRepository";
 import { IUserAccountRepository } from "../UserAccountRepository";
 
@@ -96,29 +96,29 @@ export class AdminSocketService
                 await this.createRoom(info);
             });
 
-            socket.on(SE.KickUser, (userId: string) =>
+            socket.on(SE.KickUser, (info: ActionOnUserInfo) =>
             {
-                this.roomSocketService.kickUser(userId);
+                this.roomSocketService.kickUser(info);
             });
 
-            socket.on(SE.StopUserVideo, (userId: string) =>
+            socket.on(SE.StopUserVideo, (info: ActionOnUserInfo) =>
             {
-                this.roomSocketService.stopUserVideo(userId);
+                this.roomSocketService.stopUserVideo(info);
             });
 
-            socket.on(SE.StopUserAudio, (userId: string) =>
+            socket.on(SE.StopUserAudio, (info: ActionOnUserInfo) =>
             {
-                this.roomSocketService.stopUserAudio(userId);
+                this.roomSocketService.stopUserAudio(info);
             });
 
-            socket.on(SE.ChangeUsername, (info: UserInfo) =>
+            socket.on(SE.ChangeUsername, (info: ChangeUserNameInfo) =>
             {
                 this.roomSocketService.changeUsername(info);
             });
 
-            socket.on(SE.BanUser, async (userId: string) =>
+            socket.on(SE.BanUser, async (info: ActionOnUserInfo) =>
             {
-                await this.roomSocketService.banUser(userId);
+                await this.roomSocketService.banUser(info);
             });
 
             socket.on(SE.BanUserByIp, async (userIp: string) =>

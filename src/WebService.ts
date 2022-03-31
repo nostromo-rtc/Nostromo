@@ -268,7 +268,7 @@ export class WebService
         const userId = req.session.userId;
 
         // Если пользователь авторизован в этой комнате.
-        if (userId && this.userAccountRepository.isAuthInRoom(userId, roomId))
+        if (userId && this.roomRepository.isAuthInRoom(roomId, userId))
         {
             return joinInRoom(roomId);
         }
@@ -292,7 +292,7 @@ export class WebService
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
-            this.userAccountRepository.setAuthInRoom(userId, roomId);
+            this.roomRepository.setAuthInRoom(roomId, userId);
             joinInRoom(roomId);
         }
         else

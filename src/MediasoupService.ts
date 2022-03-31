@@ -1,6 +1,6 @@
 import mediasoup = require('mediasoup');
 import { NewProducerInfo, PrefixConstants, VideoCodec } from "nostromo-shared/types/RoomTypes";
-import { User } from './Room';
+import { ActiveUser } from './Room';
 import MediasoupTypes = mediasoup.types;
 
 export { MediasoupTypes };
@@ -48,14 +48,14 @@ export interface IMediasoupService
      * @param consuming Канал для отдачи потоков от сервера клиенту?
      */
     createWebRtcTransport(
-        user: User,
-        consuming: boolean,
-        router: MediasoupTypes.Router
+        user: ActiveUser,
+        router: MediasoupTypes.Router,
+        consuming: boolean
     ): Promise<MediasoupTypes.WebRtcTransport>;
 
     /** Создать поток-потребитель для пользователя. */
     createConsumer(
-        user: User,
+        user: ActiveUser,
         producer: MediasoupTypes.Producer,
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.Consumer>;
@@ -74,7 +74,7 @@ export interface IMediasoupService
 
     /** Создать поток-производитель для пользователя. */
     createProducer(
-        user: User,
+        user: ActiveUser,
         newProducerInfo: NewProducerInfo,
         routers: MediasoupTypes.Router[]
     ): Promise<MediasoupTypes.Producer>;
@@ -203,9 +203,9 @@ export class MediasoupService implements IMediasoupService
         return routers;
     }
     public async createWebRtcTransport(
-        user: User,
-        consuming: boolean,
-        router: MediasoupTypes.Router
+        user: ActiveUser,
+        router: MediasoupTypes.Router,
+        consuming: boolean
     ): Promise<MediasoupTypes.WebRtcTransport>
     {
         const transport = await router.createWebRtcTransport({
@@ -229,7 +229,7 @@ export class MediasoupService implements IMediasoupService
                 return;
             }
 
-            console.log(`[Mediasoup] User: ${user.id} > WebRtcTransport > icestatechange event: ${state} | `, iceTuple);
+            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${state} | `, iceTuple);
 
         });
 
@@ -244,7 +244,7 @@ export class MediasoupService implements IMediasoupService
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
-                console.error(`[Mediasoup] User: ${user.id} > WebRtcTransport > dtlsstatechange event: ${dtlsstate} | `, iceTuple);
+                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate} | `, iceTuple);
             }
         });
 
@@ -262,7 +262,7 @@ export class MediasoupService implements IMediasoupService
 
     // создаем производителя (producer) для user
     public async createProducer(
-        user: User,
+        user: ActiveUser,
         newProducerInfo: NewProducerInfo,
         routers: MediasoupTypes.Router[]
     ): Promise<MediasoupTypes.Producer>
@@ -296,7 +296,7 @@ export class MediasoupService implements IMediasoupService
     }
 
     public async createConsumer(
-        user: User,
+        user: ActiveUser,
         producer: MediasoupTypes.Producer,
         router: MediasoupTypes.Router
     ): Promise<MediasoupTypes.Consumer>

@@ -1,38 +1,38 @@
 
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
-import { IRoom, User } from "../Room";
+import { IRoom, ActiveUser } from "../Room";
 import { IRoomRepository } from "../RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
-import { HandshakeSession } from "./SocketManager";
 import { MediasoupTypes } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
 import { IUserBanRepository } from "../UserBanRepository";
 import { IUserAccountRepository } from "../UserAccountRepository";
+import { ActionOnUserInfo, ChangeUserNameInfo } from "nostromo-shared/types/AdminTypes";
 
 type Socket = SocketIO.Socket;
 
 export interface IRoomSocketService
 {
-    /** Выгнать пользователя userId из комнаты. */
-    kickUser(userId: string): void;
+    /** Выгнать пользователя userId из комнаты roomId. */
+    kickUser(info: ActionOnUserInfo): void;
 
     /** Заблокировать пользователя userId, находящегося в комнате, на сервере. */
-    banUser(userId: string): Promise<void>;
+    banUser(info: ActionOnUserInfo): Promise<void>;
 
     /** Выгнать всех пользователей из комнаты. */
     kickAllUsers(roomId: string): void;
 
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват видеодорожки. */
-    stopUserVideo(userId: string): void;
+    stopUserVideo(info: ActionOnUserInfo): void;
 
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват аудиодорожки. */
-    stopUserAudio(userId: string): void;
+    stopUserAudio(info: ActionOnUserInfo): void;
 
     /** Изменить имя пользователя. */
-    changeUsername(info: UserInfo): void;
+    changeUsername(info: ChangeUserNameInfo): void;
 }
 
 /** Обработчик событий комнаты. */
@@ -88,7 +88,7 @@ export class RoomSocketService implements IRoomSocketService
             const roomId = session.joinedRoomId;
 
             // Если пользователь авторизован в запрашиваемой комнате
-            if (userId && roomId && this.userAccountRepository.isAuthInRoom(userId, roomId))
+            if (userId && roomId && this.roomRepository.isAuthInRoom(roomId, userId))
             {
                 return next();
             }
@@ -102,9 +102,8 @@ export class RoomSocketService implements IRoomSocketService
         this.roomIo.on('connection', async (socket: Socket) =>
         {
             const session = socket.handshake.session!;
-            const roomId: string = session.joinedRoomId!;
-
-            const room = this.roomRepository.get(roomId);
+            const room = this.roomRepository.get(session.joinedRoomId!);
+            const userId = session.userId!;
 
             if (!room)
             {
@@ -112,22 +111,24 @@ export class RoomSocketService implements IRoomSocketService
             }
 
             await socket.join(room.id);
-            this.clientJoined(socket, session, room);
+            this.clientJoined(room, socket, userId);
         });
     }
 
     /** Пользователь заходит в комнату. */
     private clientJoined(
+        room: IRoom,
         socket: Socket,
-        session: HandshakeSession,
-        room: IRoom
+        userId: string
     ): void
     {
         const userIp = socket.handshake.address.substring(7);
-        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${userIp}] user joined.`);
-        room.users.set(socket.id, new User(socket.id));
+        const username = this.userAccountRepository.getUsername(userId)!;
 
-        const user: User = room.users.get(socket.id)!;
+        console.log(`[Room] [${room.id}, ${room.name}]: [ID: ${userId}, IP: ${userIp}] user (${username}) joined.`);
+        room.activeUsers.set(userId, new ActiveUser(userId, socket.id));
+
+        const user: ActiveUser = room.activeUsers.get(userId)!;
 
         // Сообщаем пользователю название комнаты.
         socket.emit(SE.RoomName, room.name);
@@ -147,7 +148,7 @@ export class RoomSocketService implements IRoomSocketService
         // Создание транспортного канала на сервере (с последующей отдачей информации о канале клиенту).
         socket.on(SE.CreateWebRtcTransport, async (consuming: boolean) =>
         {
-            await this.requestCreateWebRtcTransport(socket, room, user, consuming);
+            await this.requestCreateWebRtcTransport(room, socket, user, consuming);
         });
 
         // Подключение к транспортному каналу со стороны сервера.
@@ -160,7 +161,7 @@ export class RoomSocketService implements IRoomSocketService
         // и готов к получению потоков (готов к получению consumers).
         socket.once(SE.Ready, async (info: UserReadyInfo) =>
         {
-            await this.userReady(socket, room, user, info);
+            await this.userReady(room, socket, user, info);
         });
 
         // Клиент ставит consumer на паузу.
@@ -234,25 +235,25 @@ export class RoomSocketService implements IRoomSocketService
         // Новый ник пользователя.
         socket.on(SE.NewUsername, (username: string) =>
         {
-            this.userChangedName(socket, room.id, user, username);
+            this.userChangedName(room.id, socket, userId, username);
         });
 
         // Новое сообщение в чате.
         socket.on(SE.ChatMsg, (msg: string) =>
         {
-            this.userSentChatMsg(socket, room.id, user.name, msg);
+            this.userSentChatMsg(socket, room.id, userId, msg);
         });
 
         // Новый файл в чате (ссылка на файл).
         socket.on(SE.ChatFile, (fileId: string) =>
         {
-            this.userSentChatFile(socket, user.name, room.id, fileId);
+            this.userSentChatFile(socket, userId, room.id, fileId);
         });
 
         // пользователь отсоединился
         socket.on(SE.Disconnect, (reason: string) =>
         {
-            this.userDisconnected(socket, session, room, user.name, reason);
+            this.userDisconnected(room, socket, userId, reason);
         });
     }
 
@@ -261,9 +262,9 @@ export class RoomSocketService implements IRoomSocketService
      * @param consuming Канал для отдачи потоков от сервера клиенту?
      */
     private async requestCreateWebRtcTransport(
-        socket: Socket,
         room: IRoom,
-        user: User,
+        socket: Socket,
+        user: ActiveUser,
         consuming: boolean
     ): Promise<void>
     {
@@ -288,7 +289,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] createWebRtcTransport for User ${user.id} error: `, (error as Error).message);
+            console.error(`[Room] createWebRtcTransport for User ${user.userId} error: `, (error as Error).message);
         }
     }
 
@@ -297,56 +298,57 @@ export class RoomSocketService implements IRoomSocketService
      * Также оповестить всех о новом пользователе.
      */
     private async userReady(
-        socket: Socket,
         room: IRoom,
-        user: User,
+        socket: Socket,
+        user: ActiveUser,
         info: UserReadyInfo
     ): Promise<void>
     {
-        const { name, rtpCapabilities } = info;
+        const { rtpCapabilities } = info;
 
         const userIp = socket.handshake.address.substring(7);
-        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${userIp}] user (${name}) ready to get consumers.`);
+        const userId = user.userId;
+        const username = this.userAccountRepository.getUsername(userId)!;
 
-        // Запоминаем имя и RTP кодеки клиента.
-        user.name = name;
+        console.log(`[Room] [${room.id}, ${room.name}]: [ID: ${userId}, IP: ${userIp}] user (${username}) ready to get consumers.`);
+
+        // Запоминаем RTP кодеки клиента.
         user.rtpCapabilities = rtpCapabilities;
 
         // Сообщаем заинтересованным новый список пользователей в комнате.
         this.generalSocketService.sendUserListToAllSubscribers(room.id);
 
         /** Запросить потоки пользователя producerUser для пользователя consumerUser. */
-        const requestCreatingConsumers = async (producerUser: User) =>
+        const requestCreatingConsumers = async (producerUser: ActiveUser) =>
         {
             for (const producer of producerUser.producers.values())
             {
-                await this.requestCreateConsumer(socket, room, user, producerUser.id, producer);
+                await this.requestCreateConsumer(socket, room, user, producerUser.userId, producer);
             }
         };
 
+        // Информация об этом новом пользователе.
+        const thisUserInfo: UserInfo = {
+            id: userId,
+            name: username
+        };
+
         // Перебираем всех пользователей, кроме нового.
-        for (const otherUser of room.users)
+        for (const otherUser of room.activeUsers)
         {
-            if (otherUser[0] != socket.id)
+            if (otherUser[0] != userId)
             {
                 // Запросим потоки другого пользователя для этого нового пользователя.
                 await requestCreatingConsumers(otherUser[1]);
 
-                const otherUserInfo: UserInfo = {
-                    id: otherUser[0],
-                    name: otherUser[1].name
-                };
+                const otherUserName = this.userAccountRepository.getUsername(otherUser[0])!;
+                const otherUserInfo: UserInfo = { id: otherUser[0], name: otherUserName };
 
                 // Сообщаем новому пользователю о пользователе otherUser.
                 socket.emit(SE.NewUser, otherUserInfo);
 
-                const thisUserInfo: UserInfo = {
-                    id: socket.id,
-                    name: name
-                };
-
                 // Сообщаем другому пользователю о новом пользователе.
-                this.roomIo.to(otherUser[0]).emit(SE.NewUser, thisUserInfo);
+                this.roomIo.to(otherUser[1].socketId).emit(SE.NewUser, thisUserInfo);
             }
         }
     }
@@ -358,7 +360,7 @@ export class RoomSocketService implements IRoomSocketService
     private async requestCreateConsumer(
         socket: Socket,
         room: IRoom,
-        consumerUser: User,
+        consumerUser: ActiveUser,
         producerUserId: string,
         producer: MediasoupTypes.Producer
     ): Promise<void>
@@ -383,7 +385,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] createConsumer error for User ${consumerUser.id} | `, (error as Error).message);
+            console.error(`[Room] createConsumer error for User ${consumerUser.userId} | `, (error as Error).message);
         }
     }
 
@@ -392,7 +394,7 @@ export class RoomSocketService implements IRoomSocketService
         socket: Socket,
         room: IRoom,
         consumer: MediasoupTypes.Consumer,
-        consumerUser: User,
+        consumerUser: ActiveUser,
         producerUserId: string
     ): void
     {
@@ -462,7 +464,7 @@ export class RoomSocketService implements IRoomSocketService
     private async requestCreateProducer(
         socket: Socket,
         room: IRoom,
-        user: User,
+        user: ActiveUser,
         newProducerInfo: NewProducerInfo
     ): Promise<void>
     {
@@ -479,13 +481,12 @@ export class RoomSocketService implements IRoomSocketService
 
             // Перебираем всех пользователей, кроме текущего
             // и создадим для них consumer.
-            for (const otherUser of room.users)
+            for (const otherUser of room.activeUsers)
             {
-                if (otherUser[0] != socket.id)
+                if (otherUser[0] != user.userId)
                 {
-                    const otherUserSocket = this.getSocketById(otherUser[0])!;
-
-                    await this.requestCreateConsumer(otherUserSocket, room, otherUser[1], socket.id, producer);
+                    const otherUserSocket = this.getSocketBySocketId(otherUser[1].socketId)!;
+                    await this.requestCreateConsumer(otherUserSocket, room, otherUser[1], user.userId, producer);
                 }
             }
 
@@ -493,7 +494,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] createProducer error for User ${user.id} | `, (error as Error).message);
+            console.error(`[Room] createProducer error for User ${user.userId} | `, (error as Error).message);
         }
     }
 
@@ -501,7 +502,7 @@ export class RoomSocketService implements IRoomSocketService
     private handleProducerEvents(
         socket: Socket,
         room: IRoom,
-        user: User,
+        user: ActiveUser,
         producer: MediasoupTypes.Producer
     ): void
     {
@@ -521,23 +522,30 @@ export class RoomSocketService implements IRoomSocketService
     }
 
     /** Получить веб-сокет соединение по Id. */
-    private getSocketById(id: string): Socket | undefined
+    private getSocketBySocketId(id: string): Socket | undefined
     {
         return this.roomIo.sockets.get(id);
     }
 
+    /** Получить веб-сокет соединение по userId. */
+    private getSocketByUserId(roomId: string, userId: string): Socket | undefined
+    {
+        const socketId = this.roomRepository.getActiveUserSocketId(roomId, userId);
+        return this.getSocketBySocketId(socketId);
+    }
+
     /** Пользователь изменил ник. */
     private userChangedName(
-        socket: Socket,
         roomId: string,
-        user: User,
+        socket: Socket,
+        userId: string,
         username: string
     ): void
     {
-        user.name = username;
+        this.userAccountRepository.setUsername(userId, username);
 
         const info: UserInfo = {
-            id: socket.id,
+            id: userId,
             name: username
         };
 
@@ -551,12 +559,12 @@ export class RoomSocketService implements IRoomSocketService
     private userSentChatMsg(
         socket: Socket,
         roomId: string,
-        username: string,
+        userId: string,
         msg: string
     )
     {
         const chatMsgInfo: ChatMsgInfo = {
-            name: username,
+            userId,
             msg: msg.trim()
         };
         socket.to(roomId).emit(SE.ChatMsg, chatMsgInfo);
@@ -565,7 +573,7 @@ export class RoomSocketService implements IRoomSocketService
     /** Пользователь отправил ссылку на файл в чат. */
     private userSentChatFile(
         socket: Socket,
-        username: string,
+        userId: string,
         roomId: string,
         fileId: string
     )
@@ -576,31 +584,31 @@ export class RoomSocketService implements IRoomSocketService
             return;
         }
 
-        const chatFileInfo: ChatFileInfo = { fileId, filename: fileInfo.name, size: fileInfo.size, username };
+        const chatFileInfo: ChatFileInfo = { userId, fileId, filename: fileInfo.name, size: fileInfo.size };
 
         socket.to(roomId).emit(SE.ChatFile, chatFileInfo);
     }
 
     /** Пользователь отключился. */
     private userDisconnected(
-        socket: Socket,
-        session: HandshakeSession,
         room: IRoom,
-        username: string,
+        socket: Socket,
+        userId: string,
         reason: string
     )
     {
-        room.userDisconnected(socket.id);
+        room.userDisconnected(userId);
 
         const userIp = socket.handshake.address.substring(7);
+        const username = this.userAccountRepository.getUsername(userId)!;
 
-        console.log(`[Room] [#${room.id}, ${room.name}]: [ID: ${socket.id}, IP: ${userIp}] user (${username}) disconnected: ${reason}.`);
+        console.log(`[Room] [${room.id}, ${room.name}]: [ID: ${userId}, IP: ${userIp}] user (${username}) disconnected: ${reason}.`);
 
         // Сообщаем заинтересованным новый список пользователей в комнате.
         this.generalSocketService.sendUserListToAllSubscribers(room.id);
 
         // Сообщаем всем в комнате, что пользователь отключился.
-        this.roomIo.to(room.id).emit(SE.UserDisconnected, socket.id);
+        this.roomIo.to(room.id).emit(SE.UserDisconnected, userId);
     }
 
     /** Разослать клиентам во всех комнатах новое значение максимального битрейта для видеопотоков. */
@@ -614,9 +622,11 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    public kickUser(userId: string): void
+    public kickUser(info: ActionOnUserInfo): void
     {
-        const userSocket = this.getSocketById(userId);
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
 
         if (userSocket)
         {
@@ -633,15 +643,17 @@ export class RoomSocketService implements IRoomSocketService
             return;
         }
 
-        for (const user of room.users)
+        for (const user of room.activeUsers)
         {
-            this.kickUser(user[0]);
+            this.kickUser({ roomId, userId: user[0] });
         }
     }
 
-    public stopUserVideo(userId: string): void
+    public stopUserVideo(info: ActionOnUserInfo): void
     {
-        const userSocket = this.getSocketById(userId);
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
 
         if (userSocket)
         {
@@ -649,9 +661,11 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    public stopUserAudio(userId: string): void
+    public stopUserAudio(info: ActionOnUserInfo): void
     {
-        const userSocket = this.getSocketById(userId);
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
 
         if (userSocket)
         {
@@ -659,20 +673,24 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    public changeUsername(info: UserInfo): void
+    //TODO: когда изменение ника перенесется в настройки, параметр roomId будет не нужен.
+    public changeUsername(info: ChangeUserNameInfo): void
     {
-        const { id, name } = info;
-        const userSocket = this.getSocketById(id);
+        const { roomId, userId, username } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
 
         if (userSocket)
         {
-            userSocket.emit(SE.ChangeUsername, name);
+            userSocket.emit(SE.ChangeUsername, username);
         }
     }
 
-    public async banUser(userId: string): Promise<void>
+    public async banUser(info: ActionOnUserInfo): Promise<void>
     {
-        const userSocket = this.getSocketById(userId);
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
 
         if (userSocket)
         {

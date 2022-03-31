@@ -1,13 +1,13 @@
 import { nanoid } from "nanoid";
 
-interface UserAccount
+export interface UserAccount
 {
     /** Идентификатор аккаунта пользователя. */
-    id: string;
+    readonly id: string;
+    /** Имя пользователя. */
+    name: string;
     /** Роль пользователя. */
     role: string;
-    /** Список идентификаторов комнат, в которых пользователь авторизован. */
-    authRooms: Set<string>;
 }
 
 interface NewUserAccountInfo
@@ -29,14 +29,11 @@ export interface IUserAccountRepository
     /** Есть ли запись об этом аккаунте? */
     has(id: string): boolean;
 
-    /** Авторизован ли пользователь userId в комнате с заданным roomId? */
-    isAuthInRoom(userId: string, roomId: string): boolean;
+    /** Установить новое имя пользователя. */
+    setUsername(id: string, name: string): void;
 
-    /** Запомнить, что пользователь userId авторизован в комнате roomId. */
-    setAuthInRoom(userId: string, roomId: string): void;
-
-    /** Запомнить, что пользователь userId больше не авторизован в комнате roomId. */
-    unsetAuthInRoom(userId: string, roomId: string): void;
+    /** Получить имя пользователя. */
+    getUsername(id: string): string | undefined;
 }
 
 export class UserAccountRepository implements IUserAccountRepository
@@ -48,8 +45,8 @@ export class UserAccountRepository implements IUserAccountRepository
 
         const userAccount: UserAccount = {
             id,
-            role: info.role,
-            authRooms: new Set<string>()
+            name: "Гость",
+            role: info.role
         };
 
         this.users.set(id, userAccount);
@@ -77,38 +74,18 @@ export class UserAccountRepository implements IUserAccountRepository
         return this.users.has(id);
     }
 
-    public isAuthInRoom(userId: string, roomId: string): boolean
+    public setUsername(id: string, name: string)
     {
-        const user = this.users.get(userId);
+        const user = this.users.get(id);
 
-        if (!user)
+        if (user)
         {
-            return false;
+            user.name = name;
         }
-
-        return user.authRooms.has(roomId);
     }
 
-    public setAuthInRoom(userId: string, roomId: string): void
+    public getUsername(id: string): string | undefined
     {
-        const user = this.users.get(userId);
-
-        if (!user)
-        {
-            return;
-        }
-
-        user.authRooms.add(roomId);
-    }
-    public unsetAuthInRoom(userId: string, roomId: string): void
-    {
-        const user = this.users.get(userId);
-
-        if (!user)
-        {
-            return;
-        }
-
-        user.authRooms.delete(roomId);
+        return this.users.get(id)?.name;
     }
 }

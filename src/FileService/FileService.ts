@@ -5,7 +5,7 @@ import fs = require('fs');
 import { FileServiceResponse, FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
 import { WebService } from "../WebService";
-import { IUserAccountRepository } from "../UserAccountRepository";
+import { IRoomRepository } from "../RoomRepository";
 
 /** Случайный Id + расширение */
 type FileId = string;
@@ -64,11 +64,11 @@ export class FileService implements IFileService
 {
     private readonly FILES_PATH = path.join(process.cwd(), FileServiceConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
-    private userAccountRepository: IUserAccountRepository;
+    private roomRepository: IRoomRepository;
 
-    constructor(userAccountRepository: IUserAccountRepository)
+    constructor(roomRepository: IRoomRepository)
     {
-        this.userAccountRepository = userAccountRepository;
+        this.roomRepository = roomRepository;
         if (!process.env.FILE_MAX_SIZE)
         {
             process.env.FILE_MAX_SIZE = String(20 * 1024 * 1024 * 1024);
@@ -230,7 +230,7 @@ export class FileService implements IFileService
         console.log(`[FileHandler] User (${req.ip}) downloading file:`, fileInfo);
         const filePath = path.join(this.FILES_PATH, fileId);
 
-        const customRes = new GetResponse(req, fileInfo, filePath, this.userAccountRepository);
+        const customRes = new GetResponse(req, fileInfo, filePath, this.roomRepository);
 
         if (!customRes.successful)
         {
@@ -252,7 +252,7 @@ export class FileService implements IFileService
         // выкладывать файл в комнату с номером Room-Id.
         const roomId = req.header("Room-Id")?.toString();
         const userId = req.session.userId;
-        if (!roomId || !userId || !this.userAccountRepository.isAuthInRoom(userId, roomId))
+        if (!roomId || !userId || !this.roomRepository.isAuthInRoom(roomId, userId))
         {
             this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, 403);
             return;

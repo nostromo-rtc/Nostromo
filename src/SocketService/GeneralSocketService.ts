@@ -61,6 +61,7 @@ export class GeneralSocketService implements IGeneralSocketService
                 await socket.join(`${SE.UserList}-${roomId}`);
 
                 // отправляем список пользователей этой комнаты
+                // TODO: не отправлять список, если он в этой комнате не авторизован
                 this.sendUserListToSubscriber(socket.id, roomId);
             });
 
@@ -97,7 +98,7 @@ export class GeneralSocketService implements IGeneralSocketService
     {
         try
         {
-            const userList = this.roomRepository.getUserList(roomId);
+            const userList = this.roomRepository.getActiveUserList(roomId);
             this.generalIo.to(`${SE.UserList}-${roomId}`).emit(SE.UserList, userList);
         }
         catch (e)
@@ -108,7 +109,7 @@ export class GeneralSocketService implements IGeneralSocketService
 
     public sendUserListToSubscriber(subscriberId: string, roomId: string): void
     {
-        const userList = this.roomRepository.getUserList(roomId);
+        const userList = this.roomRepository.getActiveUserList(roomId);
         this.generalIo.to(subscriberId).emit(SE.UserList, userList);
     }
 

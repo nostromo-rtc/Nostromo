@@ -86,15 +86,20 @@ async function main()
         const mediasoupService = await MediasoupService.create(numWorkers);
         // Репозиторий аккаунтов пользователей.
         const userAccountRepository = new UserAccountRepository();
-        // Сервис для работы с файлами.
-        const fileService = new FileService(userAccountRepository);
         // Репозиторий комнат.
-        const roomRepository = new PlainRoomRepository(mediasoupService);
+        const roomRepository = new PlainRoomRepository(mediasoupService, userAccountRepository);
         await roomRepository.init();
+        // Сервис для работы с файлами.
+        const fileService = new FileService(roomRepository);
         // Репозиторий блокировок пользователей.
         const userBanRepository = new UserBanRepository();
         // Express веб-сервис.
-        const express = new WebService(roomRepository, fileService, userAccountRepository, userBanRepository);
+        const express = new WebService(
+            roomRepository,
+            fileService,
+            userAccountRepository,
+            userBanRepository
+        );
 
         const httpServer: http.Server = http.createServer(express.app);
         const httpPort = process.env.HTTP_PORT;

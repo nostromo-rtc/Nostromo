@@ -4,14 +4,15 @@ import
 {
     ConnectWebRtcTransportInfo,
     NewProducerInfo,
+    RoomInfo,
     VideoCodec,
 } from "nostromo-shared/types/RoomTypes";
 
-/** Пользователь комнаты. */
-export class User
+/** Активный пользователь комнаты. */
+export class ActiveUser
 {
-    public id: string;
-    public name = "Гость";
+    public readonly userId: string;
+    public readonly socketId: string;
     public rtpCapabilities?: MediasoupTypes.RtpCapabilities;
     public consumerTransport?: MediasoupTypes.WebRtcTransport;
     public producerTransport?: MediasoupTypes.WebRtcTransport;
@@ -34,9 +35,10 @@ export class User
         return undefined;
     }
 
-    constructor(id: string)
+    constructor(userId: string, socketId: string)
     {
-        this.id = id;
+        this.userId = userId;
+        this.socketId = socketId;
     }
 }
 
@@ -49,7 +51,7 @@ export interface IRoom
     /** Название комнаты. */
     get name(): string;
 
-    /** Установить название комнате. */
+    /** Установить название комнаты. */
     set name(value: string);
 
     /** Пароль от комнаты. */
@@ -58,8 +60,11 @@ export interface IRoom
     /** Установить пароль от комнаты. */
     set password(value: string);
 
-    /** Пользователи в комнате. */
-    readonly users: Map<string, User>;
+    /** Идентификаторы авторизованных пользователей в комнате. */
+    readonly users: Set<string>;
+
+    /** Активные пользователи в комнате. */
+    readonly activeUsers: Map<string, ActiveUser>;
 
     /** Видеокодек для видеопотоков в комнате. */
     readonly videoCodec: VideoCodec;
@@ -78,19 +83,19 @@ export interface IRoom
      * @param consuming Канал для отдачи потоков от сервера клиенту?
      */
     createWebRtcTransport(
-        user: User,
+        user: ActiveUser,
         consuming: boolean
     ): Promise<MediasoupTypes.WebRtcTransport>;
 
     /** Транспортный канал был закрыт, поэтому необходимо обработать это событие. */
     transportClosed(
-        user: User,
+        user: ActiveUser,
         consuming: boolean
     ): void;
 
     /** Подключиться к транспортному каналу по запросу клиента. */
     connectWebRtcTransport(
-        user: User,
+        user: ActiveUser,
         info: ConnectWebRtcTransportInfo
     ): Promise<void>;
 
@@ -99,19 +104,19 @@ export interface IRoom
      * из потока-производителя пользователя producerUserId.
      */
     createConsumer(
-        consumerUser: User,
+        consumerUser: ActiveUser,
         producer: MediasoupTypes.Producer
     ): Promise<MediasoupTypes.Consumer>;
 
     /** Поток-потребитель был завершен, поэтому необходимо обработать это событие. */
     consumerClosed(
         consumer: MediasoupTypes.Consumer,
-        consumerUser: User
+        consumerUser: ActiveUser
     ): void;
 
     /** Пользователь user запросил поставить на паузу поток-потребитель с идентификатором consumerId. */
     userRequestedPauseConsumer(
-        user: User,
+        user: ActiveUser,
         consumerId: string
     ): Promise<boolean>;
 
@@ -120,7 +125,7 @@ export interface IRoom
 
     /** Пользователь user запросил снять с паузы поток-потребитель с идентификатором consumerId. */
     userRequestedResumeConsumer(
-        user: User,
+        user: ActiveUser,
         consumerId: string
     ): Promise<boolean>;
 
@@ -129,31 +134,31 @@ export interface IRoom
 
     /** Создать поток-производитель, который описан с помощью newProducerInfo, для пользователя user. */
     createProducer(
-        user: User,
+        user: ActiveUser,
         newProducerInfo: NewProducerInfo
     ): Promise<MediasoupTypes.Producer>;
 
     /** Поток-потребитель был завершен, поэтому необходимо обработать это событие. */
     producerClosed(
         producer: MediasoupTypes.Producer,
-        user: User
+        user: ActiveUser
     ): void;
 
     /** Пользователь user запросил закрыть поток-производитель с идентификатором producerId. */
     userRequestedCloseProducer(
-        user: User,
+        user: ActiveUser,
         producerId: string
     ): void;
 
     /** Пользователь user запросил поставить на паузу поток-производитель с идентификатором producerId. */
     userRequestedPauseProducer(
-        user: User,
+        user: ActiveUser,
         producerId: string
     ): Promise<boolean>;
 
     /** Пользователь user запросил снять с паузы поток-производитель с идентификатором producerId. */
     userRequestedResumeProducer(
-        user: User,
+        user: ActiveUser,
         producerId: string
     ): Promise<boolean>;
 
@@ -189,7 +194,8 @@ export class Room implements IRoom
     /** Индекс последнего задействованного роутера. */
     private latestRouterIdx = 1;
 
-    public readonly users = new Map<string, User>();
+    public readonly users = new Set<string>();
+    public readonly activeUsers = new Map<string, ActiveUser>();
 
     public get maxVideoBitrate(): number
     {
@@ -203,33 +209,28 @@ export class Room implements IRoom
 
     /** Создать комнату. */
     public static async create(
-        roomId: string,
-        name: string, password: string, videoCodec: VideoCodec,
+        info: RoomInfo,
         mediasoup: IMediasoupService
     ): Promise<Room>
     {
         // для каждой комнаты свои роутеры
-        const routers = await mediasoup.createRouters(videoCodec);
+        const routers = await mediasoup.createRouters(info.videoCodec);
 
-        return new Room(
-            roomId,
-            name, password,
-            mediasoup, routers, videoCodec
-        );
+        return new Room(info, mediasoup, routers);
     }
 
     private constructor(
-        roomId: string,
-        name: string, password: string,
-        mediasoup: IMediasoupService, mediasoupRouters: MediasoupTypes.Router[], videoCodec: VideoCodec
+        info: RoomInfo,
+        mediasoup: IMediasoupService,
+        mediasoupRouters: MediasoupTypes.Router[]
     )
     {
-        console.log(`[Room] creating a new Room [ID: ${roomId}, ${name}, ${videoCodec}]`);
+        console.log(`[Room] creating a new Room [ID: ${info.id}, ${info.name}, ${info.videoCodec}]`);
 
-        this.id = roomId;
-        this._name = name;
-        this._password = password;
-        this.videoCodec = videoCodec;
+        this.id = info.id;
+        this._name = info.name;
+        this._password = info.hashPassword;
+        this.videoCodec = info.videoCodec;
 
         this.mediasoup = mediasoup;
         this.mediasoupRouters = mediasoupRouters;
@@ -265,23 +266,19 @@ export class Room implements IRoom
     }
 
     public async createWebRtcTransport(
-        user: User,
+        user: ActiveUser,
         consuming: boolean
     ): Promise<MediasoupTypes.WebRtcTransport>
     {
         const router = this.getRouter(consuming);
 
-        const transport = await this.mediasoup.createWebRtcTransport(
-            user,
-            consuming,
-            router
-        );
+        const transport = await this.mediasoup.createWebRtcTransport(user, router, consuming);
 
         return transport;
     }
 
     public transportClosed(
-        user: User,
+        user: ActiveUser,
         consuming: boolean
     ): void
     {
@@ -296,7 +293,7 @@ export class Room implements IRoom
     }
 
     public async connectWebRtcTransport(
-        user: User,
+        user: ActiveUser,
         info: ConnectWebRtcTransportInfo
     ): Promise<void>
     {
@@ -306,7 +303,7 @@ export class Room implements IRoom
 
         if (!transport)
         {
-            console.error(`[Room] connectWebRtcTransport for User ${user.id} error: transport with id "${transportId}" not found.`);
+            console.error(`[Room] connectWebRtcTransport for User ${user.userId} error: transport with id "${transportId}" not found.`);
             return;
         }
 
@@ -314,7 +311,7 @@ export class Room implements IRoom
     }
 
     public async createConsumer(
-        consumerUser: User,
+        consumerUser: ActiveUser,
         producer: MediasoupTypes.Producer
     ): Promise<MediasoupTypes.Consumer>
     {
@@ -336,7 +333,7 @@ export class Room implements IRoom
 
     public consumerClosed(
         consumer: MediasoupTypes.Consumer,
-        consumerUser: User
+        consumerUser: ActiveUser
     ): void
     {
         consumerUser.consumers.delete(consumer.id);
@@ -350,7 +347,7 @@ export class Room implements IRoom
     }
 
     public async userRequestedPauseConsumer(
-        user: User,
+        user: ActiveUser,
         consumerId: string
     ): Promise<boolean>
     {
@@ -358,7 +355,7 @@ export class Room implements IRoom
 
         if (!consumer)
         {
-            console.error(`[Room] pauseConsumer for User ${user.id} error | consumer with id "${consumerId}" not found.`);
+            console.error(`[Room] pauseConsumer for User ${user.userId} error | consumer with id "${consumerId}" not found.`);
             return false;
         }
 
@@ -387,7 +384,7 @@ export class Room implements IRoom
     }
 
     public async userRequestedResumeConsumer(
-        user: User,
+        user: ActiveUser,
         consumerId: string
     ): Promise<boolean>
     {
@@ -395,7 +392,7 @@ export class Room implements IRoom
 
         if (!consumer)
         {
-            console.error(`[Room] resumeConsumer for User ${user.id} error | consumer with id "${consumerId}" not found.`);
+            console.error(`[Room] resumeConsumer for User ${user.userId} error | consumer with id "${consumerId}" not found.`);
             return false;
         }
 
@@ -429,7 +426,7 @@ export class Room implements IRoom
     }
 
     public async createProducer(
-        user: User,
+        user: ActiveUser,
         newProducerInfo: NewProducerInfo
     ): Promise<MediasoupTypes.Producer>
     {
@@ -449,7 +446,7 @@ export class Room implements IRoom
 
     public producerClosed(
         producer: MediasoupTypes.Producer,
-        user: User
+        user: ActiveUser
     ): void
     {
         user.producers.delete(producer.id);
@@ -463,7 +460,7 @@ export class Room implements IRoom
     }
 
     public userRequestedCloseProducer(
-        user: User,
+        user: ActiveUser,
         producerId: string
     ): void
     {
@@ -471,7 +468,7 @@ export class Room implements IRoom
 
         if (!producer)
         {
-            console.error(`[Room] closeProducer for User ${user.id} error | producer with id "${producerId}" not found.`);
+            console.error(`[Room] closeProducer for User ${user.userId} error | producer with id "${producerId}" not found.`);
             return;
         }
 
@@ -483,7 +480,7 @@ export class Room implements IRoom
     }
 
     public async userRequestedPauseProducer(
-        user: User,
+        user: ActiveUser,
         producerId: string
     ): Promise<boolean>
     {
@@ -491,7 +488,7 @@ export class Room implements IRoom
 
         if (!producer)
         {
-            console.error(`[Room] pauseProducer for User ${user.id} error | producer with id "${producerId}" not found.`);
+            console.error(`[Room] pauseProducer for User ${user.userId} error | producer with id "${producerId}" not found.`);
             return false;
         }
 
@@ -515,7 +512,7 @@ export class Room implements IRoom
     }
 
     public async userRequestedResumeProducer(
-        user: User,
+        user: ActiveUser,
         producerId: string
     ): Promise<boolean>
     {
@@ -523,7 +520,7 @@ export class Room implements IRoom
 
         if (!producer)
         {
-            console.error(`[Room] resumeProducer for User ${user.id} error | producer with id "${producerId}" not found.`);
+            console.error(`[Room] resumeProducer for User ${user.userId} error | producer with id "${producerId}" not found.`);
             return false;
         }
 
@@ -548,7 +545,7 @@ export class Room implements IRoom
 
     public userDisconnected(userId: string): void
     {
-        const user = this.users.get(userId);
+        const user = this.activeUsers.get(userId);
 
         if (!user)
         {
@@ -558,7 +555,7 @@ export class Room implements IRoom
         user.consumerTransport?.close();
         user.producerTransport?.close();
 
-        this.users.delete(userId);
+        this.activeUsers.delete(userId);
     }
 
     public close(): void

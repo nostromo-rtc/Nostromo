@@ -3,12 +3,13 @@ import { NewRoomInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { RoomInfo, PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IMediasoupService } from "./MediasoupService";
-import { IRoom, Room } from "./Room";
+import { ActiveUser, IRoom, Room } from "./Room";
 
 import path = require('path');
 import fs = require('fs');
 import { scrypt } from "crypto";
 import { nanoid } from "nanoid";
+import { IUserAccountRepository } from "./UserAccountRepository";
 
 
 export interface IRoomRepository
@@ -32,10 +33,22 @@ export interface IRoomRepository
     getRoomLinkList(): PublicRoomInfo[];
 
     /** Получить список пользователей в комнате roomId. */
-    getUserList(roomId: string): UserInfo[];
+    getActiveUserList(roomId: string): UserInfo[];
+
+    /** Получить socketId у активного пользователя userId в комнате roomId. */
+    getActiveUserSocketId(roomId: string, userId: string): string
 
     /** Проверить правильность пароля от комнаты. */
     checkPassword(id: string, pass: string): Promise<boolean>;
+
+    /** Авторизован ли пользователь userId в комнате с заданным roomId? */
+    isAuthInRoom(roomId: string, userId: string): boolean;
+
+    /** Запомнить, что пользователь userId авторизован в комнате roomId. */
+    setAuthInRoom(roomId: string, userId: string): void;
+
+    /** Запомнить, что пользователь userId больше не авторизован в комнате roomId. */
+    unsetAuthInRoom(roomId: string, userId: string): void;
 }
 
 export class PlainRoomRepository implements IRoomRepository
@@ -44,10 +57,77 @@ export class PlainRoomRepository implements IRoomRepository
     private readonly hashSalt = Buffer.from(process.env.ROOM_PASS_HASH_SALT!, "hex");
     private rooms = new Map<string, IRoom>();
     private mediasoup: IMediasoupService;
+    private userAccountRepository: IUserAccountRepository;
 
-    constructor(mediasoup: IMediasoupService)
+    constructor(
+        mediasoup: IMediasoupService,
+        userAccountRepository: IUserAccountRepository
+    )
     {
         this.mediasoup = mediasoup;
+        this.userAccountRepository = userAccountRepository;
+    }
+
+    /** Полностью обновить содержимое файла с записями о комнатах. */
+    private async rewriteRoomsToFile(): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
+            const writeStream = fs.createWriteStream(this.ROOMS_FILE_PATH, { encoding: "utf8" });
+
+            const roomsArr: RoomInfo[] = [];
+            for (const roomRecord of this.rooms)
+            {
+                const room = roomRecord[1];
+                roomsArr.push({
+                    id: room.id,
+                    name: room.name,
+                    hashPassword: room.password,
+                    videoCodec: room.videoCodec
+                });
+            }
+
+            writeStream.write(JSON.stringify(roomsArr, null, 2));
+
+            writeStream.on("finish", () =>
+            {
+                resolve();
+            });
+
+            writeStream.on("error", (err: Error) =>
+            {
+                reject(err);
+            });
+
+            writeStream.end();
+        });
+    }
+
+    private async generateHashPassword(pass: string): Promise<string>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            scrypt(pass, this.hashSalt, 24, (err, derivedKey) =>
+            {
+                if (err)
+                {
+                    reject();
+                }
+                else
+                {
+                    // Поскольку этот хеш может использоваться в URL-запросе.
+                    const toBase64Url = (str: string) =>
+                    {
+                        return str.replace(/\+/g, '-')
+                            .replace(/\//g, '_')
+                            .replace(/=/g, '');
+                    };
+
+                    resolve(toBase64Url(derivedKey.toString("base64")));
+                }
+            });
+        });
     }
 
     public async init(): Promise<void>
@@ -61,10 +141,7 @@ export class PlainRoomRepository implements IRoomRepository
 
                 for (const room of roomsFromJson)
                 {
-                    this.rooms.set(room.id, await Room.create(
-                        room.id, room.name, room.hashPassword, room.videoCodec,
-                        this.mediasoup)
-                    );
+                    this.rooms.set(room.id, await Room.create(room, this.mediasoup));
                 }
 
                 if (this.rooms.size > 0)
@@ -79,6 +156,7 @@ export class PlainRoomRepository implements IRoomRepository
     {
         const { name, password, videoCodec } = info;
 
+        //TODO: сделать проверку на коллизию
         const id: string = nanoid(11);
 
         let hashPassword = "";
@@ -87,10 +165,9 @@ export class PlainRoomRepository implements IRoomRepository
             hashPassword = await this.generateHashPassword(password);
         }
 
-        this.rooms.set(id, await Room.create(
-            id, name, hashPassword, videoCodec,
-            this.mediasoup
-        ));
+        const fullRoomInfo = { id, name, hashPassword, videoCodec };
+
+        this.rooms.set(id, await Room.create(fullRoomInfo, this.mediasoup));
 
         await this.rewriteRoomsToFile();
 
@@ -162,7 +239,7 @@ export class PlainRoomRepository implements IRoomRepository
         return roomList;
     }
 
-    public getUserList(roomId: string): UserInfo[]
+    public getActiveUserList(roomId: string): UserInfo[]
     {
         const room = this.rooms.get(roomId);
 
@@ -173,74 +250,36 @@ export class PlainRoomRepository implements IRoomRepository
 
         const userList: UserInfo[] = [];
 
-        for (const user of room.users)
+        for (const userId of room.activeUsers.keys())
         {
-            userList.push({ id: user[0], name: user[1].name });
+            const user = this.userAccountRepository.get(userId);
+            if (!user)
+            {
+                throw new Error("[RoomRepository] User with userId is not exist");
+            }
+            userList.push({ id: userId, name: user.name });
         }
 
         return userList;
     }
 
-    /** Полностью обновить содержимое файла с записями о комнатах. */
-    private async rewriteRoomsToFile(): Promise<void>
+    public getActiveUserSocketId(roomId: string, userId: string): string
     {
-        return new Promise((resolve, reject) =>
+        const room = this.rooms.get(roomId);
+
+        if (!room)
         {
-            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-            const writeStream = fs.createWriteStream(this.ROOMS_FILE_PATH, { encoding: "utf8" });
+            throw new Error(`[RoomRepository] Room (${roomId}) is not exist`);
+        }
 
-            const roomsArr: RoomInfo[] = [];
-            for (const roomRecord of this.rooms)
-            {
-                const room = roomRecord[1];
-                roomsArr.push({
-                    id: room.id,
-                    name: room.name,
-                    hashPassword: room.password,
-                    videoCodec: room.videoCodec
-                });
-            }
+        const user = room.activeUsers.get(userId);
 
-            writeStream.write(JSON.stringify(roomsArr, null, 2));
-
-            writeStream.on("finish", () =>
-            {
-                resolve();
-            });
-
-            writeStream.on("error", (err: Error) =>
-            {
-                reject(err);
-            });
-
-            writeStream.end();
-        });
-    }
-
-    private async generateHashPassword(pass: string): Promise<string>
-    {
-        return new Promise((resolve, reject) =>
+        if (!user)
         {
-            scrypt(pass, this.hashSalt, 24, (err, derivedKey) =>
-            {
-                if (err)
-                {
-                    reject();
-                }
-                else
-                {
-                    // Поскольку этот хеш может использоваться в URL-запросе.
-                    const toBase64Url = (str: string) =>
-                    {
-                        return str.replace(/\+/g, '-')
-                            .replace(/\//g, '_')
-                            .replace(/=/g, '');
-                    };
+            throw new Error(`[RoomRepository] Active user (${userId}) is not exist in room (${roomId})`);
+        }
 
-                    resolve(toBase64Url(derivedKey.toString("base64")));
-                }
-            });
-        });
+        return user.socketId;
     }
 
     public async checkPassword(id: string, pass: string): Promise<boolean>
@@ -261,5 +300,43 @@ export class PlainRoomRepository implements IRoomRepository
         // Иначе посчитаем хеш.
         const hashPassword = await this.generateHashPassword(pass);
         return (room.password == hashPassword);
+    }
+
+    public isAuthInRoom(roomId: string, userId: string): boolean
+    {
+        const user = this.userAccountRepository.get(userId);
+        const room = this.rooms.get(roomId);
+
+        if (!user || !room)
+        {
+            return false;
+        }
+
+        return room.users.has(userId);
+    }
+
+    public setAuthInRoom(roomId: string, userId: string): void
+    {
+        const user = this.userAccountRepository.get(userId);
+        const room = this.rooms.get(roomId);
+
+        if (!user || !room)
+        {
+            return;
+        }
+
+        room.users.add(userId);
+    }
+    public unsetAuthInRoom(roomId: string, userId: string): void
+    {
+        const user = this.userAccountRepository.get(userId);
+        const room = this.rooms.get(roomId);
+
+        if (!user || !room)
+        {
+            return;
+        }
+
+        room.users.delete(userId);
     }
 }
