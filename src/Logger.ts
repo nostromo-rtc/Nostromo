@@ -9,7 +9,8 @@ function addTimestamps(message: unknown, ...optionalParams: unknown[]): unknown[
         year: "numeric",
         hour: '2-digit',
         minute: "2-digit",
-        second: "numeric"
+        second: "numeric",
+        hour12: false
     }) + '.' + ((new Date).getUTCMilliseconds() / 1000).toFixed(3).slice(2, 5);
 
     if (typeof message === 'string')

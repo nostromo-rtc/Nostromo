@@ -229,8 +229,9 @@ export class MediasoupService implements IMediasoupService
                 return;
             }
 
-            console.log(`[Mediasoup] User: ${user.userId} > WebRtcTransport > icestatechange event: ${state} | `, iceTuple);
-
+            const logMsg = `[Mediasoup] User: ${user.userId} > WebRtcTransport icestatechange event: ${state}`;
+            const ipInfo = `Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
+            console.log(`${logMsg} | ${ipInfo}.`);
         });
 
         transport.on('dtlsstatechange', (dtlsstate: MediasoupTypes.DtlsState) =>
