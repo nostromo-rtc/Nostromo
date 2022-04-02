@@ -130,6 +130,12 @@ export class RoomSocketService implements IRoomSocketService
 
         const user: ActiveUser = room.activeUsers.get(userId)!;
 
+        // Сообщаем пользователю его идентификатор.
+        socket.emit(SE.UserId, userId);
+
+        // Сообщаем пользователю его имя.
+        socket.emit(SE.Username, username);
+
         // Сообщаем пользователю название комнаты.
         socket.emit(SE.RoomName, room.name);
 
@@ -155,6 +161,9 @@ export class RoomSocketService implements IRoomSocketService
         socket.on(SE.ConnectWebRtcTransport, async (info: ConnectWebRtcTransportInfo) =>
         {
             await room.connectWebRtcTransport(user, info);
+
+            // Сообщим клиенту, что параметры info были приняты сервером.
+            socket.emit(SE.ConnectWebRtcTransport);
         });
 
         // Пользователь уже создал транспортные каналы
