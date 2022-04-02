@@ -217,7 +217,10 @@ export class MediasoupService implements IMediasoupService
                 }
             ],
             initialAvailableOutgoingBitrate: 600000,
-            enableUdp: true
+            enableUdp: true,
+            enableTcp: true,
+            preferUdp: true,
+            preferTcp: false
         });
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
@@ -230,7 +233,7 @@ export class MediasoupService implements IMediasoupService
             }
 
             const logMsg = `[Mediasoup] User: ${user.userId} > WebRtcTransport icestatechange event: ${state}`;
-            const ipInfo = `Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
+            const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
             console.log(`${logMsg} | ${ipInfo}.`);
         });
 
@@ -246,7 +249,7 @@ export class MediasoupService implements IMediasoupService
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
                 const logMsg = `[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
-                const ipInfo = `Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
+                const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
                 console.error(`${logMsg} | ${ipInfo}.`);
             }
         });
