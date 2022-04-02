@@ -245,7 +245,9 @@ export class MediasoupService implements IMediasoupService
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
-                console.error(`[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate} | `, iceTuple);
+                const logMsg = `[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
+                const ipInfo = `Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
+                console.error(`${logMsg} | ${ipInfo}.`);
             }
         });
 
