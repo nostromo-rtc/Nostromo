@@ -13,6 +13,7 @@ export class ActiveUser
 {
     public readonly userId: string;
     public readonly socketId: string;
+    public readonly roomId: string;
     public rtpCapabilities?: MediasoupTypes.RtpCapabilities;
     public consumerTransport?: MediasoupTypes.WebRtcTransport;
     public producerTransport?: MediasoupTypes.WebRtcTransport;
@@ -35,8 +36,9 @@ export class ActiveUser
         return undefined;
     }
 
-    constructor(userId: string, socketId: string)
+    constructor(roomId: string, userId: string, socketId: string)
     {
+        this.roomId = roomId;
         this.userId = userId;
         this.socketId = socketId;
     }
@@ -225,7 +227,7 @@ export class Room implements IRoom
         mediasoupRouters: MediasoupTypes.Router[]
     )
     {
-        console.log(`[Room] creating a new Room [ID: ${info.id}, ${info.name}, ${info.videoCodec}]`);
+        console.log(`[Room] Creating a new Room [${info.id}, '${info.name}', ${info.videoCodec}].`);
 
         this.id = info.id;
         this._name = info.name;
@@ -303,7 +305,7 @@ export class Room implements IRoom
 
         if (!transport)
         {
-            console.error(`[Room] connectWebRtcTransport for User ${user.userId} error: transport with id "${transportId}" not found.`);
+            console.error(`[Room] ConnectWebRtcTransport for User [${user.userId}] error: transport with id "${transportId}" not found.`);
             return;
         }
 
@@ -355,7 +357,7 @@ export class Room implements IRoom
 
         if (!consumer)
         {
-            console.error(`[Room] pauseConsumer for User ${user.userId} error | consumer with id "${consumerId}" not found.`);
+            console.error(`[Room] PauseConsumer for User [${user.userId}] error | consumer with id "${consumerId}" not found.`);
             return false;
         }
 
@@ -392,7 +394,7 @@ export class Room implements IRoom
 
         if (!consumer)
         {
-            console.error(`[Room] resumeConsumer for User ${user.userId} error | consumer with id "${consumerId}" not found.`);
+            console.error(`[Room] ResumeConsumer for User [${user.userId}] error | consumer with id "${consumerId}" not found.`);
             return false;
         }
 
@@ -468,7 +470,7 @@ export class Room implements IRoom
 
         if (!producer)
         {
-            console.error(`[Room] closeProducer for User ${user.userId} error | producer with id "${producerId}" not found.`);
+            console.error(`[Room] CloseProducer for User [${user.userId}] error | producer with id "${producerId}" not found.`);
             return;
         }
 
@@ -488,7 +490,7 @@ export class Room implements IRoom
 
         if (!producer)
         {
-            console.error(`[Room] pauseProducer for User ${user.userId} error | producer with id "${producerId}" not found.`);
+            console.error(`[Room] PauseProducer for User [${user.userId}] error | producer with id "${producerId}" not found.`);
             return false;
         }
 
@@ -520,7 +522,7 @@ export class Room implements IRoom
 
         if (!producer)
         {
-            console.error(`[Room] resumeProducer for User ${user.userId} error | producer with id "${producerId}" not found.`);
+            console.error(`[Room] ResumeProducer for User [${user.userId}] error | producer with id "${producerId}" not found.`);
             return false;
         }
 
@@ -562,7 +564,7 @@ export class Room implements IRoom
     {
         // TODO: функционал этого метода пока что не проверялся.
         // Надо бы проверить.
-        console.log(`[Room] closing Room [ID: ${this.id}]`);
+        console.log(`[Room] Closing Room [${this.id}, '${this.name}', ${this.videoCodec}]`);
 
         for (const router of this.mediasoupRouters)
         {

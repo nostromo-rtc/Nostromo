@@ -125,8 +125,8 @@ export class RoomSocketService implements IRoomSocketService
         const userIp = socket.handshake.address.substring(7);
         const username = this.userAccountRepository.getUsername(userId)!;
 
-        console.log(`[Room] [${room.id}, ${room.name}]: [ID: ${userId}, IP: ${userIp}] user (${username}) joined.`);
-        room.activeUsers.set(userId, new ActiveUser(userId, socket.id));
+        console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] has joined.`);
+        room.activeUsers.set(userId, new ActiveUser(room.id, userId, socket.id));
 
         const user: ActiveUser = room.activeUsers.get(userId)!;
 
@@ -298,7 +298,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] createWebRtcTransport for User ${user.userId} error: `, (error as Error).message);
+            console.error(`[Room] CreateWebRtcTransport for User [${user.userId}] error: `, (error as Error).message);
         }
     }
 
@@ -319,7 +319,7 @@ export class RoomSocketService implements IRoomSocketService
         const userId = user.userId;
         const username = this.userAccountRepository.getUsername(userId)!;
 
-        console.log(`[Room] [${room.id}, ${room.name}]: [ID: ${userId}, IP: ${userIp}] user (${username}) ready to get consumers.`);
+        console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] is ready to get consumers.`);
 
         // Запоминаем RTP кодеки клиента.
         user.rtpCapabilities = rtpCapabilities;
@@ -394,7 +394,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] createConsumer error for User ${consumerUser.userId} | `, (error as Error).message);
+            console.error(`[Room] CreateConsumer error for User [${consumerUser.userId}] | `, (error as Error).message);
         }
     }
 
@@ -503,7 +503,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] createProducer error for User ${user.userId} | `, (error as Error).message);
+            console.error(`[Room] CreateProducer error for User [${user.userId}] | `, (error as Error).message);
         }
     }
 
@@ -611,7 +611,7 @@ export class RoomSocketService implements IRoomSocketService
         const userIp = socket.handshake.address.substring(7);
         const username = this.userAccountRepository.getUsername(userId)!;
 
-        console.log(`[Room] [${room.id}, ${room.name}]: [ID: ${userId}, IP: ${userIp}] user (${username}) disconnected: ${reason}.`);
+        console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] has disconnected: ${reason}.`);
 
         // Сообщаем заинтересованным новый список пользователей в комнате.
         this.generalSocketService.sendUserListToAllSubscribers(room.id);

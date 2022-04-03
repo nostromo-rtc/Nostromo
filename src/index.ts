@@ -62,7 +62,7 @@ function initApplication()
 
     // выводим шапку
     process.title = `${name}-${version}`;
-    console.log(`Version: ${version}`);
+    console.log(`Nostromo Server v${version}.`);
 
     // если конфиг не удалось загрузить
     if (!configLoadSuccess)
@@ -106,7 +106,7 @@ async function main()
 
         httpServer.listen(httpPort, () =>
         {
-            console.log(`Http server running on port: ${httpPort!}`);
+            console.log(`[WebService] Http server running on port: ${httpPort!}.`);
         });
 
         // настройки https-сервера (сертификаты)
@@ -120,7 +120,7 @@ async function main()
 
         httpsServer.listen(port, () =>
         {
-            console.log(`Https server running on port: ${port!}`);
+            console.log(`[WebService] Https server running on port: ${port!}.`);
         });
 
         const socketManager = new SocketManager(

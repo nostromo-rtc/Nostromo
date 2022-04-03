@@ -39,6 +39,7 @@ export interface IUserAccountRepository
 export class UserAccountRepository implements IUserAccountRepository
 {
     private users = new Map<string, UserAccount>();
+
     public create(info: NewUserAccountInfo): string
     {
         const id: string = nanoid(21);
@@ -51,6 +52,8 @@ export class UserAccountRepository implements IUserAccountRepository
 
         this.users.set(id, userAccount);
 
+        console.log(`[UserAccountRepository] Create a new user account [Id: ${id}].`);
+
         return id;
     }
 
@@ -61,6 +64,8 @@ export class UserAccountRepository implements IUserAccountRepository
         if (user)
         {
             this.users.delete(id);
+
+            console.log(`[UserAccountRepository] Delete a user account [Id: ${id}].`);
         }
     }
 
@@ -80,6 +85,7 @@ export class UserAccountRepository implements IUserAccountRepository
 
         if (user)
         {
+            console.log(`[UserAccountRepository] User [Id: ${id}, '${user.name}'] has a new name: '${name}'.`);
             user.name = name;
         }
     }

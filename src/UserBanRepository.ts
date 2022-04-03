@@ -71,8 +71,9 @@ export class UserBanRepository implements IUserBanRepository
 
         this.bans.set(ip, info);
 
-        //await this.appendBanToFile(info);
         await this.rewriteBansToFile();
+
+        console.log(`[UserBanRepository] User [Ip: ${ip}] has been banned.`);
 
         return ip;
     }
@@ -86,6 +87,8 @@ export class UserBanRepository implements IUserBanRepository
             this.bans.delete(ip);
 
             await this.rewriteBansToFile();
+
+            console.log(`[UserBanRepository] User [Ip: ${ip}] has been unbanned.`);
         }
     }
 

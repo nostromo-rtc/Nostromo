@@ -151,7 +151,7 @@ export class MediasoupService implements IMediasoupService
     // создаем экземпляр класса (внутри которого создаются Workers)
     public static async create(numWorkers: number): Promise<MediasoupService>
     {
-        console.log(`[Mediasoup] running ${numWorkers} mediasoup Workers...`);
+        console.log(`[Mediasoup] Running ${numWorkers} mediasoup Workers.`);
 
         const workers = new Array<MediasoupTypes.Worker>();
 
@@ -166,7 +166,7 @@ export class MediasoupService implements IMediasoupService
             worker.on('died', (error) =>
             {
                 console.error(
-                    `[Mediasoup] mediasoup Worker died [pid: ${worker.pid}]`, (error as Error).message
+                    `[Mediasoup] Mediasoup Worker died [pid: ${worker.pid}]`, (error as Error).message
                 );
             });
 
@@ -232,7 +232,7 @@ export class MediasoupService implements IMediasoupService
                 return;
             }
 
-            const logMsg = `[Mediasoup] User: ${user.userId} > WebRtcTransport icestatechange event: ${state}`;
+            const logMsg = `[Mediasoup] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > icestatechange event: ${state}`;
             const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
             console.log(`${logMsg} | ${ipInfo}.`);
         });
@@ -248,7 +248,7 @@ export class MediasoupService implements IMediasoupService
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
-                const logMsg = `[Mediasoup] User: ${user.userId} > WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
+                const logMsg = `[Mediasoup] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
                 const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
                 console.error(`${logMsg} | ${ipInfo}.`);
             }
