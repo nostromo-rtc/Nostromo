@@ -227,8 +227,6 @@ export class Room implements IRoom
         mediasoupRouters: MediasoupTypes.Router[]
     )
     {
-        console.log(`[Room] Creating a new Room [${info.id}, '${info.name}', ${info.videoCodec}].`);
-
         this.id = info.id;
         this._name = info.name;
         this._password = info.hashPassword;

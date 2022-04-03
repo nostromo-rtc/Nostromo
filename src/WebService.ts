@@ -292,7 +292,7 @@ export class WebService
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
-            this.roomRepository.setAuthInRoom(roomId, userId);
+            this.roomRepository.authorizeInRoom(roomId, userId);
             joinInRoom(roomId);
         }
         else

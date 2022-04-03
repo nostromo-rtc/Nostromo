@@ -99,6 +99,7 @@ export class AdminSocketService
             socket.on(SE.KickUser, (info: ActionOnUserInfo) =>
             {
                 this.roomSocketService.kickUser(info);
+                this.roomRepository.deauthorizeInRoom(info.roomId, info.userId);
             });
 
             socket.on(SE.StopUserVideo, (info: ActionOnUserInfo) =>
@@ -187,31 +188,22 @@ export class AdminSocketService
     private async changeRoomName(info: NewRoomNameInfo)
     {
         const { id, name } = info;
-        const room = this.roomRepository.get(id);
-
-        if (!room)
-        {
-            return;
-        }
 
         const updateRoomInfo: UpdateRoomInfo = { id, name };
         await this.roomRepository.update(updateRoomInfo);
 
-        this.generalSocketService.notifyAboutChangedRoomName({id, name});
+        this.generalSocketService.notifyAboutChangedRoomName({ id, name });
     }
 
     /** Изменить пароль комнаты. */
     private async changeRoomPass(info: NewRoomPassInfo)
     {
         const { id, password } = info;
-        const room = this.roomRepository.get(id);
-
-        if (!room)
-        {
-            return;
-        }
 
         const updateRoomInfo: UpdateRoomInfo = { id, password };
         await this.roomRepository.update(updateRoomInfo);
+
+        // После смены пароля деавторизуем всех в комнате.
+        this.roomRepository.deauthorizeAllInRoom(id);
     }
 }

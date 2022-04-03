@@ -76,7 +76,7 @@ export class AuthSocketService
                         session.save();
                     }
                     // Запоминаем для этого пользователя авторизованную комнату.
-                    this.roomRepository.setAuthInRoom(roomId, userId);
+                    this.roomRepository.authorizeInRoom(roomId, userId);
 
                     result = true;
                 }

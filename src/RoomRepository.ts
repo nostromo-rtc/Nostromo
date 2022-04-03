@@ -36,7 +36,7 @@ export interface IRoomRepository
     getActiveUserList(roomId: string): UserInfo[];
 
     /** Получить socketId у активного пользователя userId в комнате roomId. */
-    getActiveUserSocketId(roomId: string, userId: string): string
+    getActiveUserSocketId(roomId: string, userId: string): string;
 
     /** Проверить правильность пароля от комнаты. */
     checkPassword(id: string, pass: string): Promise<boolean>;
@@ -45,10 +45,13 @@ export interface IRoomRepository
     isAuthInRoom(roomId: string, userId: string): boolean;
 
     /** Запомнить, что пользователь userId авторизован в комнате roomId. */
-    setAuthInRoom(roomId: string, userId: string): void;
+    authorizeInRoom(roomId: string, userId: string): void;
 
     /** Запомнить, что пользователь userId больше не авторизован в комнате roomId. */
-    unsetAuthInRoom(roomId: string, userId: string): void;
+    deauthorizeInRoom(roomId: string, userId: string): void;
+
+    /** Деавторизовать всех в комнате roomId. */
+    deauthorizeAllInRoom(roomId: string): void;
 }
 
 export class PlainRoomRepository implements IRoomRepository
@@ -171,6 +174,8 @@ export class PlainRoomRepository implements IRoomRepository
 
         await this.rewriteRoomsToFile();
 
+        console.log(`[Room] Creating a new Room [${id}, '${info.name}', ${info.videoCodec}].`);
+
         return id;
     }
 
@@ -184,6 +189,8 @@ export class PlainRoomRepository implements IRoomRepository
             this.rooms.delete(id);
 
             await this.rewriteRoomsToFile();
+
+            console.log(`[Room] Delete a Room [${id}, '${room.name}', ${room.videoCodec}].`);
         }
     }
 
@@ -191,7 +198,12 @@ export class PlainRoomRepository implements IRoomRepository
     {
         const { id, name, password } = info;
 
-        const room = this.rooms.get(id)!;
+        const room = this.rooms.get(id);
+
+        if (!room)
+        {
+            return;
+        }
 
         if (name)
         {
@@ -210,6 +222,8 @@ export class PlainRoomRepository implements IRoomRepository
         }
 
         await this.rewriteRoomsToFile();
+
+        console.log(`[Room] Update info about Room [${id}, '${room.name}', ${room.videoCodec}].`);
     }
 
     public get(id: string): IRoom | undefined
@@ -315,7 +329,7 @@ export class PlainRoomRepository implements IRoomRepository
         return room.users.has(userId);
     }
 
-    public setAuthInRoom(roomId: string, userId: string): void
+    public authorizeInRoom(roomId: string, userId: string): void
     {
         const user = this.userAccountRepository.get(userId);
         const room = this.rooms.get(roomId);
@@ -327,7 +341,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         room.users.add(userId);
     }
-    public unsetAuthInRoom(roomId: string, userId: string): void
+    public deauthorizeInRoom(roomId: string, userId: string): void
     {
         const user = this.userAccountRepository.get(userId);
         const room = this.rooms.get(roomId);
@@ -338,5 +352,20 @@ export class PlainRoomRepository implements IRoomRepository
         }
 
         room.users.delete(userId);
+    }
+
+    public deauthorizeAllInRoom(roomId: string): void
+    {
+        const room = this.rooms.get(roomId);
+
+        if (!room)
+        {
+            return;
+        }
+
+        for (const userId of room.users)
+        {
+            this.deauthorizeInRoom(roomId, userId);
+        }
     }
 }
