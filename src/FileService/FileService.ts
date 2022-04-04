@@ -203,7 +203,7 @@ export class FileService implements IFileService
         }
         catch (error)
         {
-            console.error(`[FileHandler] Error (${(error as Error).message}) while uploading file: ${fileId}`);
+            console.error(`[Error] [FileService] Error while uploading file [${fileId}] |`, (error as Error));
         }
     }
 

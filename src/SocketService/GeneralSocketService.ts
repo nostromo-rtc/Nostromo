@@ -101,16 +101,23 @@ export class GeneralSocketService implements IGeneralSocketService
             const userList = this.roomRepository.getActiveUserList(roomId);
             this.generalIo.to(`${SE.UserList}-${roomId}`).emit(SE.UserList, userList);
         }
-        catch (e)
+        catch (error)
         {
-            return;
+            console.error(`[ERROR] [GeneralSocketService] getActiveUserList error in Room [${roomId}] |`, (error as Error));
         }
     }
 
     public sendUserListToSubscriber(subscriberId: string, roomId: string): void
     {
-        const userList = this.roomRepository.getActiveUserList(roomId);
-        this.generalIo.to(subscriberId).emit(SE.UserList, userList);
+        try
+        {
+            const userList = this.roomRepository.getActiveUserList(roomId);
+            this.generalIo.to(subscriberId).emit(SE.UserList, userList);
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [GeneralSocketService] getActiveUserList error in Room [${roomId}] |`, (error as Error));
+        }
     }
 
     public unsubscribeAllUserListSubscribers(roomId: string): void

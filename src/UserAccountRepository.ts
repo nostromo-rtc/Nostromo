@@ -42,7 +42,11 @@ export class UserAccountRepository implements IUserAccountRepository
 
     public create(info: NewUserAccountInfo): string
     {
-        const id: string = nanoid(21);
+        let id: string = nanoid(21);
+        while (this.users.has(id))
+        {
+            id = nanoid(21);
+        }
 
         const userAccount: UserAccount = {
             id,
@@ -51,22 +55,22 @@ export class UserAccountRepository implements IUserAccountRepository
         };
 
         this.users.set(id, userAccount);
-
-        console.log(`[UserAccountRepository] Create a new user account [Id: ${id}].`);
+        console.log(`[UserAccountRepository] New user account [Id: ${id}] was created.`);
 
         return id;
     }
 
     public remove(id: string): void
     {
-        const user = this.users.get(id);
-
-        if (user)
+        if (!this.users.has(id))
         {
-            this.users.delete(id);
-
-            console.log(`[UserAccountRepository] Delete a user account [Id: ${id}].`);
+            console.error(`[ERROR] [UserAccountRepository] Can't delete user account [${id}], because it's not exist.`);
+            return;
         }
+
+        this.users.delete(id);
+        console.log(`[UserAccountRepository] User account [Id: ${id}] was deleted.`);
+
     }
 
     public get(id: string): UserAccount | undefined
@@ -79,19 +83,32 @@ export class UserAccountRepository implements IUserAccountRepository
         return this.users.has(id);
     }
 
-    public setUsername(id: string, name: string)
+    public setUsername(id: string, name: string): void
     {
         const user = this.users.get(id);
 
-        if (user)
+        if (!user)
         {
-            console.log(`[UserAccountRepository] User [Id: ${id}, '${user.name}'] has a new name: '${name}'.`);
-            user.name = name;
+            console.error(`[ERROR] [UserAccountRepository] Can't rename user account [${id}], because it's not exist.`);
+            return;
         }
+
+        const oldName = user.name;
+        user.name = name;
+
+        console.log(`[UserAccountRepository] User [Id: ${id}, '${oldName}'] has a new name: '${name}'.`);
     }
 
     public getUsername(id: string): string | undefined
     {
-        return this.users.get(id)?.name;
+        const user = this.users.get(id);
+
+        if (!user)
+        {
+            console.error(`[ERROR] [UserAccountRepository] Can't get username of User [${id}], because user is not exist.`);
+            return;
+        }
+
+        return user.name;
     }
 }

@@ -3,7 +3,7 @@ import { NewRoomInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { RoomInfo, PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IMediasoupService } from "./MediasoupService";
-import { ActiveUser, IRoom, Room } from "./Room";
+import { IRoom, Room } from "./Room";
 
 import path = require('path');
 import fs = require('fs');
@@ -32,10 +32,16 @@ export interface IRoomRepository
     /** Получить список ссылок на комнаты. */
     getRoomLinkList(): PublicRoomInfo[];
 
-    /** Получить список пользователей в комнате roomId. */
+    /** Получить список пользователей в комнате roomId.
+     * @throws Error, если не существует комнаты roomId.
+     * @throws Error, если не удалось найти информацию об активном пользователе userId.
+     */
     getActiveUserList(roomId: string): UserInfo[];
 
-    /** Получить socketId у активного пользователя userId в комнате roomId. */
+    /** Получить socketId у активного пользователя userId в комнате roomId.
+     * @throws Error, если не существует комнаты roomId.
+     * @throws Error, если userId не является активным пользователем roomId.
+    */
     getActiveUserSocketId(roomId: string, userId: string): string;
 
     /** Проверить правильность пароля от комнаты. */
@@ -159,8 +165,12 @@ export class PlainRoomRepository implements IRoomRepository
     {
         const { name, password, videoCodec } = info;
 
-        //TODO: сделать проверку на коллизию
-        const id: string = nanoid(11);
+        let id: string = nanoid(11);
+        while (this.rooms.has(id))
+        {
+            id = nanoid(11);
+        }
+
 
         let hashPassword = "";
         if (password.length > 0)
@@ -174,7 +184,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         await this.rewriteRoomsToFile();
 
-        console.log(`[Room] Creating a new Room [${id}, '${info.name}', ${info.videoCodec}].`);
+        console.log(`[PlainRoomRepository] Room [${id}, '${info.name}', ${info.videoCodec}] was created.`);
 
         return id;
     }
@@ -183,15 +193,15 @@ export class PlainRoomRepository implements IRoomRepository
     {
         const room = this.rooms.get(id);
 
-        if (room)
+        if (!room)
         {
-            room.close();
-            this.rooms.delete(id);
-
-            await this.rewriteRoomsToFile();
-
-            console.log(`[Room] Delete a Room [${id}, '${room.name}', ${room.videoCodec}].`);
+            console.error(`[ERROR] [PlainRoomRepository] Can't delete Room [${id}], because it's not exist.`);
+            return;
         }
+        room.close();
+        this.rooms.delete(id);
+        await this.rewriteRoomsToFile();
+        console.log(`[Room] Room [${id}, '${room.name}', ${room.videoCodec}] was deleted.`);
     }
 
     public async update(info: UpdateRoomInfo)
@@ -202,6 +212,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
+            console.error(`[ERROR] [PlainRoomRepository] Can't update Room [${id}], because it's not exist.`);
             return;
         }
 
@@ -223,7 +234,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         await this.rewriteRoomsToFile();
 
-        console.log(`[Room] Update info about Room [${id}, '${room.name}', ${room.videoCodec}].`);
+        console.log(`[Room] Room [${id}, '${room.name}', ${room.videoCodec}] was updated.`);
     }
 
     public get(id: string): IRoom | undefined
@@ -259,7 +270,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
-            throw new Error("[RoomRepository] Room with roomId is not exist");
+            throw new Error(`Room [${roomId}] is not exist.`);
         }
 
         const userList: UserInfo[] = [];
@@ -269,7 +280,7 @@ export class PlainRoomRepository implements IRoomRepository
             const user = this.userAccountRepository.get(userId);
             if (!user)
             {
-                throw new Error("[RoomRepository] User with userId is not exist");
+                throw new Error(`User [${userId}] is not exist.`);
             }
             userList.push({ id: userId, name: user.name });
         }
@@ -283,14 +294,14 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
-            throw new Error(`[RoomRepository] Room (${roomId}) is not exist`);
+            throw new Error(`Room [${roomId}] is not exist.`);
         }
 
         const user = room.activeUsers.get(userId);
 
         if (!user)
         {
-            throw new Error(`[RoomRepository] Active user (${userId}) is not exist in room (${roomId})`);
+            throw new Error(`User [${userId}] is not active user in Room [${roomId}].`);
         }
 
         return user.socketId;
@@ -302,6 +313,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
+            console.error(`[ERROR] [PlainRoomRepository] Can't check Room [${id}] password, because room is not exist.`);
             return false;
         }
 

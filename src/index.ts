@@ -45,7 +45,9 @@ function prepareConfig(): boolean
     return true;
 }
 
-// инициализация приложения
+/** Инициализация приложения.
+ * @throws Error, если отсутствует конфигурационный файл.
+ */
 function initApplication()
 {
     // загрузка значений из конфигурационного файла
@@ -67,7 +69,7 @@ function initApplication()
     // если конфиг не удалось загрузить
     if (!configLoadSuccess)
     {
-        throw new Error(`Отсутствует конфигурационный файл: ${DEFAULT_CONFIG_PATH}`);
+        throw new Error(`Отсутствует конфигурационный файл: ${DEFAULT_CONFIG_PATH}.`);
     }
 
 }

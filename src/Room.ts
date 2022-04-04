@@ -104,6 +104,8 @@ export interface IRoom
     /**
      * Создание потока-потребителя для пользователя consumerUser
      * из потока-производителя пользователя producerUserId.
+     * @throws Error, если пользователь не может потреблять данный Producer.
+     * @throws Error, если у пользователя нет Transport для потребления.
      */
     createConsumer(
         consumerUser: ActiveUser,
@@ -134,7 +136,9 @@ export interface IRoom
     /** Снять consumer с паузы. */
     resumeConsumer(consumer: MediasoupTypes.Consumer): Promise<boolean>;
 
-    /** Создать поток-производитель, который описан с помощью newProducerInfo, для пользователя user. */
+    /** Создать поток-производитель, который описан с помощью newProducerInfo, для пользователя user.
+     * @throws Error, если не удалось найти Transport с указанным Id.
+     */
     createProducer(
         user: ActiveUser,
         newProducerInfo: NewProducerInfo

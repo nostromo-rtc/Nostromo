@@ -53,7 +53,10 @@ export interface IMediasoupService
         consuming: boolean
     ): Promise<MediasoupTypes.WebRtcTransport>;
 
-    /** Создать поток-потребитель для пользователя. */
+    /** Создать поток-потребитель для пользователя.
+     * @throws Error, если пользователь не может потреблять данный Producer.
+     * @throws Error, если у пользователя нет Transport для потребления.
+    */
     createConsumer(
         user: ActiveUser,
         producer: MediasoupTypes.Producer,
@@ -72,7 +75,9 @@ export interface IMediasoupService
     /** Уменьшить счётчик потоков-производителей на сервере. */
     decreaseProducersCount(kind: MediasoupTypes.MediaKind): void;
 
-    /** Создать поток-производитель для пользователя. */
+    /** Создать поток-производитель для пользователя.
+     * @throws Error, если не удалось найти Transport с указанным Id.
+     */
     createProducer(
         user: ActiveUser,
         newProducerInfo: NewProducerInfo,
@@ -151,7 +156,7 @@ export class MediasoupService implements IMediasoupService
     // создаем экземпляр класса (внутри которого создаются Workers)
     public static async create(numWorkers: number): Promise<MediasoupService>
     {
-        console.log(`[Mediasoup] Running ${numWorkers} mediasoup Workers.`);
+        console.log(`[MediasoupService] Running ${numWorkers} mediasoup Workers.`);
 
         const workers = new Array<MediasoupTypes.Worker>();
 
@@ -166,7 +171,7 @@ export class MediasoupService implements IMediasoupService
             worker.on('died', (error) =>
             {
                 console.error(
-                    `[Mediasoup] Mediasoup Worker died [pid: ${worker.pid}]`, (error as Error).message
+                    `[ERROR] [MediasoupService] Mediasoup Worker died [pid: ${worker.pid}]`, (error as Error).message
                 );
             });
 
@@ -232,7 +237,7 @@ export class MediasoupService implements IMediasoupService
                 return;
             }
 
-            const logMsg = `[Mediasoup] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > icestatechange event: ${state}`;
+            const logMsg = `[MediasoupService] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > icestatechange event: ${state}`;
             const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
             console.log(`${logMsg} | ${ipInfo}.`);
         });
@@ -248,9 +253,9 @@ export class MediasoupService implements IMediasoupService
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
-                const logMsg = `[Mediasoup] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
+                const logMsg = `[MediasoupService] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
                 const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
-                console.error(`${logMsg} | ${ipInfo}.`);
+                console.error(`[ERROR] ${logMsg} | ${ipInfo}.`);
             }
         });
 
@@ -266,7 +271,6 @@ export class MediasoupService implements IMediasoupService
         return transport;
     }
 
-    // создаем производителя (producer) для user
     public async createProducer(
         user: ActiveUser,
         newProducerInfo: NewProducerInfo,
@@ -279,7 +283,7 @@ export class MediasoupService implements IMediasoupService
 
         if (!transport)
         {
-            throw new Error(`[Mediasoup] transport with id "${transportId}" not found`);
+            throw new Error(`Transport [${transportId}] for User [${user.userId}] is not found.`);
         }
 
         const producer = await transport.produce({ kind, rtpParameters });
@@ -315,37 +319,28 @@ export class MediasoupService implements IMediasoupService
             })
         )
         {
-            throw new Error(`[Mediasoup] User can't consume`);
+            throw new Error(`User [${user.userId}] can't consume.`);
         }
 
-        // Берем Transport пользователя, предназначенный для потребленияю
+        // Берем Transport пользователя, предназначенный для потребления.
         const transport = user.consumerTransport;
 
         if (!transport)
         {
-            throw new Error(`[Mediasoup] Transport for consuming not found`);
+            throw new Error(`Transport for consuming of User [${user.userId}] is not found.`);
         }
 
         // Создаем Consumer в режиме паузы.
-        let consumer: MediasoupTypes.Consumer;
+        const consumer = await transport.consume({
+            producerId: producer.id,
+            rtpCapabilities: user.rtpCapabilities,
+            paused: true
+        });
 
-        try
-        {
-            consumer = await transport.consume({
-                producerId: producer.id,
-                rtpCapabilities: user.rtpCapabilities,
-                paused: true
-            });
-            // Поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
-            // когда клиент запросит снятие consumer с паузы, этот флаг сменится на false
-            // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне.
-            (consumer.appData as ConsumerAppData).clientPaused = true;
-        }
-        catch (error)
-        {
-            const err = error as Error;
-            throw new Error(`[Mediasoup] transport.consume() | ${err.name}: ${err.message}`);
-        }
+        // Поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
+        // когда клиент запросит снятие consumer с паузы, этот флаг сменится на false
+        // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне.
+        (consumer.appData as ConsumerAppData).clientPaused = true;
 
         return consumer;
     }

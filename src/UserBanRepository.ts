@@ -70,9 +70,7 @@ export class UserBanRepository implements IUserBanRepository
         const { ip } = info;
 
         this.bans.set(ip, info);
-
         await this.rewriteBansToFile();
-
         console.log(`[UserBanRepository] User [Ip: ${ip}] has been banned.`);
 
         return ip;
@@ -82,14 +80,15 @@ export class UserBanRepository implements IUserBanRepository
     {
         const ban = this.bans.get(ip);
 
-        if (ban)
+        if (!ban)
         {
-            this.bans.delete(ip);
-
-            await this.rewriteBansToFile();
-
-            console.log(`[UserBanRepository] User [Ip: ${ip}] has been unbanned.`);
+            console.error(`[ERROR] [UserBanRepository] Can't unban User [Ip: ${ip}], because that user is not banned.`);
+            return;
         }
+
+        this.bans.delete(ip);
+        await this.rewriteBansToFile();
+        console.log(`[UserBanRepository] User [Ip: ${ip}] has been unbanned.`);
     }
 
     public get(ip: string): UserBanInfo | undefined
