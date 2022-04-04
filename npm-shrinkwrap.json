@@ -1961,7 +1961,7 @@
     },
     "node_modules/nostromo-shared": {
       "version": "0.2.1",
-      "resolved": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#2c4b059a16dd9583a64bdbd607cbc23d26b0dcac",
+      "resolved": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#95fb852cb058a15272515639a355893900f57192",
       "dev": true,
       "license": "BSD-3-Clause",
       "dependencies": {
@@ -1970,7 +1970,7 @@
     },
     "node_modules/nostromo-web": {
       "version": "0.2.1",
-      "resolved": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#b6c77056555e73548dca5b45ab9ba5605b297877",
+      "resolved": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#aff53035656dc0c6cbaca00f67e93256c557aba4",
       "inBundle": true,
       "license": "BSD-3-Clause"
     },
@@ -4165,7 +4165,7 @@
       "integrity": "sha512-hZXc7K2e+PgeI1eDBe/10Ard4ekbfrrqG8Ep+8Jmf4JID2bNg7NvCPOZN+kfF574pFQI7mum2AUqDidoKqcTOw=="
     },
     "nostromo-shared": {
-      "version": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#2c4b059a16dd9583a64bdbd607cbc23d26b0dcac",
+      "version": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#95fb852cb058a15272515639a355893900f57192",
       "dev": true,
       "from": "nostromo-shared@git+https://git@gitlab.com/sgakerru/nostromo-shared.git#dev",
       "requires": {
@@ -4173,7 +4173,7 @@
       }
     },
     "nostromo-web": {
-      "version": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#b6c77056555e73548dca5b45ab9ba5605b297877",
+      "version": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#aff53035656dc0c6cbaca00f67e93256c557aba4",
       "from": "nostromo-web@git+https://git@gitlab.com/sgakerru/nostromo-web.git#dev"
     },
     "object-assign": {

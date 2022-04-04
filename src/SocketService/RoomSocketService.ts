@@ -110,25 +110,39 @@ export class RoomSocketService implements IRoomSocketService
                 return;
             }
 
-            await socket.join(room.id);
-            this.clientJoined(room, socket, userId);
+            if (room.activeUsers.has(userId))
+            {
+                socket.emit(SE.UserAlreadyJoined);
+                socket.once(SE.ForceJoinRoom, async () =>
+                {
+                    this.kickUser({ roomId: room.id, userId });
+                    await this.clientJoined(room, socket, userId);
+                });
+            }
+            else
+            {
+                await this.clientJoined(room, socket, userId);
+            }
         });
     }
 
     /** Пользователь заходит в комнату. */
-    private clientJoined(
+    private async clientJoined(
         room: IRoom,
         socket: Socket,
         userId: string
-    ): void
+    ): Promise<void>
     {
         const userIp = socket.handshake.address.substring(7);
-        const username = this.userAccountRepository.getUsername(userId)!;
+        const username = this.userAccountRepository.getUsername(userId) ?? "Гость";
 
         console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] has joined.`);
         room.activeUsers.set(userId, new ActiveUser(room.id, userId, socket.id));
 
         const user: ActiveUser = room.activeUsers.get(userId)!;
+
+        // Вступаем в socket.io комнату.
+        await socket.join(room.id);
 
         // Сообщаем пользователю его идентификатор.
         socket.emit(SE.UserId, userId);
@@ -298,7 +312,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] CreateWebRtcTransport for User [${user.userId}] error: `, (error as Error).message);
+            console.error(`[ERROR] [RoomSocketService] createWebRtcTransport error for User [${user.userId}] in Room [${room.id}] |`, (error as Error));
         }
     }
 
@@ -317,7 +331,7 @@ export class RoomSocketService implements IRoomSocketService
 
         const userIp = socket.handshake.address.substring(7);
         const userId = user.userId;
-        const username = this.userAccountRepository.getUsername(userId)!;
+        const username = this.userAccountRepository.getUsername(userId) ?? "Гость";
 
         console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] is ready to get consumers.`);
 
@@ -350,7 +364,7 @@ export class RoomSocketService implements IRoomSocketService
                 // Запросим потоки другого пользователя для этого нового пользователя.
                 await requestCreatingConsumers(otherUser[1]);
 
-                const otherUserName = this.userAccountRepository.getUsername(otherUser[0])!;
+                const otherUserName = this.userAccountRepository.getUsername(otherUser[0]) ?? "Гость";
                 const otherUserInfo: UserInfo = { id: otherUser[0], name: otherUserName };
 
                 // Сообщаем новому пользователю о пользователе otherUser.
@@ -394,7 +408,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] CreateConsumer error for User [${consumerUser.userId}] | `, (error as Error).message);
+            console.error(`[ERROR] [RoomSocketService] createConsumer error for User [${consumerUser.userId}] in Room [${room.id}] |`, (error as Error));
         }
     }
 
@@ -488,13 +502,19 @@ export class RoomSocketService implements IRoomSocketService
             // Обрабатываем события у Producer.
             this.handleProducerEvents(socket, room, user, producer);
 
-            // Перебираем всех пользователей, кроме текущего
-            // и создадим для них consumer.
+            // Перебираем всех пользователей, кроме текущего и создаём для них consumer.
             for (const otherUser of room.activeUsers)
             {
                 if (otherUser[0] != user.userId)
                 {
-                    const otherUserSocket = this.getSocketBySocketId(otherUser[1].socketId)!;
+                    const otherUserSocket = this.getSocketBySocketId(otherUser[1].socketId);
+
+                    if (!otherUserSocket)
+                    {
+                        console.error(`[ERROR] [RoomSocketService] Can't get socket by Id [${otherUser[1].socketId}] for User [${otherUser[1].userId}] in Room [${room.id}].`);
+                        return;
+                    }
+
                     await this.requestCreateConsumer(otherUserSocket, room, otherUser[1], user.userId, producer);
                 }
             }
@@ -503,7 +523,7 @@ export class RoomSocketService implements IRoomSocketService
         }
         catch (error)
         {
-            console.error(`[Room] CreateProducer error for User [${user.userId}] | `, (error as Error).message);
+            console.error(`[ERROR] [RoomSocketService] createProducer error for User [${user.userId}] in Room [${room.id}] |`, (error as Error));
         }
     }
 
@@ -539,8 +559,15 @@ export class RoomSocketService implements IRoomSocketService
     /** Получить веб-сокет соединение по userId. */
     private getSocketByUserId(roomId: string, userId: string): Socket | undefined
     {
-        const socketId = this.roomRepository.getActiveUserSocketId(roomId, userId);
-        return this.getSocketBySocketId(socketId);
+        try
+        {
+            const socketId = this.roomRepository.getActiveUserSocketId(roomId, userId);
+            return this.getSocketBySocketId(socketId);
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [RoomSocketService] getActiveUserSocketId error in Room [${roomId}] for User [${userId}] |`, (error as Error));
+        }
     }
 
     /** Пользователь изменил ник. */
@@ -609,7 +636,7 @@ export class RoomSocketService implements IRoomSocketService
         room.userDisconnected(userId);
 
         const userIp = socket.handshake.address.substring(7);
-        const username = this.userAccountRepository.getUsername(userId)!;
+        const username = this.userAccountRepository.getUsername(userId) ?? "Гость";
 
         console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] has disconnected: ${reason}.`);
 
@@ -639,7 +666,7 @@ export class RoomSocketService implements IRoomSocketService
 
         if (userSocket)
         {
-            userSocket.emit(SE.Redirect, "main-page");
+            userSocket.disconnect(true);
         }
     }
 
