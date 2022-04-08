@@ -4,7 +4,9 @@
 
 ## Short description
 
-**Nostromo** - platform for video conferencing, built on `WebRTC`. Absolutely free, standalone, open-source, without any artificial limits or restrictions.
+**Nostromo** - platform for video conferencing, built on `WebRTC`. 
+
+Absolutely free, standalone, open-source, without any artificial limits or restrictions.
 
 **Nostromo** consists of several components:
 Repository                                                     | Description
@@ -56,7 +58,7 @@ Try it yourself and share your results in any way you like (via Issues or email)
 
 # Setup, settings, requirements
 
-Setup, settings and requirements can be found [here](/docs/SETUP-EN.md).
+**Setup**, **settings** and **requirements** can be found [here](/docs/SETUP-EN.md).
 
 # Demo screenshot
 ![Nostromo demo screenshot](nostromo-demo-screenshot.png)
