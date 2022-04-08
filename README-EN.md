@@ -7,11 +7,11 @@
 **Nostromo** - platform for video conferencing, built on `WebRTC`. Absolutely free, standalone, open-source, without any artificial limits or restrictions.
 
 **Nostromo** consists of several components:
-Repository                                   | Description
--------------                                | -------------
-[Nostromo Server](/SgAkErRu/nostromo)        | Nostromo Server (backend), built on `Node.js`
-[Nostromo Web](/SgAkErRu/nostromo-web)       | Nostromo Web-Client (frontend), written on pure `HTML` and `TypeScript`
-[Nostromo Shared](/SgAkErRu/nostromo-shared) | Component with shared types and structures for backend and frontend
+Repository                                                     | Description
+-------------                                                  | -------------
+[Nostromo Server](https://gitlab.com/SgAkErRu/nostromo)        | Nostromo Server (backend), built on `Node.js`
+[Nostromo Web](https://gitlab.com/SgAkErRu/nostromo-web)       | Nostromo Web-Client (frontend), written on pure `HTML` and `TypeScript`
+[Nostromo Shared](https://gitlab.com/SgAkErRu/nostromo-shared) | Component with shared types and structures for backend and frontend
 
 ## Features
 

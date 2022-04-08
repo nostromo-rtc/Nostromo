@@ -9,11 +9,11 @@ For [english version click here](/README-EN.md).
 **Nostromo** - это платформа для организации и проведения видеоконференций, основанная на технологии `WebRTC`. Полностью бесплатная, автономная, с открытым исходным кодом, без искусственных лимитов и ограничений.
 
 Платформа **Nostromo** состоит из нескольких компонентов:
-Репозиторий                                  | Описание
--------------                                | -------------
-[Nostromo Server](/SgAkErRu/nostromo)        | Сервер Nostromo (backend), построенный на платформе `Node.js`
-[Nostromo Web](/SgAkErRu/nostromo-web)       | Веб-клиент Nostromo (frontend), написанный на чистом `HTML` и `TypeScript`
-[Nostromo Shared](/SgAkErRu/nostromo-shared) | Компонент с общими типами и структурами для сервера и клиентской части
+Репозиторий                                                     | Описание
+-------------                                                   | -------------
+[Nostromo Server](https://gitlab.com/SgAkErRu/nostromo)         | Сервер Nostromo (backend), построенный на платформе `Node.js`
+[Nostromo Web](https://gitlab.com/SgAkErRu/nostromo-web)        | Веб-клиент Nostromo (frontend), написанный на чистом `HTML` и `TypeScript`
+[Nostromo Shared](https://gitlab.com/SgAkErRu/nostromo-shared)  | Компонент с общими типами и структурами для сервера и клиентской части
 
 ## Особенности
 
