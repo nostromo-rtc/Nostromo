@@ -29,7 +29,7 @@ You can read the approximate development plans [here, in Milestones](https://git
 
 - 🤨 **The maximum number of participants** depends on the technical capabilites of the server (check [perfomanse](#perfomance)).
 
-- 🖥️ **Connect** using your smartphone or computer via a browser. In the near future - a desktop client for a computer. In the long-term plans - an Android application.
+- 🖥️ **Connect** using your smartphone or computer via a browser that supports `WebRTC` (recommended latest major versions of `Mozilla Firefox` or `Google Chrome`). In the near future - a desktop client for a computer. In the long-term plans - an Android application.
 
 - 🕵️ **Guest support** - you do not need to register an account. You can just click on the link and you can already participate in the conference.
 
