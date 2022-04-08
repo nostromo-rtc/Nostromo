@@ -15,13 +15,17 @@ Repository                                                     | Description
 [Nostromo Web](https://gitlab.com/SgAkErRu/nostromo-web)       | Nostromo Web-Client (frontend), written on pure `HTML` and `TypeScript`
 [Nostromo Shared](https://gitlab.com/SgAkErRu/nostromo-shared) | Component with shared types and structures for backend and frontend
 
+## Future development plans
+
+You can read the approximate development plans [here, in Milestones](https://gitlab.com/SgAkErRu/nostromo/-/milestones).
+
 ## Features
 
 - ♾️ Absolutely **free** without any limits or restrictions (for example, by time or number of participants).
 
 - 🏢 Completely **standalone** - can work both in a private network without the Internet, and in a public network via the Internet.
 
-- 🛡️ Security is ensured through the use of technologies that support data encryption: `DTLS-SRTP` for media streams and `HTTPS` for any text and file data.
+- 🛡️ **Security** is ensured through the use of technologies that support data encryption: `DTLS-SRTP` for media streams and `HTTPS` for any text and file data.
 
 - 🤨 **The maximum number of participants** depends on the technical capabilites of the server (check [perfomanse](#perfomance)).
 
@@ -29,7 +33,7 @@ Repository                                                     | Description
 
 - 🕵️ **Guest support** - you do not need to register an account. You can just click on the link and you can already participate in the conference.
 
-- 🔒 Rooms (conferences) can be protected with **password**. You can join the room by entering the password manually, but you can join by using a special link with the hash password included.
+- 🔒 **Rooms** (conferences) can be protected with **password**. You can join the room by entering the password manually, but you can join by using a special link with the hash password included.
 
 - 🎙️ You can capture **the microphone**, **webcam** or **computer/window screen** (if it's Chrome, you can also capture a tab in the browser and, if desired, you can capture the sound of the computer or tab). Please note that you can select **the resolution or frame rate** of the video stream when capturing a webcam or screen (from 240p to 1440p).
 
@@ -45,7 +49,7 @@ Repository                                                     | Description
 
 - 🎚️ You can adjust the level of **the sound volume** of the participants, as well as pause and unpause the media streams of another user (for example to save resources).
 
-- 📷 Picture-in-picture support for videos coming from users.
+- 📷 **Picture-in-picture** support for videos coming from users.
 
 
 ## Perfomance
@@ -54,11 +58,19 @@ We have tested on **40** users for serveral hours and in general everything went
 
 All this was on an 10-year-old server and with a network bandwith (Internet) of about 15 **MBit/s**.
 
-Try it yourself and share your results in any way you like (via Issues or email).
+Try it yourself and share your results in any way you like (via [Issues](https://gitlab.com/SgAkErRu/nostromo/-/issues) or [e-mail](https://gitlab.com/SgAkErRu)).
 
 # Setup, settings, requirements
 
 **Setup**, **settings** and **requirements** can be found [here](/docs/SETUP-EN.md).
 
-# Demo screenshot
+# Demo screenshot (not final result)
 ![Nostromo demo screenshot](nostromo-demo-screenshot.png)
+
+# Author
+
+- SgAkErRu [[GitLab](https://gitlab.com/SgAkErRu) | [GitHub](https://github.com/SgAkErRu)]
+
+# License
+
+[BSD 3-Clause License](/LICENSE)
