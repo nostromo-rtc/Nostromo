@@ -27,7 +27,7 @@ You can read the approximate development plans [here, in Milestones](https://git
 
 - 🛡️ **Security** is ensured through the use of technologies that support data encryption: `DTLS-SRTP` for media streams and `HTTPS` for any text and file data.
 
-- 🤨 **The maximum number of participants** depends on the technical capabilites of the server (check [perfomanse](#perfomance)).
+- 🤨 **The maximum number of participants** depends on the technical capabilites of the server (check [perfomance](#perfomance)).
 
 - 🖥️ **Connect** using your smartphone or computer via a browser that supports `WebRTC` (recommended latest major versions of `Mozilla Firefox` or `Google Chrome`). In the near future - a desktop client for a computer. In the long-term plans - an Android application.
 
@@ -54,15 +54,15 @@ You can read the approximate development plans [here, in Milestones](https://git
 
 ## Perfomance
 
-We have tested on **40** users for serveral hours and in general everything went well. **All** had their microphones captured, and **15** of them also showed screens of computer or captured webcams.
+We have tested on **40** users for several hours and in general everything went well. **All** had their microphones captured, and **15** of them also showed screens of computer or captured webcams.
 
-All this was on an 10-year-old server and with a network bandwith (Internet) of about 15 **MBit/s**.
+All this was on an 10-year-old server and with a network bandwith (Internet) of about 15 **Mbit/s**.
 
 Try it yourself and share your results in any way you like (via [Issues](https://gitlab.com/SgAkErRu/nostromo/-/issues) or [e-mail](https://gitlab.com/SgAkErRu)).
 
 # Setup, settings, requirements
 
-**Setup**, **settings** and **requirements** can be found [here](/docs/SETUP-EN.md).
+[**Setup**, **settings** and **requirements** can be found here](/docs/SETUP-EN.md).
 
 # Demo screenshot (not final result)
 ![Nostromo demo screenshot](nostromo-demo-screenshot.png)
