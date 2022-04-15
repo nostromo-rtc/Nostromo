@@ -1,16 +1,17 @@
 
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
-import { IRoom, ActiveUser } from "../Room";
-import { IRoomRepository } from "../RoomRepository";
+import { IRoom, ActiveUser } from "../Room/Room";
+import { IRoomRepository } from "../Room/RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { MediasoupTypes } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
-import { IUserBanRepository } from "../UserBanRepository";
-import { IUserAccountRepository } from "../UserAccountRepository";
+import { IUserBanRepository } from "../User/UserBanRepository";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { ActionOnUserInfo, ChangeUserNameInfo } from "nostromo-shared/types/AdminTypes";
+import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -42,6 +43,7 @@ export class RoomSocketService implements IRoomSocketService
     private roomRepository: IRoomRepository;
     private userAccountRepository: IUserAccountRepository;
     private userBanRepository: IUserBanRepository;
+    private authRoomUserRepository: IAuthRoomUserRepository;
     private generalSocketService: IGeneralSocketService;
     private fileService: IFileService;
     private latestMaxVideoBitrate = -1;
@@ -53,6 +55,7 @@ export class RoomSocketService implements IRoomSocketService
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
+        authRoomUserRepository: IAuthRoomUserRepository,
         sessionMiddleware: RequestHandler,
     )
     {
@@ -61,6 +64,7 @@ export class RoomSocketService implements IRoomSocketService
         this.roomRepository = roomRepository;
         this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
+        this.authRoomUserRepository = authRoomUserRepository;
         this.fileService = fileService;
 
         this.applySessionMiddleware(sessionMiddleware);
@@ -88,7 +92,7 @@ export class RoomSocketService implements IRoomSocketService
             const roomId = session.joinedRoomId;
 
             // Если пользователь авторизован в запрашиваемой комнате
-            if (userId && roomId && this.roomRepository.isAuthInRoom(roomId, userId))
+            if (userId && roomId && this.authRoomUserRepository.has(roomId, userId))
             {
                 return next();
             }

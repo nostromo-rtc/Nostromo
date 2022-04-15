@@ -2,14 +2,14 @@
 import { NewRoomInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { RoomInfo, PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
-import { IMediasoupService } from "./MediasoupService";
+import { IMediasoupService } from "../MediasoupService";
 import { IRoom, Room } from "./Room";
 
 import path = require('path');
 import fs = require('fs');
 import { scrypt } from "crypto";
 import { nanoid } from "nanoid";
-import { IUserAccountRepository } from "./UserAccountRepository";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
 
 
 export interface IRoomRepository
@@ -46,18 +46,6 @@ export interface IRoomRepository
 
     /** Проверить правильность пароля от комнаты. */
     checkPassword(id: string, pass: string): Promise<boolean>;
-
-    /** Авторизован ли пользователь userId в комнате с заданным roomId? */
-    isAuthInRoom(roomId: string, userId: string): boolean;
-
-    /** Запомнить, что пользователь userId авторизован в комнате roomId. */
-    authorizeInRoom(roomId: string, userId: string): void;
-
-    /** Запомнить, что пользователь userId больше не авторизован в комнате roomId. */
-    deauthorizeInRoom(roomId: string, userId: string): void;
-
-    /** Деавторизовать всех в комнате roomId. */
-    deauthorizeAllInRoom(roomId: string): void;
 }
 
 export class PlainRoomRepository implements IRoomRepository
@@ -326,58 +314,5 @@ export class PlainRoomRepository implements IRoomRepository
         // Иначе посчитаем хеш.
         const hashPassword = await this.generateHashPassword(pass);
         return (room.password == hashPassword);
-    }
-
-    public isAuthInRoom(roomId: string, userId: string): boolean
-    {
-        const user = this.userAccountRepository.get(userId);
-        const room = this.rooms.get(roomId);
-
-        if (!user || !room)
-        {
-            return false;
-        }
-
-        return room.users.has(userId);
-    }
-
-    public authorizeInRoom(roomId: string, userId: string): void
-    {
-        const user = this.userAccountRepository.get(userId);
-        const room = this.rooms.get(roomId);
-
-        if (!user || !room)
-        {
-            return;
-        }
-
-        room.users.add(userId);
-    }
-    public deauthorizeInRoom(roomId: string, userId: string): void
-    {
-        const user = this.userAccountRepository.get(userId);
-        const room = this.rooms.get(roomId);
-
-        if (!user || !room)
-        {
-            return;
-        }
-
-        room.users.delete(userId);
-    }
-
-    public deauthorizeAllInRoom(roomId: string): void
-    {
-        const room = this.rooms.get(roomId);
-
-        if (!room)
-        {
-            return;
-        }
-
-        for (const userId of room.users)
-        {
-            this.deauthorizeInRoom(roomId, userId);
-        }
     }
 }

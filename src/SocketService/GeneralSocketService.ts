@@ -1,7 +1,7 @@
 import SocketIO = require('socket.io');
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
-import { IRoomRepository } from "../RoomRepository";
+import { IRoomRepository } from "../Room/RoomRepository";
 import { NewRoomNameInfo } from "nostromo-shared/types/AdminTypes";
 type Socket = SocketIO.Socket;
 

@@ -1,4 +1,4 @@
-import { IMediasoupService, ConsumerAppData, MediasoupTypes } from "./MediasoupService";
+import { IMediasoupService, ConsumerAppData, MediasoupTypes } from "../MediasoupService";
 
 import
 {
@@ -61,9 +61,6 @@ export interface IRoom
 
     /** Установить пароль от комнаты. */
     set password(value: string);
-
-    /** Идентификаторы авторизованных пользователей в комнате. */
-    readonly users: Set<string>;
 
     /** Активные пользователи в комнате. */
     readonly activeUsers: Map<string, ActiveUser>;

@@ -7,13 +7,14 @@ import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 
 import { IFileService } from "../FileService/FileService";
-import { IRoomRepository } from "../RoomRepository";
+import { IRoomRepository } from "../Room/RoomRepository";
 import { AdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
 import { AuthSocketService } from "./AuthSocketService";
 import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
-import { IUserBanRepository } from "../UserBanRepository";
-import { IUserAccountRepository } from "../UserAccountRepository";
+import { IUserBanRepository } from "../User/UserBanRepository";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
+import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -80,7 +81,8 @@ export class SocketManager
         fileService: IFileService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
-        userBanRepository: IUserBanRepository
+        userBanRepository: IUserBanRepository,
+        authRoomUserRepository: IAuthRoomUserRepository
     )
     {
         this.io = this.createSocketServer(server);
@@ -108,6 +110,7 @@ export class SocketManager
             this.namespaces.get("auth")!,
             roomRepository,
             userAccountRepository,
+            authRoomUserRepository,
             sessionMiddleware
         );
 
@@ -119,6 +122,7 @@ export class SocketManager
             roomRepository,
             userAccountRepository,
             userBanRepository,
+            authRoomUserRepository,
             sessionMiddleware
         );
 
@@ -128,8 +132,8 @@ export class SocketManager
             this.generalSocketService,
             this.roomSocketService,
             roomRepository,
-            userAccountRepository,
             userBanRepository,
+            authRoomUserRepository,
             sessionMiddleware
         );
     }

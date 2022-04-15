@@ -20,9 +20,10 @@ import { prepareLogs } from "./Logger";
 
 // для ввода в консоль
 import readline = require('readline');
-import { PlainRoomRepository } from "./RoomRepository";
-import { UserBanRepository } from "./UserBanRepository";
-import { UserAccountRepository } from "./UserAccountRepository";
+import { PlainRoomRepository } from "./Room/RoomRepository";
+import { UserBanRepository } from "./User/UserBanRepository";
+import { UserAccountRepository } from "./User/UserAccountRepository";
+import { AuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -84,23 +85,33 @@ async function main()
 
         // Количество логических ядер (потоков) процессора.
         const numWorkers = os.cpus().length;
+
         // Сервис для работы с медиапотоками.
         const mediasoupService = await MediasoupService.create(numWorkers);
+
         // Репозиторий аккаунтов пользователей.
         const userAccountRepository = new UserAccountRepository();
+
         // Репозиторий комнат.
         const roomRepository = new PlainRoomRepository(mediasoupService, userAccountRepository);
         await roomRepository.init();
+
+        // Репозиторий для записей авторизации пользователей в комнатах.
+        const authRoomUserRepository = new AuthRoomUserRepository();
+
         // Сервис для работы с файлами.
-        const fileService = new FileService(roomRepository);
+        const fileService = new FileService(authRoomUserRepository);
+
         // Репозиторий блокировок пользователей.
         const userBanRepository = new UserBanRepository();
+
         // Express веб-сервис.
         const express = new WebService(
             roomRepository,
             fileService,
             userAccountRepository,
-            userBanRepository
+            userBanRepository,
+            authRoomUserRepository
         );
 
         const httpServer: http.Server = http.createServer(express.app);
@@ -131,7 +142,8 @@ async function main()
             fileService,
             roomRepository,
             userAccountRepository,
-            userBanRepository
+            userBanRepository,
+            authRoomUserRepository
         );
     }
     catch (err)

@@ -5,12 +5,12 @@ import SocketIO = require('socket.io');
 import { HandshakeSession } from "./SocketManager";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
-import { IRoomRepository } from "../RoomRepository";
+import { IRoomRepository } from "../Room/RoomRepository";
 import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
-import { IUserBanRepository } from "../UserBanRepository";
-import { IUserAccountRepository } from "../UserAccountRepository";
+import { IUserBanRepository } from "../User/UserBanRepository";
+import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -20,7 +20,7 @@ export class AdminSocketService
     private generalSocketService: IGeneralSocketService;
     private roomSocketService: IRoomSocketService;
     private roomRepository: IRoomRepository;
-    private userAccountRepository: IUserAccountRepository;
+    private authRoomUserRepository: IAuthRoomUserRepository;
     private userBanRepository: IUserBanRepository;
 
     constructor(
@@ -28,8 +28,8 @@ export class AdminSocketService
         generalSocketService: IGeneralSocketService,
         roomSocketService: IRoomSocketService,
         roomRepository: IRoomRepository,
-        userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
+        authRoomUserRepository: IAuthRoomUserRepository,
         sessionMiddleware: RequestHandler
     )
     {
@@ -38,7 +38,7 @@ export class AdminSocketService
         this.roomSocketService = roomSocketService;
 
         this.roomRepository = roomRepository;
-        this.userAccountRepository = userAccountRepository;
+        this.authRoomUserRepository = authRoomUserRepository;
         this.userBanRepository = userBanRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
@@ -99,7 +99,7 @@ export class AdminSocketService
             socket.on(SE.KickUser, (info: ActionOnUserInfo) =>
             {
                 this.roomSocketService.kickUser(info);
-                this.roomRepository.deauthorizeInRoom(info.roomId, info.userId);
+                this.authRoomUserRepository.remove(info.roomId, info.userId);
             });
 
             socket.on(SE.StopUserVideo, (info: ActionOnUserInfo) =>
@@ -204,6 +204,6 @@ export class AdminSocketService
         await this.roomRepository.update(updateRoomInfo);
 
         // После смены пароля деавторизуем всех в комнате.
-        this.roomRepository.deauthorizeAllInRoom(id);
+        this.authRoomUserRepository.removeAll(id);
     }
 }

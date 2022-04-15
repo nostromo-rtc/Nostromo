@@ -3,11 +3,12 @@ import session = require('express-session');
 import path = require('path');
 
 import { IFileService } from "./FileService/FileService";
-import { IRoomRepository } from "./RoomRepository";
+import { IRoomRepository } from "./Room/RoomRepository";
 
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
-import { IUserBanRepository } from "./UserBanRepository";
-import { IUserAccountRepository } from "./UserAccountRepository";
+import { IUserBanRepository } from "./User/UserBanRepository";
+import { IUserAccountRepository } from "./User/UserAccountRepository";
+import { IAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
@@ -54,17 +55,22 @@ export class WebService
     /** Блокировки пользователей. */
     private userBanRepository: IUserBanRepository;
 
+    /** Авторизованные пользователи в комнатах. */
+    private authRoomUserRepository: IAuthRoomUserRepository;
+
     constructor(
         roomRepository: IRoomRepository,
         fileService: IFileService,
         userAccountRepository: IUserAccountRepository,
-        userBanRepository: IUserBanRepository
+        userBanRepository: IUserBanRepository,
+        authRoomUserRepository: IAuthRoomUserRepository
     )
     {
         this.roomRepository = roomRepository;
         this.fileService = fileService;
         this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
+        this.authRoomUserRepository = authRoomUserRepository;
 
         this.app.use((req, res, next) => this.checkBanMiddleware(req, res, next));
 
@@ -268,7 +274,7 @@ export class WebService
         const userId = req.session.userId;
 
         // Если пользователь авторизован в этой комнате.
-        if (userId && this.roomRepository.isAuthInRoom(roomId, userId))
+        if (userId && this.authRoomUserRepository.has(roomId, userId))
         {
             return joinInRoom(roomId);
         }
@@ -292,7 +298,7 @@ export class WebService
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
-            this.roomRepository.authorizeInRoom(roomId, userId);
+            this.authRoomUserRepository.create(roomId, userId);
             joinInRoom(roomId);
         }
         else

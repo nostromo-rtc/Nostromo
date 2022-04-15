@@ -1,9 +1,10 @@
 
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
-import { IRoomRepository } from "../RoomRepository";
+import { IRoomRepository } from "../Room/RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
-import { IUserAccountRepository } from "../UserAccountRepository";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
+import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -16,17 +17,20 @@ export class AuthSocketService
     private authIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
     private userAccountRepository: IUserAccountRepository;
+    private authRoomUserRepository: IAuthRoomUserRepository;
 
     constructor(
         authIo: SocketIO.Namespace,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
+        authRoomUserRepository: IAuthRoomUserRepository,
         sessionMiddleware: RequestHandler
     )
     {
         this.authIo = authIo;
         this.roomRepository = roomRepository;
         this.userAccountRepository = userAccountRepository;
+        this.authRoomUserRepository = authRoomUserRepository;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.clientConnected();
@@ -76,7 +80,7 @@ export class AuthSocketService
                         session.save();
                     }
                     // Запоминаем для этого пользователя авторизованную комнату.
-                    this.roomRepository.authorizeInRoom(roomId, userId);
+                    this.authRoomUserRepository.create(roomId, userId);
 
                     result = true;
                 }

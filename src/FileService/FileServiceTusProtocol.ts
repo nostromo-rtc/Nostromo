@@ -2,7 +2,7 @@ import { FileServiceConstants, FileServiceResponse, OutgoingHttpHeaders } from "
 import { FileInfo } from "./FileService";
 import express = require("express");
 import fs = require("fs");
-import { IRoomRepository } from "../RoomRepository";
+import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 export class TusHeadResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
@@ -208,7 +208,7 @@ export class GetResponse implements FileServiceResponse
         req: express.Request,
         fileInfo: FileInfo | undefined,
         filePath: string,
-        roomRepository: IRoomRepository
+        authRoomUserRepository: IAuthRoomUserRepository
     )
     {
         // если файла не существует
@@ -222,7 +222,7 @@ export class GetResponse implements FileServiceResponse
 
         // Если пользователь не авторизован в комнате
         // и не имеет права качать этот файл
-        if (!userId || !roomRepository.isAuthInRoom(fileInfo.roomId, userId))
+        if (!userId || !authRoomUserRepository.has(fileInfo.roomId, userId))
         {
             this.statusCode = 403;
             return;
