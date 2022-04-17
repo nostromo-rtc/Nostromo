@@ -582,6 +582,11 @@ export class RoomSocketService implements IRoomSocketService
         username: string
     ): void
     {
+        if (username.length > 32)
+        {
+            username = username.slice(0, 32);
+        }
+
         this.userAccountRepository.setUsername(userId, username);
 
         const info: UserInfo = {
