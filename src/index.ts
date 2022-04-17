@@ -100,7 +100,10 @@ async function main()
         const authRoomUserRepository = new AuthRoomUserRepository();
 
         // Сервис для работы с файлами.
-        const fileService = new FileService(authRoomUserRepository);
+        const fileService = new FileService(
+            authRoomUserRepository,
+            roomRepository
+        );
 
         // Репозиторий блокировок пользователей.
         const userBanRepository = new UserBanRepository();

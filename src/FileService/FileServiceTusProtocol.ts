@@ -3,6 +3,7 @@ import { FileInfo } from "./FileService";
 import express = require("express");
 import fs = require("fs");
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
+import { IRoomRepository } from "../Room/RoomRepository";
 export class TusHeadResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
@@ -208,10 +209,11 @@ export class GetResponse implements FileServiceResponse
         req: express.Request,
         fileInfo: FileInfo | undefined,
         filePath: string,
-        authRoomUserRepository: IAuthRoomUserRepository
+        authRoomUserRepository: IAuthRoomUserRepository,
+        roomRepository: IRoomRepository
     )
     {
-        // если файла не существует
+        // Если файла не существует.
         if (!fileInfo || !fs.existsSync(filePath))
         {
             this.statusCode = 404;
@@ -220,15 +222,17 @@ export class GetResponse implements FileServiceResponse
 
         const userId = req.session.userId;
 
-        // Если пользователь не авторизован в комнате
-        // и не имеет права качать этот файл
-        if (!userId || !authRoomUserRepository.has(fileInfo.roomId, userId))
+        // Если комната защищена паролем,
+        // и пользователь не авторизован в комнате,
+        // то он не имеет права качать этот файл.
+        if (!roomRepository.isEmptyPassword(fileInfo.roomId)
+            && (!userId || !authRoomUserRepository.has(fileInfo.roomId, userId)))
         {
             this.statusCode = 403;
             return;
         }
 
-        // если файл ещё не закачался на сервер
+        // Если файл ещё не закачался на сервер.
         if (fileInfo.bytesWritten != fileInfo.size)
         {
             this.statusCode = 202;

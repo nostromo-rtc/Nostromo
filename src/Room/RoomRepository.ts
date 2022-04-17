@@ -46,6 +46,9 @@ export interface IRoomRepository
 
     /** Проверить правильность пароля от комнаты. */
     checkPassword(id: string, pass: string): Promise<boolean>;
+
+    /** Проверить, есть ли пароль у комнаты. */
+    isEmptyPassword(id: string): boolean;
 }
 
 export class PlainRoomRepository implements IRoomRepository
@@ -314,5 +317,18 @@ export class PlainRoomRepository implements IRoomRepository
         // Иначе посчитаем хеш.
         const hashPassword = await this.generateHashPassword(pass);
         return (room.password == hashPassword);
+    }
+
+    public isEmptyPassword(id: string): boolean
+    {
+        const room = this.get(id);
+
+        if (!room)
+        {
+            console.error(`[ERROR] [PlainRoomRepository] Can't check Room [${id}] password for emptiness, because room is not exist.`);
+            return false;
+        }
+
+        return (room.password.length == 0);
     }
 }

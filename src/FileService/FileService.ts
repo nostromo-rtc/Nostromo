@@ -6,6 +6,7 @@ import { FileServiceResponse, FileServiceConstants } from "nostromo-shared/types
 import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
 import { WebService } from "../WebService";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
+import { IRoomRepository } from "../Room/RoomRepository";
 
 /** Случайный Id + расширение */
 type FileId = string;
@@ -32,28 +33,34 @@ export type FileInfo = {
 /** Сервис для работы с файлами. */
 export interface IFileService
 {
+    /** Получить информацию о файле (метаданные). */
     getFileInfo(fileId: string): FileInfo | undefined;
 
+    /** Обработка запроса Head. */
     tusHeadInfo(
         req: express.Request,
         res: express.Response
     ): void;
 
+    /** Обработка запроса Patch. */
     tusPatchFile(
         req: express.Request,
         res: express.Response
     ): Promise<void>;
 
+    /** Обработка запроса Options. */
     tusOptionsInfo(
         req: express.Request,
         res: express.Response
     ): void;
 
+    /** Обработка запроса Post. */
     tusPostCreateFile(
         req: express.Request,
         res: express.Response
     ): void;
 
+    /** Обработка запроса Get (скачивание файла клиентом). */
     downloadFile(
         req: express.Request,
         res: express.Response
@@ -65,10 +72,16 @@ export class FileService implements IFileService
     private readonly FILES_PATH = path.join(process.cwd(), FileServiceConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
     private authRoomUserRepository: IAuthRoomUserRepository;
+    private roomRepository: IRoomRepository;
 
-    constructor(authRoomUserRepository: IAuthRoomUserRepository)
+    constructor(
+        authRoomUserRepository: IAuthRoomUserRepository,
+        roomRepository: IRoomRepository
+    )
     {
         this.authRoomUserRepository = authRoomUserRepository;
+        this.roomRepository = roomRepository;
+
         if (!process.env.FILE_MAX_SIZE)
         {
             process.env.FILE_MAX_SIZE = String(20 * 1024 * 1024 * 1024);
@@ -80,6 +93,7 @@ export class FileService implements IFileService
         return this.fileStorage.get(fileId);
     }
 
+    /** Присвоить HTTP-заголовки ответу Response. */
     private assignHeaders(fromTus: FileServiceResponse, toExpress: express.Response)
     {
         for (const header in fromTus.headers)
@@ -89,6 +103,7 @@ export class FileService implements IFileService
         }
     }
 
+    /** Отправить HTTP код-ответа. */
     private sendStatus(res: express.Response, statusCode: number, statusMsg?: string): void
     {
         if (statusMsg)
@@ -101,6 +116,7 @@ export class FileService implements IFileService
         }
     }
 
+    /** Отправить HTTP код-ответа с учетом флудовой атаки. */
     private sendStatusWithFloodPrevent(
         conditionForPrevent: boolean,
         req: express.Request,
@@ -133,8 +149,7 @@ export class FileService implements IFileService
         this.sendStatus(res, tusRes.statusCode);
     }
 
-    // непосредственно записываем стрим в файл на сервере
-    // для метода Patch
+    /** Непосредственно записываем поток в файл на сервере для Patch. */
     private async writeFile(
         fileInfo: FileInfo,
         fileId: string,
@@ -230,7 +245,11 @@ export class FileService implements IFileService
         console.log(`[FileHandler] User (${req.ip}) downloading file:`, fileInfo);
         const filePath = path.join(this.FILES_PATH, fileId);
 
-        const customRes = new GetResponse(req, fileInfo, filePath, this.authRoomUserRepository);
+        const customRes = new GetResponse(
+            req, fileInfo, filePath,
+            this.authRoomUserRepository,
+            this.roomRepository
+        );
 
         if (!customRes.successful)
         {
@@ -241,6 +260,7 @@ export class FileService implements IFileService
             res.download(filePath, fileInfo!.name);
         }
     }
+
     public tusPostCreateFile(
         req: express.Request,
         res: express.Response
