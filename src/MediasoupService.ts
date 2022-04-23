@@ -184,6 +184,7 @@ export class MediasoupService implements IMediasoupService
     private constructor(workers: MediasoupTypes.Worker[])
     {
         this.mediasoupWorkers = workers;
+        this.calculateNewMaxVideoBitrate();
     }
 
     public async createRouters(codecChoice: VideoCodec): Promise<MediasoupTypes.Router[]>
@@ -397,29 +398,27 @@ export class MediasoupService implements IMediasoupService
         const maxAudioBitrateMbs = this.maxAudioBitrate / PrefixConstants.MEGA;
 
         // Количество видеопотоков-производителей.
-        const producersCount: number = this.videoProducersCount;
+        const producersCount: number = (this.videoProducersCount != 0) ? this.videoProducersCount : 1;
 
-        if (producersCount > 0)
+        // Количество видеопотоков-потребителей.
+        const consumersCount: number = (this.videoConsumersCount != 0) ? this.videoConsumersCount : 1;
+
+        // Входящая и исходящая скорость сервера за вычетом затрат на аудиопотоки.
+        const availableIncomingCapability = this.networkIncomingCapability - (maxAudioBitrateMbs * this.audioProducersCount);
+        const availableOutcomingCapability = this.networkOutcomingCapability - (maxAudioBitrateMbs * this.audioConsumersCount);
+
+        const maxVideoBitrate: number = Math.min(
+            availableIncomingCapability / producersCount,
+            availableOutcomingCapability / consumersCount
+        ) * PrefixConstants.MEGA;
+
+        if (maxVideoBitrate > 0)
         {
-            // Количество видеопотоков-потребителей.
-            const consumersCount: number = (this.videoConsumersCount != 0) ? this.videoConsumersCount : 1;
-
-            // Входящая и исходящая скорость сервера за вычетом затрат на аудиопотоки.
-            const availableIncomingCapability = this.networkIncomingCapability - (maxAudioBitrateMbs * this.audioProducersCount);
-            const availableOutcomingCapability = this.networkOutcomingCapability - (maxAudioBitrateMbs * this.audioConsumersCount);
-
-            const maxVideoBitrate: number = Math.min(
-                availableIncomingCapability / producersCount,
-                availableOutcomingCapability / consumersCount
-            ) * PrefixConstants.MEGA;
-
-            if (maxVideoBitrate > 0)
-            {
-                this.maxVideoBitrate = maxVideoBitrate;
-                return;
-            }
+            this.maxVideoBitrate = maxVideoBitrate;
         }
-
-        this.maxVideoBitrate = -1;
+        else
+        {
+            this.maxVideoBitrate = -1;
+        }
     }
 }

@@ -143,6 +143,7 @@ async function main()
             httpsServer,
             express.sessionMiddleware,
             fileService,
+            mediasoupService,
             roomRepository,
             userAccountRepository,
             userBanRepository,

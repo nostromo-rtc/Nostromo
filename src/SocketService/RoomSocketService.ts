@@ -6,7 +6,7 @@ import { IRoomRepository } from "../Room/RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
-import { MediasoupTypes } from "../MediasoupService";
+import { IMediasoupService, MediasoupTypes } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
@@ -46,12 +46,14 @@ export class RoomSocketService implements IRoomSocketService
     private authRoomUserRepository: IAuthRoomUserRepository;
     private generalSocketService: IGeneralSocketService;
     private fileService: IFileService;
-    private latestMaxVideoBitrate = -1;
+    private mediasoupService: IMediasoupService;
+    private latestMaxVideoBitrate;
 
     constructor(
         roomIo: SocketIO.Namespace,
         generalSocketService: IGeneralSocketService,
         fileService: IFileService,
+        mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
@@ -66,6 +68,8 @@ export class RoomSocketService implements IRoomSocketService
         this.userBanRepository = userBanRepository;
         this.authRoomUserRepository = authRoomUserRepository;
         this.fileService = fileService;
+        this.mediasoupService = mediasoupService;
+        this.latestMaxVideoBitrate = this.mediasoupService.maxVideoBitrate;
 
         this.applySessionMiddleware(sessionMiddleware);
         this.checkAuth();
@@ -158,7 +162,7 @@ export class RoomSocketService implements IRoomSocketService
         socket.emit(SE.RoomName, room.name);
 
         // Сообщаем пользователю максимальный битрейт для аудиопотоков.
-        socket.emit(SE.MaxAudioBitrate, room.maxAudioBitrate);
+        socket.emit(SE.MaxAudioBitrate, this.mediasoupService.maxAudioBitrate);
 
         // Сообщаем пользователю текущий максимальный битрейт для видеопотоков.
         if (this.latestMaxVideoBitrate != -1)
@@ -200,7 +204,7 @@ export class RoomSocketService implements IRoomSocketService
             {
                 // Поток был поставлен на паузу и соответственно был перерасчёт
                 // максимального битрейта для видеопотоков.
-                this.emitMaxVideoBitrate(room.maxVideoBitrate);
+                this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
             }
         });
 
@@ -213,7 +217,7 @@ export class RoomSocketService implements IRoomSocketService
             {
                 // Поток был снят с паузы и соответственно был перерасчёт
                 // максимального битрейта для видеопотоков.
-                this.emitMaxVideoBitrate(room.maxVideoBitrate);
+                this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
             }
         });
 
@@ -230,7 +234,7 @@ export class RoomSocketService implements IRoomSocketService
 
             // Поскольку поток был завершен,
             // возможно был перерасчёт максимального битрейта для видеопотоков.
-            this.emitMaxVideoBitrate(room.maxVideoBitrate);
+            this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
         });
 
         // Клиент ставит producer на паузу (например, временно выключает микрофон).
@@ -242,7 +246,7 @@ export class RoomSocketService implements IRoomSocketService
             {
                 // Поток был поставлен на паузу и соответственно был перерасчёт
                 // максимального битрейта для видеопотоков.
-                this.emitMaxVideoBitrate(room.maxVideoBitrate);
+                this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
             }
         });
 
@@ -255,7 +259,7 @@ export class RoomSocketService implements IRoomSocketService
             {
                 // Поток был снят с паузы и соответственно был перерасчёт
                 // максимального битрейта для видеопотоков.
-                this.emitMaxVideoBitrate(room.maxVideoBitrate);
+                this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
             }
         });
 
@@ -432,7 +436,7 @@ export class RoomSocketService implements IRoomSocketService
 
             // Поскольку поток был завершен,
             // возможно был перерасчёт максимального битрейта для видеопотоков.
-            this.emitMaxVideoBitrate(room.maxVideoBitrate);
+            this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
 
             const closeConsumerInfo: CloseConsumerInfo = {
                 consumerId: consumer.id,
@@ -451,7 +455,7 @@ export class RoomSocketService implements IRoomSocketService
             {
                 // Поток был поставлен на паузу и соответственно был перерасчёт
                 // максимального битрейта для видеопотоков.
-                this.emitMaxVideoBitrate(room.maxVideoBitrate);
+                this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
             }
 
             // Сообщаем клиенту, чтобы он тоже поставил на паузу, если только это не он попросил.
@@ -470,7 +474,7 @@ export class RoomSocketService implements IRoomSocketService
             {
                 // Поток был снят с паузы и соответственно был перерасчёт
                 // максимального битрейта для видеопотоков.
-                this.emitMaxVideoBitrate(room.maxVideoBitrate);
+                this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
             }
 
             // Сообщаем клиенту, чтобы он тоже снял с паузы, если только это не он попросил.
@@ -501,7 +505,7 @@ export class RoomSocketService implements IRoomSocketService
 
             // Был создан новый поток-производитель,
             // следовательно был перерасчёт максимального битрейта для видеопотоков.
-            this.emitMaxVideoBitrate(room.maxVideoBitrate);
+            this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
 
             // Обрабатываем события у Producer.
             this.handleProducerEvents(socket, room, user, producer);
@@ -546,7 +550,7 @@ export class RoomSocketService implements IRoomSocketService
 
             // Поскольку поток был завершен,
             // возможно был перерасчёт максимального битрейта для видеопотоков.
-            this.emitMaxVideoBitrate(room.maxVideoBitrate);
+            this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
 
             socket.emit(SE.CloseProducer, producer.id);
         };

@@ -15,6 +15,7 @@ import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
+import { IMediasoupService } from "../MediasoupService";
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -79,6 +80,7 @@ export class SocketManager
         server: https.Server,
         sessionMiddleware: RequestHandler,
         fileService: IFileService,
+        mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
@@ -119,6 +121,7 @@ export class SocketManager
             this.namespaces.get("room")!,
             this.generalSocketService,
             fileService,
+            mediasoupService,
             roomRepository,
             userAccountRepository,
             userBanRepository,

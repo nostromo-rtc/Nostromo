@@ -68,12 +68,6 @@ export interface IRoom
     /** Видеокодек для видеопотоков в комнате. */
     readonly videoCodec: VideoCodec;
 
-    /** Получить максимальный битрейт для видеопотоков в комнате. */
-    get maxVideoBitrate(): number;
-
-    /** Получить максимальный битрейт для аудиопотоков в комнате. */
-    get maxAudioBitrate(): number;
-
     /** Получить RTP возможности (кодеки) роутера. */
     get routerRtpCapabilities(): MediasoupTypes.RtpCapabilities;
 
