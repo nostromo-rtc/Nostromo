@@ -5,7 +5,12 @@ import MediasoupTypes = mediasoup.types;
 
 export { MediasoupTypes };
 
-export interface ConsumerAppData
+export interface ServerProducerAppData
+{
+    streamId: string;
+}
+
+export interface ServerConsumerAppData
 {
     /**
      * Consumer был поставлен на паузу со стороны клиента
@@ -278,7 +283,7 @@ export class MediasoupService implements IMediasoupService
         routers: MediasoupTypes.Router[]
     ): Promise<MediasoupTypes.Producer>
     {
-        const { transportId, kind, rtpParameters } = newProducerInfo;
+        const { transportId, kind, rtpParameters, streamId } = newProducerInfo;
 
         const transport = user.getTransportById(transportId);
 
@@ -287,7 +292,9 @@ export class MediasoupService implements IMediasoupService
             throw new Error(`Transport [${transportId}] for User [${user.userId}] is not found.`);
         }
 
-        const producer = await transport.produce({ kind, rtpParameters });
+        const appData: ServerProducerAppData = { streamId };
+
+        const producer = await transport.produce({ kind, rtpParameters, appData });
 
         // TODO: возможно pipe не стоит делать сразу на все роутеры
         // и делать его при востребовании producer при попытке создания consumer от одного из роутеров
@@ -341,7 +348,7 @@ export class MediasoupService implements IMediasoupService
         // Поскольку он создан в режиме паузы, отметим, как будто это клиент поставил на паузу
         // когда клиент запросит снятие consumer с паузы, этот флаг сменится на false
         // клиент должен запросить снятие паузы как только подготовит consumer на своей стороне.
-        (consumer.appData as ConsumerAppData).clientPaused = true;
+        (consumer.appData as ServerConsumerAppData).clientPaused = true;
 
         return consumer;
     }

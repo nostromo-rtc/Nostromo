@@ -5,8 +5,8 @@ import { IRoom, ActiveUser } from "../Room/Room";
 import { IRoomRepository } from "../Room/RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
-import { ChatFileInfo, ChatMsgInfo, CloseConsumerInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
-import { IMediasoupService, MediasoupTypes } from "../MediasoupService";
+import { ChatFileInfo, ChatMsgInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { IMediasoupService, MediasoupTypes, ServerProducerAppData } from "../MediasoupService";
 import { IFileService } from "../FileService/FileService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
@@ -401,15 +401,18 @@ export class RoomSocketService implements IRoomSocketService
             const consumer = await room.createConsumer(consumerUser, producer);
 
             // Обрабатываем события у Consumer.
-            this.handleConsumerEvents(socket, room, consumer, consumerUser, producerUserId);
+            this.handleConsumerEvents(socket, room, consumer, consumerUser);
 
-            // сообщаем клиенту всю информацию об этом потребителе
+            const streamId = (producer.appData as ServerProducerAppData).streamId;
+
+            // Сообщаем клиенту всю информацию об этом потребителе.
             const newConsumerInfo: NewConsumerInfo = {
-                producerUserId,
                 id: consumer.id,
                 producerId: producer.id,
                 kind: consumer.kind,
-                rtpParameters: consumer.rtpParameters
+                rtpParameters: consumer.rtpParameters,
+                producerUserId,
+                streamId
             };
 
             socket.emit(SE.NewConsumer, newConsumerInfo);
@@ -425,8 +428,7 @@ export class RoomSocketService implements IRoomSocketService
         socket: Socket,
         room: IRoom,
         consumer: MediasoupTypes.Consumer,
-        consumerUser: ActiveUser,
-        producerUserId: string
+        consumerUser: ActiveUser
     ): void
     {
         /** Действия после автоматического закрытия consumer. */
@@ -438,12 +440,7 @@ export class RoomSocketService implements IRoomSocketService
             // возможно был перерасчёт максимального битрейта для видеопотоков.
             this.emitMaxVideoBitrate(this.mediasoupService.maxVideoBitrate);
 
-            const closeConsumerInfo: CloseConsumerInfo = {
-                consumerId: consumer.id,
-                producerUserId
-            };
-
-            socket.emit(SE.CloseConsumer, closeConsumerInfo);
+            socket.emit(SE.CloseConsumer, consumer.id);
         };
 
         /** Поставить на паузу consumer. */

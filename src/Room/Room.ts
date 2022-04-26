@@ -1,4 +1,4 @@
-import { IMediasoupService, ConsumerAppData, MediasoupTypes } from "../MediasoupService";
+import { IMediasoupService, ServerConsumerAppData, MediasoupTypes } from "../MediasoupService";
 
 import
 {
@@ -355,7 +355,7 @@ export class Room implements IRoom
         }
 
         // Запоминаем, что клиент поставил на паузу вручную.
-        (consumer.appData as ConsumerAppData).clientPaused = true;
+        (consumer.appData as ServerConsumerAppData).clientPaused = true;
 
         return await this.pauseConsumer(consumer);
     }
@@ -392,7 +392,7 @@ export class Room implements IRoom
         }
 
         // Клиент хотел снять с паузы consumer, поэтому выключаем флаг ручной паузы.
-        (consumer.appData as ConsumerAppData).clientPaused = false;
+        (consumer.appData as ServerConsumerAppData).clientPaused = false;
 
         return await this.resumeConsumer(consumer);
     }
@@ -405,7 +405,7 @@ export class Room implements IRoom
         // 3) клиент ГОТОВ к снятию паузы у этого consumer
         if (consumer.paused
             && !consumer.producerPaused
-            && !(consumer.appData as ConsumerAppData).clientPaused)
+            && !(consumer.appData as ServerConsumerAppData).clientPaused)
         {
             await consumer.resume();
 
