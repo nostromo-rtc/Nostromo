@@ -26,8 +26,11 @@ export interface IRoomSocketService
     /** Выгнать всех пользователей из комнаты. */
     kickAllUsers(roomId: string): void;
 
-    /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват видеодорожки. */
-    stopUserVideo(info: ActionOnUserInfo): void;
+    /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват экрана. */
+    stopUserDisplay(info: ActionOnUserInfo): void;
+
+    /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват видеоустройств. */
+    stopUserCam(info: ActionOnUserInfo): void;
 
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват аудиодорожки. */
     stopUserAudio(info: ActionOnUserInfo): void;
@@ -695,7 +698,7 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    public stopUserVideo(info: ActionOnUserInfo): void
+    public stopUserDisplay(info: ActionOnUserInfo): void
     {
         const { roomId, userId } = info;
 
@@ -703,7 +706,19 @@ export class RoomSocketService implements IRoomSocketService
 
         if (userSocket)
         {
-            userSocket.emit(SE.StopUserVideo);
+            userSocket.emit(SE.StopUserDisplay);
+        }
+    }
+
+    public stopUserCam(info: ActionOnUserInfo): void
+    {
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
+
+        if (userSocket)
+        {
+            userSocket.emit(SE.StopUserCam);
         }
     }
 

@@ -102,9 +102,14 @@ export class AdminSocketService
                 this.authRoomUserRepository.remove(info.roomId, info.userId);
             });
 
-            socket.on(SE.StopUserVideo, (info: ActionOnUserInfo) =>
+            socket.on(SE.StopUserDisplay, (info: ActionOnUserInfo) =>
             {
-                this.roomSocketService.stopUserVideo(info);
+                this.roomSocketService.stopUserDisplay(info);
+            });
+
+            socket.on(SE.StopUserCam, (info: ActionOnUserInfo) =>
+            {
+                this.roomSocketService.stopUserCam(info);
             });
 
             socket.on(SE.StopUserAudio, (info: ActionOnUserInfo) =>
