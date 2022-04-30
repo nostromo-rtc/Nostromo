@@ -12,11 +12,9 @@ config/ssl
 
 # config files
 config/server.conf
-config/bans.json
-config/rooms.json
 
-# folder with uploaded files
-files
+# data files
+data/
 
 # other
 *.bat

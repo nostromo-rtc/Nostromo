@@ -69,7 +69,7 @@ export interface IFileService
 
 export class FileService implements IFileService
 {
-    private readonly FILES_PATH = path.join(process.cwd(), FileServiceConstants.FILES_ROUTE);
+    private readonly FILES_PATH = path.join(process.cwd(), "data", FileServiceConstants.FILES_ROUTE);
     private fileStorage = new Map<FileId, FileInfo>();
     private authRoomUserRepository: IAuthRoomUserRepository;
     private roomRepository: IRoomRepository;

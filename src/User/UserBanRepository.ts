@@ -19,7 +19,7 @@ export interface IUserBanRepository
 
 export class UserBanRepository implements IUserBanRepository
 {
-    private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "config", "bans.json");
+    private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "data", "bans.json");
     private bans = new Map<string, UserBanInfo>();
     constructor()
     {
