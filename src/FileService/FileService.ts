@@ -1,41 +1,16 @@
 import express = require("express");
 import path = require("path");
-import { nanoid } from "nanoid";
 import fs = require('fs');
 import { FileServiceResponse, FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
 import { WebService } from "../WebService";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
-
-/** Случайный Id + расширение */
-type FileId = string;
-
-export type FileInfo = {
-    /** id файла */
-    id: string;
-    /** Оригинальное название файла. */
-    name: string;
-    /** Тип файла. */
-    type: string;
-    /** Размер файла в байтах. */
-    size: number;
-    /** Сколько байт уже было получено сервером. */
-    bytesWritten: number;
-    /** Id аккаунта пользователя, загружающего файл. */
-    ownerId: string;
-    /** Id комнаты, в которой загружали файл. */
-    roomId: string;
-    /** Оригинальные метаданные, которые указал пользователь. */
-    originalMetadata?: string;
-};
+import { FileId, FileInfo, IFileRepository } from "./FileRepository";
 
 /** Сервис для работы с файлами. */
 export interface IFileService
 {
-    /** Получить информацию о файле (метаданные). */
-    getFileInfo(fileId: string): FileInfo | undefined;
-
     /** Обработка запроса Head. */
     tusHeadInfo(
         req: express.Request,
@@ -58,7 +33,7 @@ export interface IFileService
     tusPostCreateFile(
         req: express.Request,
         res: express.Response
-    ): void;
+    ): Promise<void>;
 
     /** Обработка запроса Get (скачивание файла клиентом). */
     downloadFile(
@@ -70,15 +45,18 @@ export interface IFileService
 export class FileService implements IFileService
 {
     private readonly FILES_PATH = path.join(process.cwd(), "data", FileServiceConstants.FILES_ROUTE);
-    private fileStorage = new Map<FileId, FileInfo>();
+
+    private fileRepository: IFileRepository;
     private authRoomUserRepository: IAuthRoomUserRepository;
     private roomRepository: IRoomRepository;
 
     constructor(
+        fileRepository: IFileRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
         roomRepository: IRoomRepository
     )
     {
+        this.fileRepository = fileRepository;
         this.authRoomUserRepository = authRoomUserRepository;
         this.roomRepository = roomRepository;
 
@@ -86,11 +64,6 @@ export class FileService implements IFileService
         {
             process.env.FILE_MAX_SIZE = String(20 * 1024 * 1024 * 1024);
         }
-    }
-
-    public getFileInfo(fileId: string): FileInfo | undefined
-    {
-        return this.fileStorage.get(fileId);
     }
 
     /** Присвоить HTTP-заголовки ответу Response. */
@@ -141,7 +114,7 @@ export class FileService implements IFileService
     ): void
     {
         const fileId = req.params["fileId"];
-        const fileInfo = this.fileStorage.get(fileId);
+        const fileInfo = this.fileRepository.get(fileId);
 
         const tusRes = new TusHeadResponse(req, fileInfo);
         this.assignHeaders(tusRes, res);
@@ -158,7 +131,7 @@ export class FileService implements IFileService
     {
         return new Promise((resolve, reject) =>
         {
-            console.log(`[FileHandler] User (${req.ip}) uploading file:`, fileInfo);
+            console.log(`[FileService] User [${fileInfo.id}, ${req.ip.substring(7)}] uploading file: ${fileInfo.id}.`);
 
             // offset до patch
             const oldBytesWritten = fileInfo.bytesWritten;
@@ -199,16 +172,19 @@ export class FileService implements IFileService
         }
 
         const fileId = req.params["fileId"];
-        const fileInfo = this.fileStorage.get(fileId);
+        const fileInfo = this.fileRepository.get(fileId);
         const tusRes = new TusPatchResponse(req, fileInfo);
 
         try
         {
-            // если корректный запрос, то записываем в файл
+            // Если корректный запрос, то записываем в файл.
             if (tusRes.successful)
             {
                 await this.writeFile(fileInfo!, fileId, req);
                 tusRes.headers["Upload-Offset"] = String(fileInfo!.bytesWritten);
+
+                // Обновим информацию о файле (а именно количество загруженных байтов).
+                await this.fileRepository.update(fileInfo!);
             }
 
             this.assignHeaders(tusRes, res);
@@ -241,8 +217,8 @@ export class FileService implements IFileService
         // получаем из запроса Id файла
         // и информацию о файле из этого Id
         const fileId: FileId = req.params.fileId;
-        const fileInfo = this.fileStorage.get(fileId);
-        console.log(`[FileHandler] User (${req.ip}) downloading file:`, fileInfo);
+        const fileInfo = this.fileRepository.get(fileId);
+
         const filePath = path.join(this.FILES_PATH, fileId);
 
         const customRes = new GetResponse(
@@ -257,14 +233,16 @@ export class FileService implements IFileService
         }
         else
         {
+            console.log(`[FileService] User [${fileInfo!.id}, ${req.ip.substring(7)}] downloading file: ${fileInfo!.id}.`);
+
             res.download(filePath, fileInfo!.name);
         }
     }
 
-    public tusPostCreateFile(
+    public async tusPostCreateFile(
         req: express.Request,
         res: express.Response
-    ): void
+    ): Promise<void>
     {
         const conditionForPrevent = !WebService.requestHasNotBody(req);
 
@@ -281,17 +259,13 @@ export class FileService implements IFileService
         // запоминаем владельца файла
         const ownerId = userId;
 
-        // Генерируем уникальный Id для файла.
-        // Этот Id и является названием файла на сервере.
-        const fileId: string = nanoid(32);
-
-        const tusRes = new TusPostCreationResponse(req, fileId, ownerId, roomId);
+        const tusRes = new TusPostCreationResponse(req, ownerId, roomId);
         this.assignHeaders(tusRes, res);
 
         // если проблем не возникло
         if (tusRes.successful)
         {
-            this.fileStorage.set(fileId, tusRes.fileInfo!);
+            const fileId = await this.fileRepository.create(tusRes.fileInfo!);
             res.location(fileId);
         }
 

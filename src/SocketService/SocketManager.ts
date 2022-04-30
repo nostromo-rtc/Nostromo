@@ -6,7 +6,6 @@ import SocketIO = require('socket.io');
 import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 
-import { IFileService } from "../FileService/FileService";
 import { IRoomRepository } from "../Room/RoomRepository";
 import { AdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
@@ -16,6 +15,7 @@ import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IMediasoupService } from "../MediasoupService";
+import { IFileRepository } from "../FileService/FileRepository";
 
 export type HandshakeSession = session.Session & Partial<session.SessionData>;
 
@@ -79,7 +79,7 @@ export class SocketManager
     constructor(
         server: https.Server,
         sessionMiddleware: RequestHandler,
-        fileService: IFileService,
+        fileRepository: IFileRepository,
         mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
@@ -120,7 +120,7 @@ export class SocketManager
         this.roomSocketService = new RoomSocketService(
             this.namespaces.get("room")!,
             this.generalSocketService,
-            fileService,
+            fileRepository,
             mediasoupService,
             roomRepository,
             userAccountRepository,

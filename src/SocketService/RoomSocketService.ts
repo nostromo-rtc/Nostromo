@@ -7,11 +7,11 @@ import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { ChatFileInfo, ChatMsgInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IMediasoupService, MediasoupTypes, ServerProducerAppData } from "../MediasoupService";
-import { IFileService } from "../FileService/FileService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { ActionOnUserInfo, ChangeUserNameInfo } from "nostromo-shared/types/AdminTypes";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
+import { IFileRepository } from "../FileService/FileRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -48,14 +48,14 @@ export class RoomSocketService implements IRoomSocketService
     private userBanRepository: IUserBanRepository;
     private authRoomUserRepository: IAuthRoomUserRepository;
     private generalSocketService: IGeneralSocketService;
-    private fileService: IFileService;
+    private fileRepository: IFileRepository;
     private mediasoupService: IMediasoupService;
     private latestMaxVideoBitrate;
 
     constructor(
         roomIo: SocketIO.Namespace,
         generalSocketService: IGeneralSocketService,
-        fileService: IFileService,
+        fileRepository: IFileRepository,
         mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
@@ -70,7 +70,7 @@ export class RoomSocketService implements IRoomSocketService
         this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
         this.authRoomUserRepository = authRoomUserRepository;
-        this.fileService = fileService;
+        this.fileRepository = fileRepository;
         this.mediasoupService = mediasoupService;
         this.latestMaxVideoBitrate = this.mediasoupService.maxVideoBitrate;
 
@@ -627,7 +627,7 @@ export class RoomSocketService implements IRoomSocketService
         fileId: string
     )
     {
-        const fileInfo = this.fileService.getFileInfo(fileId);
+        const fileInfo = this.fileRepository.get(fileId);
         if (!fileInfo)
         {
             return;

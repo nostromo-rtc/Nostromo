@@ -24,6 +24,7 @@ import { PlainRoomRepository } from "./Room/RoomRepository";
 import { UserBanRepository } from "./User/UserBanRepository";
 import { UserAccountRepository } from "./User/UserAccountRepository";
 import { AuthRoomUserRepository } from "./User/AuthRoomUserRepository";
+import { PlainFileRepository } from "./FileService/FileRepository";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -99,8 +100,12 @@ async function main()
         // Репозиторий для записей авторизации пользователей в комнатах.
         const authRoomUserRepository = new AuthRoomUserRepository();
 
+        // Репозиторий для записей о файлах (метаданные).
+        const fileRepository = new PlainFileRepository();
+
         // Сервис для работы с файлами.
         const fileService = new FileService(
+            fileRepository,
             authRoomUserRepository,
             roomRepository
         );
@@ -142,7 +147,7 @@ async function main()
         const socketManager = new SocketManager(
             httpsServer,
             express.sessionMiddleware,
-            fileService,
+            fileRepository,
             mediasoupService,
             roomRepository,
             userAccountRepository,

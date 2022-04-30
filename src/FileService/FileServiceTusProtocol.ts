@@ -1,9 +1,10 @@
-import { FileServiceConstants, FileServiceResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileServiceTypes";
-import { FileInfo } from "./FileService";
 import express = require("express");
 import fs = require("fs");
+
+import { FileServiceConstants, FileServiceResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileServiceTypes";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
+import { NewFileInfo, FileInfo } from "./FileRepository";
 export class TusHeadResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
@@ -133,7 +134,7 @@ export class TusPostCreationResponse implements FileServiceResponse
 
     public successful = false;
 
-    public fileInfo: FileInfo | undefined;
+    public fileInfo?: NewFileInfo;
 
     private parseMetadata(metadata: string | undefined): Map<string, string>
     {
@@ -150,7 +151,7 @@ export class TusPostCreationResponse implements FileServiceResponse
         return metadataMap;
     }
 
-    constructor(req: express.Request, fileId: string, ownerId: string, roomId: string)
+    constructor(req: express.Request, ownerId: string, roomId: string)
     {
         // проверяем версию Tus
         if (req.header("Tus-Resumable") != FileServiceConstants.TUS_VERSION)
@@ -184,8 +185,7 @@ export class TusPostCreationResponse implements FileServiceResponse
         const filetype = metadataMap.get("filetype");
 
         this.fileInfo = {
-            id: fileId,
-            name: filename ? Buffer.from(filename, "base64").toString("utf-8") : fileId,
+            name: filename ? Buffer.from(filename, "base64").toString("utf-8") : "",
             type: filetype ? Buffer.from(filetype, "base64").toString("utf-8") : "application/offset+octet-stream",
             size: Number(fileSize),
             bytesWritten: 0,

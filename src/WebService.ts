@@ -330,9 +330,9 @@ export class WebService
         });
 
         // Tus Post Request - Creation Extension (создать адрес файла на сервере и получить его)
-        this.app.post(`${FileServiceConstants.FILES_ROUTE}`, (req: express.Request, res: express.Response) =>
+        this.app.post(`${FileServiceConstants.FILES_ROUTE}`, async (req: express.Request, res: express.Response) =>
         {
-            this.fileService.tusPostCreateFile(req, res);
+            await this.fileService.tusPostCreateFile(req, res);
         });
 
         // скачать файл
