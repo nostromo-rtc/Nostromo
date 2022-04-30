@@ -3,6 +3,7 @@ import fs = require('fs');
 import { nanoid } from "nanoid";
 import { Readable } from "stream";
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
+import { PrefixConstants } from "nostromo-shared/types/RoomTypes";
 
 /** Случайный Id. */
 export type FileId = string;
@@ -135,7 +136,7 @@ export class PlainFileRepository implements IFileRepository
 
         await this.rewriteFilesInfoToFile();
 
-        console.log(`[PlainFileRepository] FileInfo [${id}, '${info.name}', ${info.size}] in Room [${info.roomId}] by User [${info.ownerId}] was created.`);
+        console.log(`[PlainFileRepository] FileInfo [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] by User [${info.ownerId}] was created.`);
 
         return id;
     }
@@ -146,7 +147,7 @@ export class PlainFileRepository implements IFileRepository
 
         await this.rewriteFilesInfoToFile();
 
-        console.log(`[PlainFileRepository] FileInfo [${info.id}, '${info.name}', ${info.size}] in Room [${info.roomId}] was updated.`);
+        console.log(`[PlainFileRepository] FileInfo [${info.id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] was updated.`);
     }
 
     public async remove(id: string): Promise<void>
@@ -165,7 +166,7 @@ export class PlainFileRepository implements IFileRepository
         this.files.delete(id);
         await this.rewriteFilesInfoToFile();
 
-        console.log(`[PlainFileRepository] File [${id}, '${info.name}', ${info.size}] of Room [${info.roomId}] was deleted.`);
+        console.log(`[PlainFileRepository] File [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] of Room [${info.roomId}] was deleted.`);
     }
 
     public async removeByRoom(roomId: string): Promise<void>
