@@ -1,6 +1,8 @@
 import path = require('path');
 import fs = require('fs');
 import { nanoid } from "nanoid";
+import { Readable } from "stream";
+import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 
 /** Случайный Id. */
 export type FileId = string;
@@ -37,8 +39,14 @@ export interface IFileRepository
     /** Удалить запись о файле. */
     remove(id: string): Promise<void>;
 
+    /** Удалить все записи о файлах, относящихся к комнате roomId. */
+    removeByRoom(roomId: string): Promise<void>;
+
     /** Изменить информацию о файле. */
     update(info: FileInfo): Promise<void>;
+
+    /** Запись потока в файл на сервере. */
+    writeFile(stream: Readable, fileId: string, oldBytesWritten: number): Promise<number>;
 
     /** Получить запись о файле. */
     get(id: string): FileInfo | undefined;
@@ -50,6 +58,7 @@ export interface IFileRepository
 export class PlainFileRepository implements IFileRepository
 {
     private readonly FILES_INFO_FILE_PATH = path.resolve(process.cwd(), "data", "files.json");
+    private readonly FILES_PATH = path.join(process.cwd(), "data", FileServiceConstants.FILES_ROUTE);
     private files = new Map<FileId, FileInfo>();
 
     constructor()
@@ -146,14 +155,87 @@ export class PlainFileRepository implements IFileRepository
 
         if (!info)
         {
-            console.error(`[ERROR] [PlainFileRepository] Can't delete FileInfo [${id}], because it's not exist.`);
+            console.error(`[ERROR] [PlainFileRepository] Can't delete File [${id}], because it's not exist.`);
             return;
         }
+
+        // Удаляем файл на сервере.
+        await this.removeFile(id);
 
         this.files.delete(id);
         await this.rewriteFilesInfoToFile();
 
-        console.log(`[PlainFileRepository] FileInfo [${id}, '${info.name}', ${info.size}] in Room [${info.roomId}] was deleted.`);
+        console.log(`[PlainFileRepository] File [${id}, '${info.name}', ${info.size}] of Room [${info.roomId}] was deleted.`);
+    }
+
+    public async removeByRoom(roomId: string): Promise<void>
+    {
+        for (const file of this.files.values())
+        {
+            if (file.roomId == roomId)
+            {
+                // Удаляем файл на сервере.
+                await this.removeFile(file.id);
+
+                this.files.delete(file.id);
+            }
+        }
+
+        await this.rewriteFilesInfoToFile();
+
+        console.log(`[PlainFileRepository] All files of Room [${roomId}] were deleted.`);
+    }
+
+    public async writeFile(
+        inStream: Readable,
+        fileId: string,
+        oldBytesWritten: number
+    ): Promise<number>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // Указываем путь и название.
+            const filePath = path.join(this.FILES_PATH, fileId);
+            const outStream = fs.createWriteStream(filePath, { start: oldBytesWritten, flags: "a" });
+
+            // Если закрылся входящий поток, то закроем стрим.
+            inStream.on("close", () => outStream.end());
+
+            // Если стрим закрылся по любой причине,
+            // то запишем сколько успели загрузить байт.
+            outStream.on("close", () =>
+            {
+                const newBytesWritten = oldBytesWritten + outStream.bytesWritten;
+                resolve(newBytesWritten);
+            });
+
+            // если ошибки
+            outStream.on("error", (err) => reject(err));
+            inStream.on("error", (err) => reject(err));
+
+            // перенаправляем стрим из реквеста в файловый стрим
+            inStream.pipe(outStream);
+        });
+    }
+
+    private async removeFile(fileId: string): Promise<void>
+    {
+        const filePath = path.join(this.FILES_PATH, fileId);
+
+        return new Promise((resolve, reject) =>
+        {
+            fs.unlink(filePath, (err) =>
+            {
+                if (err)
+                {
+                    reject(err);
+                }
+                else
+                {
+                    resolve();
+                }
+            });
+        });
     }
 
     public get(id: string): FileInfo | undefined

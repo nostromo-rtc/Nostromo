@@ -122,44 +122,6 @@ export class FileService implements IFileService
         this.sendStatus(res, tusRes.statusCode);
     }
 
-    /** Непосредственно записываем поток в файл на сервере для Patch. */
-    private async writeFile(
-        fileInfo: FileInfo,
-        fileId: string,
-        req: express.Request
-    ): Promise<void>
-    {
-        return new Promise((resolve, reject) =>
-        {
-            console.log(`[FileService] User [${fileInfo.id}, ${req.ip.substring(7)}] uploading file: ${fileInfo.id}.`);
-
-            // offset до patch
-            const oldBytesWritten = fileInfo.bytesWritten;
-
-            // указываем путь и название
-            const filePath = path.join(this.FILES_PATH, fileId);
-            const outStream = fs.createWriteStream(filePath, { start: oldBytesWritten, flags: "a" });
-
-            // если закрылся реквест, то закроем стрим
-            req.on("close", () => outStream.end());
-
-            // если стрим закрылся по любой причине,
-            // то запишем сколько успели загрузить байт
-            outStream.on("close", () =>
-            {
-                fileInfo.bytesWritten += outStream.bytesWritten;
-                resolve();
-            });
-
-            // если ошибки
-            outStream.on("error", (err) => reject(err));
-            req.on("error", (err) => reject(err));
-
-            // перенаправляем стрим из реквеста в файловый стрим
-            req.pipe(outStream);
-        });
-    }
-
     public async tusPatchFile(
         req: express.Request,
         res: express.Response
@@ -180,7 +142,11 @@ export class FileService implements IFileService
             // Если корректный запрос, то записываем в файл.
             if (tusRes.successful)
             {
-                await this.writeFile(fileInfo!, fileId, req);
+                console.log(`[FileService] User [${fileInfo!.ownerId}, ${req.ip.substring(7)}] uploading file: ${fileInfo!.id}.`);
+
+                // Запишем поток в файл и получим новое значение offset.
+                fileInfo!.bytesWritten = await this.fileRepository.writeFile(req, fileInfo!.id, fileInfo!.bytesWritten);
+
                 tusRes.headers["Upload-Offset"] = String(fileInfo!.bytesWritten);
 
                 // Обновим информацию о файле (а именно количество загруженных байтов).

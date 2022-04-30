@@ -10,6 +10,7 @@ import fs = require('fs');
 import { scrypt } from "crypto";
 import { nanoid } from "nanoid";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
+import { IFileRepository } from "../FileService/FileRepository";
 
 
 export interface IRoomRepository
@@ -58,14 +59,17 @@ export class PlainRoomRepository implements IRoomRepository
     private rooms = new Map<string, IRoom>();
     private mediasoup: IMediasoupService;
     private userAccountRepository: IUserAccountRepository;
+    private fileRepository: IFileRepository;
 
     constructor(
         mediasoup: IMediasoupService,
-        userAccountRepository: IUserAccountRepository
+        userAccountRepository: IUserAccountRepository,
+        fileRepository: IFileRepository
     )
     {
         this.mediasoup = mediasoup;
         this.userAccountRepository = userAccountRepository;
+        this.fileRepository = fileRepository;
     }
 
     /** Полностью обновить содержимое файла с записями о комнатах. */
@@ -189,8 +193,16 @@ export class PlainRoomRepository implements IRoomRepository
             console.error(`[ERROR] [PlainRoomRepository] Can't delete Room [${id}], because it's not exist.`);
             return;
         }
+
+        // Закроем комнату.
         room.close();
+
+        // Удалим все файлы, привязанные к комнате.
+        await this.fileRepository.removeByRoom(id);
+
+        // Удалим запись о комнате.
         this.rooms.delete(id);
+
         await this.rewriteRoomsToFile();
         console.log(`[Room] Room [${id}, '${room.name}', ${room.videoCodec}] was deleted.`);
     }

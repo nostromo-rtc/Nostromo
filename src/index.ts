@@ -93,17 +93,21 @@ async function main()
         // Репозиторий аккаунтов пользователей.
         const userAccountRepository = new UserAccountRepository();
 
+        // Репозиторий файлов.
+        const fileRepository = new PlainFileRepository();
+
         // Репозиторий комнат.
-        const roomRepository = new PlainRoomRepository(mediasoupService, userAccountRepository);
+        const roomRepository = new PlainRoomRepository(
+            mediasoupService,
+            userAccountRepository,
+            fileRepository
+        );
         await roomRepository.init();
 
         // Репозиторий для записей авторизации пользователей в комнатах.
         const authRoomUserRepository = new AuthRoomUserRepository();
 
-        // Репозиторий для записей о файлах (метаданные).
-        const fileRepository = new PlainFileRepository();
-
-        // Сервис для работы с файлами.
+        // Сервис для загрузки и скачивания файлов.
         const fileService = new FileService(
             fileRepository,
             authRoomUserRepository,
