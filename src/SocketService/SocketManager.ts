@@ -13,15 +13,7 @@ import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IMediasoupService } from "../MediasoupService";
 import { IFileRepository } from "../FileService/FileRepository";
-import { TokenData } from "../TokenService";
-
-// расширяю класс Handshake у сокетов, добавляя в него Express сессии
-declare module "socket.io/dist/socket" {
-    interface Handshake
-    {
-        token?: TokenData;
-    }
-}
+import { TokenSocketMiddleware } from "../TokenService";
 
 /** Обработчик веб-сокетов. */
 export class SocketManager
@@ -65,7 +57,8 @@ export class SocketManager
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
-        authRoomUserRepository: IAuthRoomUserRepository
+        authRoomUserRepository: IAuthRoomUserRepository,
+        tokenMiddleware: TokenSocketMiddleware
     )
     {
         this.io = this.createSocketServer(server);
@@ -105,7 +98,8 @@ export class SocketManager
             roomRepository,
             userAccountRepository,
             userBanRepository,
-            authRoomUserRepository
+            authRoomUserRepository,
+            tokenMiddleware
         );
 
         // события администратора

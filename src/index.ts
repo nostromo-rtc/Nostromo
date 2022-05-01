@@ -159,7 +159,8 @@ async function main()
             roomRepository,
             userAccountRepository,
             userBanRepository,
-            authRoomUserRepository
+            authRoomUserRepository,
+            tokenService.tokenSocketMiddleware
         );
     }
     catch (err)

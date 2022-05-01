@@ -1,6 +1,5 @@
 import express = require('express');
 import path = require('path');
-import cookie = require("cookie");
 
 import { ITokenService } from "./TokenService";
 import { IFileService } from "./FileService/FileService";
@@ -53,11 +52,10 @@ export class WebService
         this.userBanRepository = userBanRepository;
         this.authRoomUserRepository = authRoomUserRepository;
 
-        this.app.use((req, res, next) => this.checkBanMiddleware(req, res, next));
-
+        this.app.use(this.checkBanMiddleware);
         this.app.use(WebService.wwwMiddleware);
         this.app.use(WebService.httpsMiddleware);
-        this.app.use(async (req, res, next) => await this.tokenMiddleware(req, res, next));
+        this.app.use(this.tokenService.tokenExpressMiddleware);
 
         this.app.disable('x-powered-by');
 
@@ -72,7 +70,7 @@ export class WebService
     }
 
     /** Проверяем на наличие блокировки по ip-адресу пользователя. */
-    private checkBanMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
+    private checkBanMiddleware: express.RequestHandler = (req: express.Request, res: express.Response, next: express.NextFunction) =>
     {
         if (!this.userBanRepository.has(req.ip.substring(7)))
         {
@@ -109,24 +107,6 @@ export class WebService
         {
             next();
         }
-    }
-
-    /** Проверяем токен. */
-    private async tokenMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void>
-    {
-        // Инициализируем пустой объект.
-        req.token = {};
-
-        // Парсим куки.
-        const cookies = cookie.parse(req.headers.cookie ?? "");
-        const jwt = cookies.token;
-        if (jwt)
-        {
-            const userId = await this.tokenService.verify(jwt);
-            req.token.userId = userId;
-        }
-
-        next();
     }
 
     /** Есть ли тело у запроса? */

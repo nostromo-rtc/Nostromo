@@ -12,6 +12,7 @@ import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { ActionOnUserInfo, ChangeUserNameInfo } from "nostromo-shared/types/AdminTypes";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IFileRepository } from "../FileService/FileRepository";
+import { TokenSocketMiddleware } from "../TokenService";
 
 type Socket = SocketIO.Socket;
 
@@ -60,7 +61,8 @@ export class RoomSocketService implements IRoomSocketService
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
-        authRoomUserRepository: IAuthRoomUserRepository
+        authRoomUserRepository: IAuthRoomUserRepository,
+        tokenMiddleware: TokenSocketMiddleware
     )
     {
         this.roomIo = roomIo;
@@ -73,6 +75,8 @@ export class RoomSocketService implements IRoomSocketService
         this.mediasoupService = mediasoupService;
         this.latestMaxVideoBitrate = this.mediasoupService.maxVideoBitrate;
 
+        this.roomIo.use(tokenMiddleware);
+
         this.clientConnected();
     }
 
@@ -81,8 +85,7 @@ export class RoomSocketService implements IRoomSocketService
     {
         this.roomIo.on('connection', async (socket: Socket) =>
         {
-            const token = socket.handshake.token!;
-            const userId = token.userId;
+            const userId = socket.handshake.token.userId;
 
             socket.once(SE.JoinRoom, async (roomId: string) =>
             {

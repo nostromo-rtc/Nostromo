@@ -69,7 +69,7 @@ export class AdminSocketService
     {
         this.adminIo.on('connection', (socket: Socket) =>
         {
-            const userId = socket.handshake.token?.userId;
+            const userId = socket.handshake.token.userId;
             if (!userId || (this.userAccountRepository.get(userId)?.role != "admin"))
             {
                 //this.adminAuth(socket, session);

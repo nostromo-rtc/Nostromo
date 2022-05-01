@@ -39,7 +39,7 @@ export class AuthSocketService
     {
         this.authIo.on('connection', (socket: Socket) =>
         {
-            const token = socket.handshake.token!;
+            const token = socket.handshake.token;
 
             const roomId = "test";
 
