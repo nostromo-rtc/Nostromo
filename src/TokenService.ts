@@ -4,6 +4,7 @@ import express = require("express");
 import cookie = require("cookie");
 import { Socket } from "socket.io/dist/socket";
 import { ExtendedError } from "socket.io/dist/namespace";
+import { SocketNextFunction } from "./SocketService/SocketManager";
 
 // Данные, хранящиеся внутри токена.
 export interface TokenData
@@ -32,7 +33,6 @@ declare module "socket.io/dist/socket" {
 }
 
 type TokenExpressMiddleware = (req: express.Request, res: unknown, next: express.NextFunction) => Promise<void>;
-type SocketNextFunction = (err?: ExtendedError) => void;
 export type TokenSocketMiddleware = (req: Socket, next: SocketNextFunction) => Promise<void>;
 
 export interface ITokenService

@@ -15,6 +15,9 @@ import { IMediasoupService } from "../MediasoupService";
 import { IFileRepository } from "../FileService/FileRepository";
 import { TokenSocketMiddleware } from "../TokenService";
 
+export type SocketNextFunction = (err?: ExtendedError) => void;
+type SocketMiddleware = (req: SocketIO.Socket, next: SocketNextFunction) => void;
+
 /** Обработчик веб-сокетов. */
 export class SocketManager
 {
@@ -38,9 +41,10 @@ export class SocketManager
         });
     }
 
-    private applyCheckBanMiddleware(socket: SocketIO.Socket, next: (err?: ExtendedError) => void)
+    private applyCheckBanMiddleware: SocketMiddleware = (socket, next) =>
     {
-        if (!this.userBanRepository.has(socket.handshake.address.substring(7)))
+        const address = socket.handshake.address;
+        if (!this.userBanRepository.has(address.substring(7)))
         {
             next();
         }
@@ -72,7 +76,7 @@ export class SocketManager
         for (const mapValue of this.namespaces)
         {
             const ns = mapValue[1];
-            ns.use((socket, next) => this.applyCheckBanMiddleware(socket, next));
+            ns.use(this.applyCheckBanMiddleware);
         }
 
         // главная страница (общие события)
