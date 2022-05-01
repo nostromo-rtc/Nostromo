@@ -65,7 +65,7 @@ export interface ITokenService
 
 export class TokenService implements ITokenService
 {
-    private secret = crypto.createSecretKey(Buffer.from(process.env.EXPRESS_SESSION_KEY!));
+    private secret = crypto.createSecretKey(Buffer.from(process.env.TOKEN_SECRET_KEY!));
 
     private userAccountRepository: IUserAccountRepository;
 
