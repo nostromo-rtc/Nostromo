@@ -103,7 +103,8 @@ export class SocketManager
             roomRepository,
             userBanRepository,
             authRoomUserRepository,
-            userAccountRepository
+            userAccountRepository,
+            tokenMiddleware
         );
     }
 }

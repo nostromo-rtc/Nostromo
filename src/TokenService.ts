@@ -4,6 +4,7 @@ import express = require("express");
 import cookie = require("cookie");
 import { Socket } from "socket.io/dist/socket";
 import { SocketNextFunction } from "./SocketService/SocketManager";
+import { IUserAccountRepository } from "./User/UserAccountRepository";
 
 // Данные, хранящиеся внутри токена.
 export interface TokenData
@@ -66,6 +67,13 @@ export class TokenService implements ITokenService
 {
     private secret = crypto.createSecretKey(Buffer.from(process.env.EXPRESS_SESSION_KEY!));
 
+    private userAccountRepository: IUserAccountRepository;
+
+    constructor(userAccountRepository: IUserAccountRepository)
+    {
+        this.userAccountRepository = userAccountRepository;
+    }
+
     public tokenExpressMiddleware: TokenExpressMiddleware = async (req, res, next) =>
     {
         // Инициализируем пустой объект.
@@ -80,7 +88,12 @@ export class TokenService implements ITokenService
         if (jwt)
         {
             const userId = await this.verify(jwt);
-            req.token.userId = userId;
+
+            // Если на сервере есть информация о пользователе userId.
+            if (userId && this.userAccountRepository.has(userId))
+            {
+                req.token.userId = userId;
+            }
         }
 
         next();
@@ -102,7 +115,12 @@ export class TokenService implements ITokenService
         if (jwt)
         {
             const userId = await this.verify(jwt);
-            handshake.token.userId = userId;
+
+            // Если на сервере есть информация о пользователе userId.
+            if (userId && this.userAccountRepository.has(userId))
+            {
+                handshake.token.userId = userId;
+            }
         }
 
         next();

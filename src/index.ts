@@ -118,7 +118,7 @@ async function main()
         const userBanRepository = new UserBanRepository();
 
         // Сервис для работы с токенами.
-        const tokenService = new TokenService();
+        const tokenService = new TokenService(userAccountRepository);
 
         // Express веб-сервис.
         const express = new WebService(

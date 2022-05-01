@@ -34,6 +34,9 @@ export interface IUserAccountRepository
     /** Установить новое имя пользователя. */
     setUsername(id: string, name: string): void;
 
+    /** Установить новую роль для пользователя. */
+    setRole(id: string, role: string): void;
+
     /** Получить имя пользователя. */
     getUsername(id: string): string | undefined;
 
@@ -102,6 +105,21 @@ export class UserAccountRepository implements IUserAccountRepository
         user.name = name;
 
         console.log(`[UserAccountRepository] User [Id: ${id}, '${oldName}'] has a new name: '${name}'.`);
+    }
+
+    public setRole(id: string, role: string): void
+    {
+        const user = this.users.get(id);
+
+        if (!user)
+        {
+            console.error(`[ERROR] [UserAccountRepository] Can't set new role for user account [${id}], because it's not exist.`);
+            return;
+        }
+
+        user.role = role;
+
+        console.log(`[UserAccountRepository] User [Id: ${id}, '${user.name}'] has a new role: '${role}'.`);
     }
 
     public getUsername(id: string): string | undefined

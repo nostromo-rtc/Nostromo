@@ -10,6 +10,7 @@ import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
+import { TokenSocketMiddleware } from "../TokenService";
 
 type Socket = SocketIO.Socket;
 
@@ -30,7 +31,8 @@ export class AdminSocketService
         roomRepository: IRoomRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
-        userAccountRepository: IUserAccountRepository
+        userAccountRepository: IUserAccountRepository,
+        tokenMiddleware: TokenSocketMiddleware
     )
     {
         this.adminIo = adminIo;
@@ -43,6 +45,9 @@ export class AdminSocketService
         this.userAccountRepository = userAccountRepository;
 
         this.checkIp();
+
+        this.adminIo.use(tokenMiddleware);
+
         this.clientConnected();
     }
 
@@ -69,9 +74,8 @@ export class AdminSocketService
         this.adminIo.on('connection', (socket: Socket) =>
         {
             const userId = socket.handshake.token.userId;
-            if (!userId || this.userAccountRepository.isAdmin(userId))
+            if (!userId || !this.userAccountRepository.isAdmin(userId))
             {
-                //this.adminAuth(socket, session);
                 return;
             }
 
@@ -162,23 +166,6 @@ export class AdminSocketService
         this.roomSocketService.kickAllUsers(roomId);
         await this.roomRepository.remove(roomId);
     }
-
-    /** Авторизация в админку. */
-    /*private adminAuth(socket: Socket, session: HandshakeSession)
-    {
-        socket.on(SE.AdminAuth, (pass: string) =>
-        {
-            let result = false;
-            if (pass == process.env.ADMIN_PASS)
-            {
-                session.admin = true;
-                session.save();
-                result = true;
-            }
-
-            socket.emit(SE.Result, result);
-        });
-    }*/
 
     /** Изменить название комнаты. */
     private async changeRoomName(info: NewRoomNameInfo)

@@ -58,7 +58,6 @@ export class WebService
         this.app.use(WebService.httpsMiddleware);
 
         this.app.use(this.tokenService.tokenExpressMiddleware);
-        this.app.use(this.checkUserIdMiddleware);
 
         this.app.disable('x-powered-by');
 
@@ -111,21 +110,6 @@ export class WebService
             next();
         }
     }
-
-    /** Проверяем на наличие пользователя userId, полученного из токена. */
-    private checkUserIdMiddleware: express.RequestHandler = (req: express.Request, res: express.Response, next: express.NextFunction) =>
-    {
-        const userId = req.token.userId;
-
-        // Если userId был в токене, но на сервере такого пользователя нет
-        // то обнулим userId в req.token, чтобы пересоздался токен при авторизации.
-        if (userId && !this.userAccountRepository.has(userId))
-        {
-            req.token.userId = undefined;
-        }
-
-        next();
-    };
 
     /** Есть ли тело у запроса? */
     public static requestHasNotBody(req: express.Request): boolean
@@ -200,6 +184,31 @@ export class WebService
         this.handleFilesRoutes();
     }
 
+    /**
+     * Создать для клиента JWT-токен и прикрепить его к ответу в виде httpOnly cookie.
+     * @returns string - userId.
+     */
+    private async createAuthToken(
+        res: express.Response,
+        role: string
+    ): Promise<string>
+    {
+        const expTime = new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)); // 2 недели.
+
+        const userId = this.userAccountRepository.create({ role });
+
+        const jwt = await this.tokenService.create({ userId }, Math.round(expTime.getTime() / 1000));
+
+        res.cookie("token", jwt, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "lax",
+            expires: expTime
+        });
+
+        return userId;
+    }
+
     /** Маршруты для комнаты. */
     private roomRoute: express.RequestHandler = async (req, res, next) =>
     {
@@ -233,8 +242,7 @@ export class WebService
         let passFromHeader = req.header("Authorization");
         if (passFromHeader)
         {
-            const passBase64 = passFromHeader.split(" ").slice(-1)[0];
-            passFromHeader = Buffer.from(passBase64, "base64").toString("utf-8");
+            passFromHeader = Buffer.from(passFromHeader, "base64").toString("utf-8");
         }
 
         // Берем пароль HTTP-заголовка,
@@ -253,17 +261,7 @@ export class WebService
             // Если у пользователя не было токена.
             if (!userId)
             {
-                const expTime = new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)); // 2 недели.
-
-                userId = this.userAccountRepository.create({ role: "user" });
-                const jwt = await this.tokenService.create({ userId }, Math.round(expTime.getTime() / 1000));
-
-                res.cookie("token", jwt, {
-                    httpOnly: true,
-                    secure: true,
-                    sameSite: "lax",
-                    expires: expTime
-                });
+                userId = await this.createAuthToken(res, "user");
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
@@ -277,26 +275,46 @@ export class WebService
     };
 
     /** Маршруты для администратора. */
-    private adminRoute: express.RequestHandler = (req, res) =>
+    private adminRoute: express.RequestHandler = async (req, res) =>
     {
-        const userId = req.token.userId;
-
-        if ((req.ip == process.env.ALLOW_ADMIN_IP) ||
-            (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+        if ((req.ip != process.env.ALLOW_ADMIN_IP) &&
+            (process.env.ALLOW_ADMIN_EVERYWHERE != "true"))
         {
-            if (!userId || !this.userAccountRepository.isAdmin(userId))
+            return res.sendStatus(403);
+        }
+
+        // Пароль из HTTP-заголовка.
+        let passFromHeader = req.header("Authorization");
+        if (passFromHeader)
+        {
+            passFromHeader = Buffer.from(passFromHeader, "base64").toString("utf-8");
+        }
+
+        let userId = req.token.userId;
+
+        // Если пароль верный.
+        if (passFromHeader == process.env.ADMIN_PASS)
+        {
+            // Если токен уже есть, то повысим роль для пользователя userId.
+            if (userId)
             {
-                res.status(401).sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
+                this.userAccountRepository.setRole(userId, "admin");
             }
-            else
+            else // Иначе выдадим токен с админской ролью.
             {
-                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
+                userId = await this.createAuthToken(res, "admin");
             }
+        }
+
+        if (!userId || !this.userAccountRepository.isAdmin(userId))
+        {
+            res.status(401).sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
         }
         else
         {
-            res.sendStatus(403);
+            res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
         }
+
     };
 
     /** Обрабатываем маршруты, связанные с файлами. */
