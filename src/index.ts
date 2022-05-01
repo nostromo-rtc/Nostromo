@@ -23,7 +23,7 @@ import readline = require('readline');
 import { PlainRoomRepository } from "./Room/RoomRepository";
 import { UserBanRepository } from "./User/UserBanRepository";
 import { PlainUserAccountRepository } from "./User/UserAccountRepository";
-import { AuthRoomUserRepository } from "./User/AuthRoomUserRepository";
+import { PlainAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { PlainFileRepository } from "./FileService/FileRepository";
 import { TokenService } from "./TokenService";
 
@@ -105,7 +105,7 @@ async function main()
         await roomRepository.init();
 
         // Репозиторий для записей авторизации пользователей в комнатах.
-        const authRoomUserRepository = new AuthRoomUserRepository();
+        const authRoomUserRepository = new PlainAuthRoomUserRepository();
 
         // Сервис для загрузки и скачивания файлов.
         const fileService = new FileService(

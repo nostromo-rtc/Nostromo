@@ -91,10 +91,10 @@ export class AdminSocketService
                 await this.createRoom(info);
             });
 
-            socket.on(SE.KickUser, (info: ActionOnUserInfo) =>
+            socket.on(SE.KickUser, async (info: ActionOnUserInfo) =>
             {
                 this.roomSocketService.kickUser(info);
-                this.authRoomUserRepository.remove(info.roomId, info.userId);
+                await this.authRoomUserRepository.remove(info.roomId, info.userId);
             });
 
             socket.on(SE.StopUserDisplay, (info: ActionOnUserInfo) =>
@@ -165,6 +165,9 @@ export class AdminSocketService
         this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
         this.roomSocketService.kickAllUsers(roomId);
         await this.roomRepository.remove(roomId);
+
+        // После удаления комнаты, стираем данные об авторизациях в этой комнате.
+        await this.authRoomUserRepository.removeAll(roomId);
     }
 
     /** Изменить название комнаты. */
@@ -187,6 +190,6 @@ export class AdminSocketService
         await this.roomRepository.update(updateRoomInfo);
 
         // После смены пароля деавторизуем всех в комнате.
-        this.authRoomUserRepository.removeAll(id);
+        await this.authRoomUserRepository.removeAll(id);
     }
 }

@@ -265,7 +265,7 @@ export class WebService
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
-            this.authRoomUserRepository.create(roomId, userId);
+            await this.authRoomUserRepository.create(roomId, userId);
             res.sendFile(ROOM_PAGE_PATH);
         }
         else // Если не авторизован.
