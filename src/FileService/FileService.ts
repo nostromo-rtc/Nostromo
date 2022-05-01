@@ -6,7 +6,7 @@ import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationR
 import { WebService } from "../WebService";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { FileId, FileInfo, IFileRepository } from "./FileRepository";
+import { FileId, IFileRepository } from "./FileRepository";
 
 /** Сервис для работы с файлами. */
 export interface IFileService

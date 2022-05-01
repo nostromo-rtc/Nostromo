@@ -1,5 +1,4 @@
 
-import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
 import { IRoom, ActiveUser } from "../Room/Room";
 import { IRoomRepository } from "../Room/RoomRepository";
@@ -83,7 +82,7 @@ export class RoomSocketService implements IRoomSocketService
     /** Клиент подключился. */
     private clientConnected(): void
     {
-        this.roomIo.on('connection', async (socket: Socket) =>
+        this.roomIo.on('connection', (socket: Socket) =>
         {
             const userId = socket.handshake.token.userId;
 

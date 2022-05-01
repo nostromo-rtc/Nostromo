@@ -165,73 +165,25 @@ export class WebService
     /** Обрабатываем маршруты. */
     private handleRoutes(): void
     {
-        // [главная страница]
+        // Маршруты для главной страницы
         this.app.get('/', (req: express.Request, res: express.Response) =>
         {
             res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
         });
 
-        // [комната]
-        this.app.get('/rooms/:roomId', async (
-            req: express.Request,
-            res: express.Response,
-            next: express.NextFunction
-        ) =>
-        {
-            await this.roomRoute(req, res, next);
-        });
+        // Маршруты для комнаты
+        this.app.get('/rooms/:roomId', this.roomRoute);
+        this.app.get('/r/:roomId', this.roomRoute);
 
-        this.app.get('/r/:roomId', async (
-            req: express.Request,
-            res: express.Response,
-            next: express.NextFunction
-        ) =>
-        {
-            await this.roomRoute(req, res, next);
-        });
+        // Маршруты для админки
+        this.app.get('/admin', this.adminRoute);
 
-        // [админка]
-        this.app.get('/admin', (req: express.Request, res: express.Response) =>
-        {
-            this.adminRoute(req, res);
-        });
-
-        // [файлы]
+        // Маршруты для файлов
         this.handleFilesRoutes();
     }
 
-    /** Маршруты для администратора. */
-    private adminRoute(
-        req: express.Request,
-        res: express.Response
-    ): void
-    {
-        const userId = req.token.userId;
-
-        if ((req.ip == process.env.ALLOW_ADMIN_IP) ||
-            (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
-        {
-            if (!userId || !this.userAccountRepository.isAdmin(userId))
-            {
-                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
-            }
-            else
-            {
-                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
-            }
-        }
-        else
-        {
-            res.sendStatus(404);
-        }
-    }
-
     /** Маршруты для комнаты. */
-    private async roomRoute(
-        req: express.Request,
-        res: express.Response,
-        next: express.NextFunction
-    ): Promise<void | express.Response>
+    private roomRoute: express.RequestHandler = async (req, res, next) =>
     {
         // Запрещаем кешировать страницу с комнатой.
         res.setHeader('Cache-Control', 'no-store');
@@ -256,8 +208,21 @@ export class WebService
             return res.sendFile(ROOM_PAGE_PATH);
         }
 
-        // Берем пароль из query, а если его нет, то берем его как пустой пароль.
-        const pass = req.query.p as string ?? "";
+        // Пароль из query.
+        const passFromQuery = req.query.p as string | undefined;
+
+        // Пароль из HTTP-заголовка.
+        let passFromHeader = req.header("Authorization");
+        if (passFromHeader)
+        {
+            const passBase64 = passFromHeader.split(" ").slice(-1)[0];
+            passFromHeader = Buffer.from(passBase64, "base64").toString("utf-8");
+        }
+
+        // Берем пароль HTTP-заголовка,
+        // а если его нет, то из query,
+        // а если и его нет, то берем как пустой пароль.
+        const pass = passFromHeader ?? passFromQuery ?? "";
 
         // Проверяем пароль.
         const isPassCorrect = await this.roomRepository.checkPassword(room.id, pass);
@@ -270,13 +235,16 @@ export class WebService
             // Если у пользователя не было токена.
             if (!userId)
             {
+                const expTime = new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)); // 2 недели.
+
                 userId = this.userAccountRepository.create({ role: "user" });
-                const jwt = await this.tokenService.create({ userId });
+                const jwt = await this.tokenService.create({ userId }, Math.round(expTime.getTime() / 1000));
 
                 res.cookie("token", jwt, {
                     httpOnly: true,
                     secure: true,
-                    sameSite: "lax"
+                    sameSite: "lax",
+                    expires: expTime
                 });
             }
 
@@ -284,11 +252,34 @@ export class WebService
             this.authRoomUserRepository.create(roomId, userId);
             res.sendFile(ROOM_PAGE_PATH);
         }
+        else // Если не авторизован.
+        {
+            res.status(401).sendFile(ROOM_AUTH_PAGE_PATH);
+        }
+    };
+
+    /** Маршруты для администратора. */
+    private adminRoute: express.RequestHandler = (req, res) =>
+    {
+        const userId = req.token.userId;
+
+        if ((req.ip == process.env.ALLOW_ADMIN_IP) ||
+            (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+        {
+            if (!userId || !this.userAccountRepository.isAdmin(userId))
+            {
+                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
+            }
+            else
+            {
+                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
+            }
+        }
         else
         {
-            res.sendFile(ROOM_AUTH_PAGE_PATH);
+            res.sendStatus(404);
         }
-    }
+    };
 
     /** Обрабатываем маршруты, связанные с файлами. */
     private handleFilesRoutes(): void

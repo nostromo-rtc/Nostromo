@@ -6,7 +6,6 @@ import { ExtendedError } from 'socket.io/dist/namespace';
 import { IRoomRepository } from "../Room/RoomRepository";
 import { AdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
-import { AuthSocketService } from "./AuthSocketService";
 import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
@@ -26,7 +25,6 @@ export class SocketManager
     private namespaces = new Map<string, SocketIO.Namespace>();
     private generalSocketService: IGeneralSocketService;
     private adminSocketService: AdminSocketService;
-    private authSocketService: AuthSocketService;
     private roomSocketService: IRoomSocketService;
     private userBanRepository: IUserBanRepository;
 
@@ -69,7 +67,6 @@ export class SocketManager
         this.userBanRepository = userBanRepository;
 
         this.namespaces.set("general", this.io.of("/"));
-        this.namespaces.set("auth", this.io.of("/auth"));
         this.namespaces.set("room", this.io.of("/room"));
         this.namespaces.set("admin", this.io.of("/admin"));
 
@@ -83,14 +80,6 @@ export class SocketManager
         this.generalSocketService = new GeneralSocketService(
             this.namespaces.get("general")!,
             roomRepository
-        );
-
-        // авторизация
-        this.authSocketService = new AuthSocketService(
-            this.namespaces.get("auth")!,
-            roomRepository,
-            userAccountRepository,
-            authRoomUserRepository
         );
 
         // события комнаты

@@ -1,5 +1,4 @@
 
-import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
 
 import { IGeneralSocketService } from "./GeneralSocketService";

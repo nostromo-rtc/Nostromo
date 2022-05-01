@@ -3,7 +3,6 @@ import crypto = require("crypto");
 import express = require("express");
 import cookie = require("cookie");
 import { Socket } from "socket.io/dist/socket";
-import { ExtendedError } from "socket.io/dist/namespace";
 import { SocketNextFunction } from "./SocketService/SocketManager";
 
 // Данные, хранящиеся внутри токена.
@@ -53,7 +52,7 @@ export interface ITokenService
      * Создать токен.
      * @returns string - токен.
      */
-    create(data: TokenData): Promise<string>;
+    create(data: TokenData, exp: number): Promise<string>;
 
     /**
      * Проверить токен.
@@ -109,11 +108,11 @@ export class TokenService implements ITokenService
         next();
     };
 
-    public async create(data: TokenData): Promise<string>
+    public async create(data: TokenData, exp: number): Promise<string>
     {
         const jwt = await new jose.SignJWT({ "userId": data.userId })
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('14d')
+            .setExpirationTime(exp)
             .sign(this.secret);
 
         return jwt;
