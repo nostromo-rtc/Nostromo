@@ -53,9 +53,12 @@ export class WebService
         this.authRoomUserRepository = authRoomUserRepository;
 
         this.app.use(this.checkBanMiddleware);
+
         this.app.use(WebService.wwwMiddleware);
         this.app.use(WebService.httpsMiddleware);
+
         this.app.use(this.tokenService.tokenExpressMiddleware);
+        this.app.use(this.checkUserIdMiddleware);
 
         this.app.disable('x-powered-by');
 
@@ -108,6 +111,21 @@ export class WebService
             next();
         }
     }
+
+    /** Проверяем на наличие пользователя userId, полученного из токена. */
+    private checkUserIdMiddleware: express.RequestHandler = (req: express.Request, res: express.Response, next: express.NextFunction) =>
+    {
+        const userId = req.token.userId;
+
+        // Если userId был в токене, но на сервере такого пользователя нет
+        // то обнулим userId в req.token, чтобы пересоздался токен при авторизации.
+        if (userId && !this.userAccountRepository.has(userId))
+        {
+            req.token.userId = undefined;
+        }
+
+        next();
+    };
 
     /** Есть ли тело у запроса? */
     public static requestHasNotBody(req: express.Request): boolean
@@ -268,7 +286,7 @@ export class WebService
         {
             if (!userId || !this.userAccountRepository.isAdmin(userId))
             {
-                res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
+                res.status(401).sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
             }
             else
             {
@@ -277,7 +295,7 @@ export class WebService
         }
         else
         {
-            res.sendStatus(404);
+            res.sendStatus(403);
         }
     };
 
