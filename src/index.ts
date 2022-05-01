@@ -22,7 +22,7 @@ import { prepareLogs } from "./Logger";
 import readline = require('readline');
 import { PlainRoomRepository } from "./Room/RoomRepository";
 import { UserBanRepository } from "./User/UserBanRepository";
-import { UserAccountRepository } from "./User/UserAccountRepository";
+import { PlainUserAccountRepository } from "./User/UserAccountRepository";
 import { AuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { PlainFileRepository } from "./FileService/FileRepository";
 import { TokenService } from "./TokenService";
@@ -91,7 +91,7 @@ async function main()
         const mediasoupService = await MediasoupService.create(numWorkers);
 
         // Репозиторий аккаунтов пользователей.
-        const userAccountRepository = new UserAccountRepository();
+        const userAccountRepository = new PlainUserAccountRepository();
 
         // Репозиторий файлов.
         const fileRepository = new PlainFileRepository();

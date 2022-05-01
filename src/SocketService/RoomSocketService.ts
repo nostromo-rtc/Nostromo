@@ -242,9 +242,9 @@ export class RoomSocketService implements IRoomSocketService
         });
 
         // Новый ник пользователя.
-        socket.on(SE.NewUsername, (username: string) =>
+        socket.on(SE.NewUsername, async (username: string) =>
         {
-            this.userChangedName(room.id, socket, userId, username);
+            await this.userChangedName(room.id, socket, userId, username);
         });
 
         // Новое сообщение в чате.
@@ -554,19 +554,19 @@ export class RoomSocketService implements IRoomSocketService
     }
 
     /** Пользователь изменил ник. */
-    private userChangedName(
+    private async userChangedName(
         roomId: string,
         socket: Socket,
         userId: string,
         username: string
-    ): void
+    ): Promise<void>
     {
         if (username.length > 32)
         {
             username = username.slice(0, 32);
         }
 
-        this.userAccountRepository.setUsername(userId, username);
+        await this.userAccountRepository.setUsername(userId, username);
 
         const info: UserInfo = {
             id: userId,

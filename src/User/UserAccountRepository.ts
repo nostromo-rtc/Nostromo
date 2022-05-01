@@ -1,3 +1,5 @@
+import path = require('path');
+import fs = require('fs');
 import { nanoid } from "nanoid";
 
 export interface UserAccount
@@ -20,10 +22,10 @@ interface NewUserAccountInfo
 export interface IUserAccountRepository
 {
     /** Создать запись об аккаунте пользователя. */
-    create(info: NewUserAccountInfo): string;
+    create(info: NewUserAccountInfo): Promise<string>;
 
     /** Удалить запись об аккаунте пользователя. */
-    remove(id: string): void;
+    remove(id: string): Promise<void>;
 
     /** Получить запись об аккаунте пользователя. */
     get(id: string): UserAccount | undefined;
@@ -32,10 +34,10 @@ export interface IUserAccountRepository
     has(id: string): boolean;
 
     /** Установить новое имя пользователя. */
-    setUsername(id: string, name: string): void;
+    setUsername(id: string, name: string): Promise<void>;
 
     /** Установить новую роль для пользователя. */
-    setRole(id: string, role: string): void;
+    setRole(id: string, role: string): Promise<void>;
 
     /** Получить имя пользователя. */
     getUsername(id: string): string | undefined;
@@ -44,11 +46,66 @@ export interface IUserAccountRepository
     isAdmin(id: string): boolean;
 }
 
-export class UserAccountRepository implements IUserAccountRepository
+export class PlainUserAccountRepository implements IUserAccountRepository
 {
+    private readonly className = "PlainUserAccountRepository";
+
+    private readonly USERS_FILE_PATH = path.resolve(process.cwd(), "data", "users.json");
+
     private users = new Map<string, UserAccount>();
 
-    public create(info: NewUserAccountInfo): string
+    constructor()
+    {
+        this.init();
+    }
+
+    /** Полностью обновить содержимое файла с записями о пользователях. */
+    private async rewriteUsersToFile(): Promise<void>
+    {
+        return new Promise((resolve, reject) =>
+        {
+            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
+            const writeStream = fs.createWriteStream(this.USERS_FILE_PATH, { encoding: "utf8" });
+
+            writeStream.write(JSON.stringify(Array.from(this.users.values()), null, 2));
+
+            writeStream.on("finish", () =>
+            {
+                resolve();
+            });
+
+                writeStream.on("error", (err: Error) =>
+                {
+                    reject(err);
+                });
+
+            writeStream.end();
+        });
+    }
+
+    public init(): void
+    {
+        if (fs.existsSync(this.USERS_FILE_PATH))
+        {
+            const fileContent = fs.readFileSync(this.USERS_FILE_PATH, 'utf-8');
+            if (fileContent)
+            {
+                const usersFromJson = JSON.parse(fileContent) as UserAccount[];
+
+                for (const user of usersFromJson)
+                {
+                    this.users.set(user.id, user);
+                }
+
+                if (this.users.size > 0)
+                {
+                    console.log(`[${this.className}] Info about ${this.users.size} users has been loaded from the 'users.json' file.`);
+                }
+            }
+        }
+    }
+
+    public async create(info: NewUserAccountInfo): Promise<string>
     {
         let id: string = nanoid(21);
         while (this.users.has(id))
@@ -63,21 +120,25 @@ export class UserAccountRepository implements IUserAccountRepository
         };
 
         this.users.set(id, userAccount);
-        console.log(`[UserAccountRepository] New user account [Id: ${id}] was created.`);
+        await this.rewriteUsersToFile();
+
+        console.log(`[${this.className}] New user account [Id: ${id}] was created.`);
 
         return id;
     }
 
-    public remove(id: string): void
+    public async remove(id: string): Promise<void>
     {
         if (!this.users.has(id))
         {
-            console.error(`[ERROR] [UserAccountRepository] Can't delete user account [${id}], because it's not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't delete user account [${id}], because it's not exist.`);
             return;
         }
 
         this.users.delete(id);
-        console.log(`[UserAccountRepository] User account [Id: ${id}] was deleted.`);
+        await this.rewriteUsersToFile();
+
+        console.log(`[${this.className}] User account [Id: ${id}] was deleted.`);
 
     }
 
@@ -91,35 +152,39 @@ export class UserAccountRepository implements IUserAccountRepository
         return this.users.has(id);
     }
 
-    public setUsername(id: string, name: string): void
+    public async setUsername(id: string, name: string): Promise<void>
     {
         const user = this.users.get(id);
 
         if (!user)
         {
-            console.error(`[ERROR] [UserAccountRepository] Can't rename user account [${id}], because it's not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't rename user account [${id}], because it's not exist.`);
             return;
         }
 
         const oldName = user.name;
         user.name = name;
 
-        console.log(`[UserAccountRepository] User [Id: ${id}, '${oldName}'] has a new name: '${name}'.`);
+        await this.rewriteUsersToFile();
+
+        console.log(`[${this.className}] User [Id: ${id}, '${oldName}'] has a new name: '${name}'.`);
     }
 
-    public setRole(id: string, role: string): void
+    public async setRole(id: string, role: string): Promise<void>
     {
         const user = this.users.get(id);
 
         if (!user)
         {
-            console.error(`[ERROR] [UserAccountRepository] Can't set new role for user account [${id}], because it's not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't set new role for user account [${id}], because it's not exist.`);
             return;
         }
 
         user.role = role;
 
-        console.log(`[UserAccountRepository] User [Id: ${id}, '${user.name}'] has a new role: '${role}'.`);
+        await this.rewriteUsersToFile();
+
+        console.log(`[${this.className}] User [Id: ${id}, '${user.name}'] has a new role: '${role}'.`);
     }
 
     public getUsername(id: string): string | undefined
@@ -128,7 +193,7 @@ export class UserAccountRepository implements IUserAccountRepository
 
         if (!user)
         {
-            console.error(`[ERROR] [UserAccountRepository] Can't get username of User [${id}], because user is not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't get username of User [${id}], because user is not exist.`);
             return;
         }
 
@@ -141,7 +206,7 @@ export class UserAccountRepository implements IUserAccountRepository
 
         if (!user)
         {
-            console.error(`[ERROR] [UserAccountRepository] Can't check role of User [${id}], because user is not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't check role of User [${id}], because user is not exist.`);
             return false;
         }
 

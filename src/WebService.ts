@@ -195,7 +195,7 @@ export class WebService
     {
         const expTime = new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)); // 2 недели.
 
-        const userId = this.userAccountRepository.create({ role });
+        const userId = await this.userAccountRepository.create({ role });
 
         const jwt = await this.tokenService.create({ userId }, Math.round(expTime.getTime() / 1000));
 
@@ -298,7 +298,7 @@ export class WebService
             // Если токен уже есть, то повысим роль для пользователя userId.
             if (userId)
             {
-                this.userAccountRepository.setRole(userId, "admin");
+                await this.userAccountRepository.setRole(userId, "admin");
             }
             else // Иначе выдадим токен с админской ролью.
             {
