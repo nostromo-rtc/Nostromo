@@ -80,7 +80,7 @@ export class WebService
         {
             WebService.sendCodeAndDestroySocket(req, res, 403);
         }
-    }
+    };
 
     /** Убираем www из адреса. */
     private static wwwMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
@@ -206,10 +206,12 @@ export class WebService
         res: express.Response
     ): void
     {
+        const userId = req.token.userId;
+
         if ((req.ip == process.env.ALLOW_ADMIN_IP) ||
             (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
         {
-            if (!req.token.userId || this.userAccountRepository.get(req.token.userId)?.role != "admin")
+            if (!userId || !this.userAccountRepository.isAdmin(userId))
             {
                 res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
             }

@@ -4,8 +4,10 @@ export interface UserAccount
 {
     /** Идентификатор аккаунта пользователя. */
     readonly id: string;
+
     /** Имя пользователя. */
     name: string;
+
     /** Роль пользователя. */
     role: string;
 }
@@ -34,6 +36,9 @@ export interface IUserAccountRepository
 
     /** Получить имя пользователя. */
     getUsername(id: string): string | undefined;
+
+    /** Является ли пользователь администратором? */
+    isAdmin(id: string): boolean;
 }
 
 export class UserAccountRepository implements IUserAccountRepository
@@ -110,5 +115,18 @@ export class UserAccountRepository implements IUserAccountRepository
         }
 
         return user.name;
+    }
+
+    public isAdmin(id: string): boolean
+    {
+        const user = this.users.get(id);
+
+        if (!user)
+        {
+            console.error(`[ERROR] [UserAccountRepository] Can't check role of User [${id}], because user is not exist.`);
+            return false;
+        }
+
+        return user.role == "admin";
     }
 }
