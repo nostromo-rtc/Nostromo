@@ -29,7 +29,7 @@ export class TusHeadResponse implements FileServiceResponse
 
         // Если это не владелец файла,
         // то есть этот пользователь не вызывал post creation запрос.
-        else if (fileInfo.ownerId != req.session.userId)
+        else if (fileInfo.ownerId != req.token.userId)
         {
             this.statusCode = 403;
         }
@@ -74,7 +74,7 @@ export class TusPatchResponse implements FileServiceResponse
 
         // Если это не владелец файла,
         // то есть этот пользователь не вызывал post creation запрос
-        else if (fileInfo.ownerId != req.session.userId)
+        else if (fileInfo.ownerId != req.token.userId)
         {
             this.statusCode = 403;
         }
@@ -220,7 +220,7 @@ export class GetResponse implements FileServiceResponse
             return;
         }
 
-        const userId = req.session.userId;
+        const userId = req.token.userId;
 
         // Если комната защищена паролем,
         // и пользователь не авторизован в комнате,

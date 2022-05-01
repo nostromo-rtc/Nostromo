@@ -15,9 +15,10 @@
   "author": "SgAkErRu",
   "license": "BSD-3-Clause",
   "dependencies": {
+    "cookie": "^0.5.0",
     "dotenv": "10.0.0",
     "express": "4.17.2",
-    "express-session": "1.17.2",
+    "jose": "^4.8.0",
     "mediasoup": "3.9.6",
     "nanoid": "3.2.0",
     "nostromo-web": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#dev",
@@ -25,7 +26,6 @@
   },
   "devDependencies": {
     "@types/express": "4.17.13",
-    "@types/express-session": "1.17.4",
     "@types/node": "12.20.47",
     "@typescript-eslint/eslint-plugin": "5.17.0",
     "@typescript-eslint/parser": "5.17.0",

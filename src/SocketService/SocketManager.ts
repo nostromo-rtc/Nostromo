@@ -1,9 +1,6 @@
 import https = require('https');
-import session = require('express-session');
-import { RequestHandler } from 'express';
 
 import SocketIO = require('socket.io');
-import { Handshake } from 'socket.io/dist/socket';
 import { ExtendedError } from 'socket.io/dist/namespace';
 
 import { IRoomRepository } from "../Room/RoomRepository";
@@ -16,28 +13,13 @@ import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IMediasoupService } from "../MediasoupService";
 import { IFileRepository } from "../FileService/FileRepository";
-
-export type HandshakeSession = session.Session & Partial<session.SessionData>;
+import { TokenData } from "../TokenService";
 
 // расширяю класс Handshake у сокетов, добавляя в него Express сессии
 declare module "socket.io/dist/socket" {
     interface Handshake
     {
-        session?: HandshakeSession;
-    }
-}
-
-// перегружаю функцию RequestHandler у Express, чтобы он понимал handshake от SocketIO как реквест
-// это нужно для совместимости SocketIO с Express Middleware (express-session)
-declare module "express"
-{
-    interface RequestHandler
-    {
-        (
-            req: Handshake,
-            res: unknown,
-            next: (err?: ExtendedError) => void,
-        ): void;
+        token?: TokenData;
     }
 }
 
@@ -78,7 +60,6 @@ export class SocketManager
 
     constructor(
         server: https.Server,
-        sessionMiddleware: RequestHandler,
         fileRepository: IFileRepository,
         mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
@@ -112,8 +93,7 @@ export class SocketManager
             this.namespaces.get("auth")!,
             roomRepository,
             userAccountRepository,
-            authRoomUserRepository,
-            sessionMiddleware
+            authRoomUserRepository
         );
 
         // события комнаты
@@ -125,8 +105,7 @@ export class SocketManager
             roomRepository,
             userAccountRepository,
             userBanRepository,
-            authRoomUserRepository,
-            sessionMiddleware
+            authRoomUserRepository
         );
 
         // события администратора
@@ -137,7 +116,7 @@ export class SocketManager
             roomRepository,
             userBanRepository,
             authRoomUserRepository,
-            sessionMiddleware
+            userAccountRepository
         );
     }
 }

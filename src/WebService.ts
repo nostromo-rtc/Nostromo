@@ -1,10 +1,10 @@
 import express = require('express');
-import session = require('express-session');
 import path = require('path');
+import cookie = require("cookie");
 
+import { ITokenService } from "./TokenService";
 import { IFileService } from "./FileService/FileService";
 import { IRoomRepository } from "./Room/RoomRepository";
-
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { IUserBanRepository } from "./User/UserBanRepository";
 import { IUserAccountRepository } from "./User/UserAccountRepository";
@@ -12,42 +12,20 @@ import { IAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
 
-// Добавляю в сессию необходимые параметры.
-declare module 'express-session' {
-    interface SessionData
-    {
-        /** Идентификатор аккаунта пользователя. */
-        userId: string;
-        /** Id комнаты, в которой находится пользователь. */
-        joinedRoomId: string;
-        /** Имеет ли пользователь права администратора на время сессии? */
-        admin: boolean;
-    }
-}
-
 /** HTTP веб-сервис. */
 export class WebService
 {
     /** Приложение Express. */
     public app: express.Express = express();
 
-    /** Обработчик сессий. */
-    public sessionMiddleware: express.RequestHandler = session({
-        secret: process.env.EXPRESS_SESSION_KEY!,
-        name: 'session-id',
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            httpOnly: true,
-            secure: true
-        }
-    });
+    /** Обработчик файлов. */
+    private fileService: IFileService;
+
+    /** Сервис для работы с токенами. */
+    private tokenService: ITokenService;
 
     /** Комнаты. */
     private roomRepository: IRoomRepository;
-
-    /** Обработчик файлов. */
-    private fileService: IFileService;
 
     /** Аккаунты пользователей. */
     private userAccountRepository: IUserAccountRepository;
@@ -59,15 +37,18 @@ export class WebService
     private authRoomUserRepository: IAuthRoomUserRepository;
 
     constructor(
-        roomRepository: IRoomRepository,
         fileService: IFileService,
+        tokenService: ITokenService,
+        roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository
     )
     {
-        this.roomRepository = roomRepository;
         this.fileService = fileService;
+        this.tokenService = tokenService;
+
+        this.roomRepository = roomRepository;
         this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
         this.authRoomUserRepository = authRoomUserRepository;
@@ -76,7 +57,7 @@ export class WebService
 
         this.app.use(WebService.wwwMiddleware);
         this.app.use(WebService.httpsMiddleware);
-        this.app.use(this.sessionMiddleware);
+        this.app.use(async (req, res, next) => await this.tokenMiddleware(req, res, next));
 
         this.app.disable('x-powered-by');
 
@@ -116,6 +97,7 @@ export class WebService
             next();
         }
     }
+
     /** Перенаправляем на https. */
     private static httpsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): void
     {
@@ -127,6 +109,24 @@ export class WebService
         {
             next();
         }
+    }
+
+    /** Проверяем токен. */
+    private async tokenMiddleware(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void>
+    {
+        // Инициализируем пустой объект.
+        req.token = {};
+
+        // Парсим куки.
+        const cookies = cookie.parse(req.headers.cookie ?? "");
+        const jwt = cookies.token;
+        if (jwt)
+        {
+            const userId = await this.tokenService.verify(jwt);
+            req.token.userId = userId;
+        }
+
+        next();
     }
 
     /** Есть ли тело у запроса? */
@@ -229,9 +229,8 @@ export class WebService
         if ((req.ip == process.env.ALLOW_ADMIN_IP) ||
             (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
         {
-            if (!req.session.admin)
+            if (!req.token.userId || this.userAccountRepository.get(req.token.userId)?.role != "admin")
             {
-                req.session.admin = false;
                 res.sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
             }
             else
@@ -252,15 +251,11 @@ export class WebService
         next: express.NextFunction
     ): Promise<void | express.Response>
     {
-        // запрещаем кешировать страницу с комнатой
+        // Запрещаем кешировать страницу с комнатой.
         res.setHeader('Cache-Control', 'no-store');
 
-        // лямбда-функция, которая возвращает страницу с комнатой при успешной авторизации
-        const joinInRoom = (roomId: string): void =>
-        {
-            req.session.joinedRoomId = roomId;
-            return res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'room.html'));
-        };
+        const ROOM_AUTH_PAGE_PATH = path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html');
+        const ROOM_PAGE_PATH = path.join(frontend_dirname, '/pages/rooms', 'room.html');
 
         // проверяем наличие запрашиваемой комнаты
         const roomId: string = req.params.roomId;
@@ -271,12 +266,12 @@ export class WebService
             return next();
         }
 
-        const userId = req.session.userId;
+        const userId = req.token.userId;
 
         // Если пользователь авторизован в этой комнате.
         if (userId && this.authRoomUserRepository.has(roomId, userId))
         {
-            return joinInRoom(roomId);
+            return res.sendFile(ROOM_PAGE_PATH);
         }
 
         // Берем пароль из query, а если его нет, то берем его как пустой пароль.
@@ -288,23 +283,28 @@ export class WebService
         // Корректный пароль в query.
         if (isPassCorrect)
         {
-            let userId = req.session.userId;
+            let userId = req.token.userId;
 
-            // Если у пользователя не было сессии.
+            // Если у пользователя не было токена.
             if (!userId)
             {
                 userId = this.userAccountRepository.create({ role: "user" });
-                req.session.userId = userId;
+                const jwt = await this.tokenService.create({ userId });
+
+                res.cookie("token", jwt, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: "lax"
+                });
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
             this.authRoomUserRepository.create(roomId, userId);
-            joinInRoom(roomId);
+            res.sendFile(ROOM_PAGE_PATH);
         }
         else
         {
-            req.session.joinedRoomId = roomId;
-            res.sendFile(path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html'));
+            res.sendFile(ROOM_AUTH_PAGE_PATH);
         }
     }
 

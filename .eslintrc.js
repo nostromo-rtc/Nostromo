@@ -33,6 +33,7 @@ module.exports = {
             {
                 "ignoreRestArgs": true
             }
-        ]
+        ],
+        "@typescript-eslint/no-namespace": { "allowDeclarations": true, "allowDefinitionFiles": true }
     }
 };

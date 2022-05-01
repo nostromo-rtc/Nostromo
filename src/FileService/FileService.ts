@@ -215,7 +215,7 @@ export class FileService implements IFileService
         // Проверяем, имеет ли право пользователь userId
         // выкладывать файл в комнату с номером Room-Id.
         const roomId = req.header("Room-Id")?.toString();
-        const userId = req.session.userId;
+        const userId = req.token.userId;
         if (!roomId || !userId || !this.authRoomUserRepository.has(roomId, userId))
         {
             this.sendStatusWithFloodPrevent(conditionForPrevent, req, res, 403);

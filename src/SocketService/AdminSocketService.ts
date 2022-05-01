@@ -2,7 +2,6 @@
 import { RequestHandler } from "express";
 import SocketIO = require('socket.io');
 
-import { HandshakeSession } from "./SocketManager";
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../Room/RoomRepository";
@@ -11,6 +10,7 @@ import { IRoomSocketService } from "./RoomSocketService";
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -22,6 +22,7 @@ export class AdminSocketService
     private roomRepository: IRoomRepository;
     private authRoomUserRepository: IAuthRoomUserRepository;
     private userBanRepository: IUserBanRepository;
+    private userAccountRepository: IUserAccountRepository;
 
     constructor(
         adminIo: SocketIO.Namespace,
@@ -30,7 +31,7 @@ export class AdminSocketService
         roomRepository: IRoomRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
-        sessionMiddleware: RequestHandler
+        userAccountRepository: IUserAccountRepository
     )
     {
         this.adminIo = adminIo;
@@ -40,19 +41,10 @@ export class AdminSocketService
         this.roomRepository = roomRepository;
         this.authRoomUserRepository = authRoomUserRepository;
         this.userBanRepository = userBanRepository;
+        this.userAccountRepository = userAccountRepository;
 
-        this.applySessionMiddleware(sessionMiddleware);
         this.checkIp();
         this.clientConnected();
-    }
-
-    /** Применяем middlware для сессий. */
-    private applySessionMiddleware(sessionMiddleware: RequestHandler)
-    {
-        this.adminIo.use((socket: Socket, next) =>
-        {
-            sessionMiddleware(socket.handshake, {}, next);
-        });
     }
 
     /** Проверяем IP. */
@@ -77,10 +69,10 @@ export class AdminSocketService
     {
         this.adminIo.on('connection', (socket: Socket) =>
         {
-            const session = socket.handshake.session!;
-            if (!session.admin)
+            const userId = socket.handshake.token?.userId;
+            if (!userId || (this.userAccountRepository.get(userId)?.role != "admin"))
             {
-                this.adminAuth(socket, session);
+                //this.adminAuth(socket, session);
                 return;
             }
 
@@ -173,7 +165,7 @@ export class AdminSocketService
     }
 
     /** Авторизация в админку. */
-    private adminAuth(socket: Socket, session: HandshakeSession)
+    /*private adminAuth(socket: Socket, session: HandshakeSession)
     {
         socket.on(SE.AdminAuth, (pass: string) =>
         {
@@ -187,7 +179,7 @@ export class AdminSocketService
 
             socket.emit(SE.Result, result);
         });
-    }
+    }*/
 
     /** Изменить название комнаты. */
     private async changeRoomName(info: NewRoomNameInfo)

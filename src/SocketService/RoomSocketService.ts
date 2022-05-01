@@ -60,8 +60,7 @@ export class RoomSocketService implements IRoomSocketService
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
-        authRoomUserRepository: IAuthRoomUserRepository,
-        sessionMiddleware: RequestHandler,
+        authRoomUserRepository: IAuthRoomUserRepository
     )
     {
         this.roomIo = roomIo;
@@ -74,37 +73,7 @@ export class RoomSocketService implements IRoomSocketService
         this.mediasoupService = mediasoupService;
         this.latestMaxVideoBitrate = this.mediasoupService.maxVideoBitrate;
 
-        this.applySessionMiddleware(sessionMiddleware);
-        this.checkAuth();
         this.clientConnected();
-    }
-
-    /** Применяем middlware для сессий. */
-    private applySessionMiddleware(sessionMiddleware: RequestHandler): void
-    {
-        this.roomIo.use((socket: Socket, next) =>
-        {
-            sessionMiddleware(socket.handshake, {}, next);
-        });
-    }
-
-    /** Проверка авторизации в комнате. */
-    private checkAuth(): void
-    {
-        this.roomIo.use((socket: Socket, next) =>
-        {
-            const session = socket.handshake.session!;
-
-            const userId = session.userId;
-            const roomId = session.joinedRoomId;
-
-            // Если пользователь авторизован в запрашиваемой комнате
-            if (userId && roomId && this.authRoomUserRepository.has(roomId, userId))
-            {
-                return next();
-            }
-            return next(new Error("unauthorized"));
-        });
     }
 
     /** Клиент подключился. */
@@ -112,28 +81,32 @@ export class RoomSocketService implements IRoomSocketService
     {
         this.roomIo.on('connection', async (socket: Socket) =>
         {
-            const session = socket.handshake.session!;
-            const room = this.roomRepository.get(session.joinedRoomId!);
-            const userId = session.userId!;
+            const token = socket.handshake.token!;
+            const userId = token.userId;
 
-            if (!room)
+            socket.once(SE.JoinRoom, async (roomId: string) =>
             {
-                return;
-            }
+                const room = this.roomRepository.get(roomId);
 
-            if (room.activeUsers.has(userId))
-            {
-                socket.emit(SE.UserAlreadyJoined);
-                socket.once(SE.ForceJoinRoom, async () =>
+                if (!room || !userId || !this.authRoomUserRepository.has(roomId, userId))
                 {
-                    this.kickUser({ roomId: room.id, userId });
+                    return;
+                }
+
+                if (room.activeUsers.has(userId))
+                {
+                    socket.emit(SE.UserAlreadyJoined);
+                    socket.once(SE.ForceJoinRoom, async () =>
+                    {
+                        this.kickUser({ roomId: room.id, userId });
+                        await this.clientJoined(room, socket, userId);
+                    });
+                }
+                else
+                {
                     await this.clientJoined(room, socket, userId);
-                });
-            }
-            else
-            {
-                await this.clientJoined(room, socket, userId);
-            }
+                }
+            });
         });
     }
 

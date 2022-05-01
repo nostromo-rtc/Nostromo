@@ -25,6 +25,7 @@ import { UserBanRepository } from "./User/UserBanRepository";
 import { UserAccountRepository } from "./User/UserAccountRepository";
 import { AuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { PlainFileRepository } from "./FileService/FileRepository";
+import { TokenService } from "./TokenService";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -73,7 +74,6 @@ function initApplication()
     {
         throw new Error(`Отсутствует конфигурационный файл: ${DEFAULT_CONFIG_PATH}.`);
     }
-
 }
 
 // главная функция
@@ -117,10 +117,14 @@ async function main()
         // Репозиторий блокировок пользователей.
         const userBanRepository = new UserBanRepository();
 
+        // Сервис для работы с токенами.
+        const tokenService = new TokenService();
+
         // Express веб-сервис.
         const express = new WebService(
-            roomRepository,
             fileService,
+            tokenService,
+            roomRepository,
             userAccountRepository,
             userBanRepository,
             authRoomUserRepository
@@ -150,7 +154,6 @@ async function main()
 
         const socketManager = new SocketManager(
             httpsServer,
-            express.sessionMiddleware,
             fileRepository,
             mediasoupService,
             roomRepository,

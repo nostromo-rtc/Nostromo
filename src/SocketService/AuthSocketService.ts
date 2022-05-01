@@ -23,8 +23,7 @@ export class AuthSocketService
         authIo: SocketIO.Namespace,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
-        authRoomUserRepository: IAuthRoomUserRepository,
-        sessionMiddleware: RequestHandler
+        authRoomUserRepository: IAuthRoomUserRepository
     )
     {
         this.authIo = authIo;
@@ -32,17 +31,7 @@ export class AuthSocketService
         this.userAccountRepository = userAccountRepository;
         this.authRoomUserRepository = authRoomUserRepository;
 
-        this.applySessionMiddleware(sessionMiddleware);
         this.clientConnected();
-    }
-
-    /** Применяем middlware для сессий. */
-    private applySessionMiddleware(sessionMiddleware: RequestHandler)
-    {
-        this.authIo.use((socket: Socket, next) =>
-        {
-            sessionMiddleware(socket.handshake, {}, next);
-        });
     }
 
     /** Клиент подключился. */
@@ -50,8 +39,9 @@ export class AuthSocketService
     {
         this.authIo.on('connection', (socket: Socket) =>
         {
-            const session = socket.handshake.session!;
-            const roomId: string | undefined = session.joinedRoomId;
+            const token = socket.handshake.token!;
+
+            const roomId = "test";
 
             // если в сессии нет номера комнаты, или такой комнаты не существует
             if (!roomId || !this.roomRepository.has(roomId))
@@ -70,14 +60,13 @@ export class AuthSocketService
 
                 if (authResult)
                 {
-                    let userId = session.userId;
+                    let userId = token.userId;
 
                     // Если у пользователя не было сессии.
                     if (!userId)
                     {
                         userId = this.userAccountRepository.create({ role: "user" });
-                        session.userId = userId;
-                        session.save();
+                        token.userId = userId;
                     }
                     // Запоминаем для этого пользователя авторизованную комнату.
                     this.authRoomUserRepository.create(roomId, userId);
