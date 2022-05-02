@@ -1,6 +1,6 @@
-import path = require('path');
-import fs = require('fs');
+import path = require("path");
 import { nanoid } from "nanoid";
+import { readFromFileSync, writeToFile } from "../Utils";
 
 export interface UserAccount
 {
@@ -60,47 +60,33 @@ export class PlainUserAccountRepository implements IUserAccountRepository
     }
 
     /** Полностью обновить содержимое файла с записями о пользователях. */
-    private async rewriteUsersToFile(): Promise<void>
+    private async writeDataToFile(): Promise<void>
     {
-        return new Promise((resolve, reject) =>
+        try
         {
-            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-            const writeStream = fs.createWriteStream(this.USERS_FILE_PATH, { encoding: "utf8" });
-
-            writeStream.write(JSON.stringify(Array.from(this.users.values()), null, 2));
-
-            writeStream.on("finish", () =>
-            {
-                resolve();
-            });
-
-                writeStream.on("error", (err: Error) =>
-                {
-                    reject(err);
-                });
-
-            writeStream.end();
-        });
+            await writeToFile(this.USERS_FILE_PATH, Array.from(this.users.values()));
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't write data to file.`);
+        }
     }
 
     public init(): void
     {
-        if (fs.existsSync(this.USERS_FILE_PATH))
+        const fileContent = readFromFileSync(this.USERS_FILE_PATH);
+        if (fileContent)
         {
-            const fileContent = fs.readFileSync(this.USERS_FILE_PATH, 'utf-8');
-            if (fileContent)
+            const usersFromJson = JSON.parse(fileContent) as UserAccount[];
+
+            for (const user of usersFromJson)
             {
-                const usersFromJson = JSON.parse(fileContent) as UserAccount[];
+                this.users.set(user.id, user);
+            }
 
-                for (const user of usersFromJson)
-                {
-                    this.users.set(user.id, user);
-                }
-
-                if (this.users.size > 0)
-                {
-                    console.log(`[${this.className}] Info about ${this.users.size} users has been loaded from the 'users.json' file.`);
-                }
+            if (this.users.size > 0)
+            {
+                console.log(`[${this.className}] Info about ${this.users.size} users has been loaded from the 'users.json' file.`);
             }
         }
     }
@@ -120,7 +106,7 @@ export class PlainUserAccountRepository implements IUserAccountRepository
         };
 
         this.users.set(id, userAccount);
-        await this.rewriteUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] New user account [Id: ${id}] was created.`);
 
@@ -136,7 +122,7 @@ export class PlainUserAccountRepository implements IUserAccountRepository
         }
 
         this.users.delete(id);
-        await this.rewriteUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] User account [Id: ${id}] was deleted.`);
 
@@ -165,7 +151,7 @@ export class PlainUserAccountRepository implements IUserAccountRepository
         const oldName = user.name;
         user.name = name;
 
-        await this.rewriteUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] User [Id: ${id}, '${oldName}'] has a new name: '${name}'.`);
     }
@@ -182,7 +168,7 @@ export class PlainUserAccountRepository implements IUserAccountRepository
 
         user.role = role;
 
-        await this.rewriteUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] User [Id: ${id}, '${user.name}'] has a new role: '${role}'.`);
     }

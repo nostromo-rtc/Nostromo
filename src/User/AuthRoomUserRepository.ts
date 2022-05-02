@@ -1,5 +1,5 @@
-import path = require('path');
-import fs = require('fs');
+import path = require("path");
+import { readFromFileSync, writeToFile } from "../Utils";
 
 /** Authorized Room Users. */
 export interface IAuthRoomUserRepository
@@ -22,7 +22,7 @@ export interface IAuthRoomUserRepository
 
 type AuthorizationRecords = {
     roomId: string,
-    userIds: string[]
+    userIds: string[];
 };
 
 export class PlainAuthRoomUserRepository implements IAuthRoomUserRepository
@@ -40,47 +40,33 @@ export class PlainAuthRoomUserRepository implements IAuthRoomUserRepository
     }
 
     /** Полностью обновить содержимое файла с Id пользователей, авторизованных в комнатах. */
-    private async rewriteAuthRoomUsersToFile(): Promise<void>
+    private async writeDataToFile(): Promise<void>
     {
-        return new Promise((resolve, reject) =>
+        try
         {
-            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-            const writeStream = fs.createWriteStream(this.AUTH_ROOM_USERS_FILE_PATH, { encoding: "utf8" });
-
-            writeStream.write(JSON.stringify(Array.from(this.authRoomUsers.values()), null, 2));
-
-            writeStream.on("finish", () =>
-            {
-                resolve();
-            });
-
-            writeStream.on("error", (err: Error) =>
-            {
-                reject(err);
-            });
-
-            writeStream.end();
-        });
+            await writeToFile(this.AUTH_ROOM_USERS_FILE_PATH, Array.from(this.authRoomUsers.values()));
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't write data to file.`);
+        }
     }
 
     public init(): void
     {
-        if (fs.existsSync(this.AUTH_ROOM_USERS_FILE_PATH))
+        const fileContent = readFromFileSync(this.AUTH_ROOM_USERS_FILE_PATH);
+        if (fileContent)
         {
-            const fileContent = fs.readFileSync(this.AUTH_ROOM_USERS_FILE_PATH, 'utf-8');
-            if (fileContent)
+            const authRoomUsersFromJson = JSON.parse(fileContent) as AuthorizationRecords[];
+
+            for (const records of authRoomUsersFromJson)
             {
-                const authRoomUsersFromJson = JSON.parse(fileContent) as AuthorizationRecords[];
+                this.authRoomUsers.set(records.roomId, records);
+            }
 
-                for (const records of authRoomUsersFromJson)
-                {
-                    this.authRoomUsers.set(records.roomId, records);
-                }
-
-                if (this.authRoomUsers.size > 0)
-                {
-                    console.log(`[${this.className}] Info about ${this.authRoomUsers.size} rooms with authorization user records has been loaded from the 'auth-room-users.json' file.`);
-                }
+            if (this.authRoomUsers.size > 0)
+            {
+                console.log(`[${this.className}] Info about ${this.authRoomUsers.size} rooms with authorization user records has been loaded from the 'auth-room-users.json' file.`);
             }
         }
     }
@@ -91,12 +77,12 @@ export class PlainAuthRoomUserRepository implements IAuthRoomUserRepository
 
         if (!users)
         {
-            this.authRoomUsers.set(roomId, {roomId, userIds: []});
+            this.authRoomUsers.set(roomId, { roomId, userIds: [] });
             users = this.authRoomUsers.get(roomId)!;
         }
 
         users.userIds.push(userId);
-        await this.rewriteAuthRoomUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] New authorization record for User [${userId}] in Room [${roomId}] was created.`);
     }
@@ -113,7 +99,7 @@ export class PlainAuthRoomUserRepository implements IAuthRoomUserRepository
         }
 
         users.userIds.splice(idx, 1);
-        await this.rewriteAuthRoomUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] Authorization record for User [${userId}] in Room [${roomId}] was removed.`);
     }
@@ -121,7 +107,7 @@ export class PlainAuthRoomUserRepository implements IAuthRoomUserRepository
     public async removeAll(roomId: string): Promise<void>
     {
         this.authRoomUsers.delete(roomId);
-        await this.rewriteAuthRoomUsersToFile();
+        await this.writeDataToFile();
 
         console.log(`[${this.className}] Authorization records of users in Room [${roomId}] were removed.`);
     }

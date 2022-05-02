@@ -1,17 +1,15 @@
+import path = require('path');
+import { scrypt } from "crypto";
+import { nanoid } from "nanoid";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
+import { IFileRepository } from "../FileService/FileRepository";
 
 import { NewRoomInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { RoomInfo, PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IMediasoupService } from "../MediasoupService";
 import { IRoom, Room } from "./Room";
-
-import path = require('path');
-import fs = require('fs');
-import { scrypt } from "crypto";
-import { nanoid } from "nanoid";
-import { IUserAccountRepository } from "../User/UserAccountRepository";
-import { IFileRepository } from "../FileService/FileRepository";
-
+import { readFromFileSync, writeToFile } from "../Utils";
 
 export interface IRoomRepository
 {
@@ -54,6 +52,7 @@ export interface IRoomRepository
 
 export class PlainRoomRepository implements IRoomRepository
 {
+    private readonly className = "PlainRoomRepository";
     private readonly ROOMS_FILE_PATH = path.resolve(process.cwd(), "data", "rooms.json");
     private readonly hashSalt = Buffer.from(process.env.ROOM_PASS_HASH_SALT!, "hex");
     private rooms = new Map<string, IRoom>();
@@ -73,39 +72,27 @@ export class PlainRoomRepository implements IRoomRepository
     }
 
     /** Полностью обновить содержимое файла с записями о комнатах. */
-    private async rewriteRoomsToFile(): Promise<void>
+    private async writeDataToFile(): Promise<void>
     {
-        return new Promise((resolve, reject) =>
+        const roomsArr: RoomInfo[] = [];
+        for (const room of this.rooms.values())
         {
-            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-            const writeStream = fs.createWriteStream(this.ROOMS_FILE_PATH, { encoding: "utf8" });
-
-            const roomsArr: RoomInfo[] = [];
-            for (const roomRecord of this.rooms)
-            {
-                const room = roomRecord[1];
-                roomsArr.push({
-                    id: room.id,
-                    name: room.name,
-                    hashPassword: room.password,
-                    videoCodec: room.videoCodec
-                });
-            }
-
-            writeStream.write(JSON.stringify(roomsArr, null, 2));
-
-            writeStream.on("finish", () =>
-            {
-                resolve();
+            roomsArr.push({
+                id: room.id,
+                name: room.name,
+                hashPassword: room.password,
+                videoCodec: room.videoCodec
             });
+        }
 
-            writeStream.on("error", (err: Error) =>
-            {
-                reject(err);
-            });
-
-            writeStream.end();
-        });
+        try
+        {
+            await writeToFile(this.ROOMS_FILE_PATH, roomsArr);
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't write data to file.`);
+        }
     }
 
     private async generateHashPassword(pass: string): Promise<string>
@@ -136,24 +123,22 @@ export class PlainRoomRepository implements IRoomRepository
 
     public async init(): Promise<void>
     {
-        if (fs.existsSync(this.ROOMS_FILE_PATH))
+        const fileContent = readFromFileSync(this.ROOMS_FILE_PATH);
+        if (fileContent)
         {
-            const fileContent = fs.readFileSync(this.ROOMS_FILE_PATH, 'utf-8');
-            if (fileContent)
+            const roomsFromJson = JSON.parse(fileContent) as RoomInfo[];
+
+            for (const room of roomsFromJson)
             {
-                const roomsFromJson = JSON.parse(fileContent) as RoomInfo[];
+                this.rooms.set(room.id, await Room.create(room, this.mediasoup));
+            }
 
-                for (const room of roomsFromJson)
-                {
-                    this.rooms.set(room.id, await Room.create(room, this.mediasoup));
-                }
-
-                if (this.rooms.size > 0)
-                {
-                    console.log(`[PlainRoomRepository] Info about ${this.rooms.size} rooms has been loaded from the 'rooms.json' file.`);
-                }
+            if (this.rooms.size > 0)
+            {
+                console.log(`[${this.className}] Info about ${this.rooms.size} rooms has been loaded from the 'rooms.json' file.`);
             }
         }
+
     }
 
     public async create(info: NewRoomInfo): Promise<string>
@@ -177,9 +162,9 @@ export class PlainRoomRepository implements IRoomRepository
 
         this.rooms.set(id, await Room.create(fullRoomInfo, this.mediasoup));
 
-        await this.rewriteRoomsToFile();
+        await this.writeDataToFile();
 
-        console.log(`[PlainRoomRepository] Room [${id}, '${info.name}', ${info.videoCodec}] was created.`);
+        console.log(`[${this.className}] Room [${id}, '${info.name}', ${info.videoCodec}] was created.`);
 
         return id;
     }
@@ -190,7 +175,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
-            console.error(`[ERROR] [PlainRoomRepository] Can't delete Room [${id}], because it's not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't delete Room [${id}], because it's not exist.`);
             return;
         }
 
@@ -203,8 +188,8 @@ export class PlainRoomRepository implements IRoomRepository
         // Удалим запись о комнате.
         this.rooms.delete(id);
 
-        await this.rewriteRoomsToFile();
-        console.log(`[Room] Room [${id}, '${room.name}', ${room.videoCodec}] was deleted.`);
+        await this.writeDataToFile();
+        console.log(`[[${this.className}] Room [${id}, '${room.name}', ${room.videoCodec}] was deleted.`);
     }
 
     public async update(info: UpdateRoomInfo)
@@ -215,7 +200,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
-            console.error(`[ERROR] [PlainRoomRepository] Can't update Room [${id}], because it's not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't update Room [${id}], because it's not exist.`);
             return;
         }
 
@@ -235,9 +220,9 @@ export class PlainRoomRepository implements IRoomRepository
             room.password = hashPassword;
         }
 
-        await this.rewriteRoomsToFile();
+        await this.writeDataToFile();
 
-        console.log(`[Room] Room [${id}, '${room.name}', ${room.videoCodec}] was updated.`);
+        console.log(`[${this.className}] Room [${id}, '${room.name}', ${room.videoCodec}] was updated.`);
     }
 
     public get(id: string): IRoom | undefined
@@ -316,7 +301,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
-            console.error(`[ERROR] [PlainRoomRepository] Can't check Room [${id}] password, because room is not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't check Room [${id}] password, because room is not exist.`);
             return false;
         }
 
@@ -337,7 +322,7 @@ export class PlainRoomRepository implements IRoomRepository
 
         if (!room)
         {
-            console.error(`[ERROR] [PlainRoomRepository] Can't check Room [${id}] password for emptiness, because room is not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't check Room [${id}] password for emptiness, because room is not exist.`);
             return false;
         }
 

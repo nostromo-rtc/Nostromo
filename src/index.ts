@@ -21,7 +21,7 @@ import { prepareLogs } from "./Logger";
 // для ввода в консоль
 import readline = require('readline');
 import { PlainRoomRepository } from "./Room/RoomRepository";
-import { UserBanRepository } from "./User/UserBanRepository";
+import { PlainUserBanRepository } from "./User/UserBanRepository";
 import { PlainUserAccountRepository } from "./User/UserAccountRepository";
 import { PlainAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { PlainFileRepository } from "./FileService/FileRepository";
@@ -115,7 +115,7 @@ async function main()
         );
 
         // Репозиторий блокировок пользователей.
-        const userBanRepository = new UserBanRepository();
+        const userBanRepository = new PlainUserBanRepository();
 
         // Сервис для работы с токенами.
         const tokenService = new TokenService(userAccountRepository);

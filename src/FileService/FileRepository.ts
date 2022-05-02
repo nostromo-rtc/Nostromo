@@ -1,9 +1,10 @@
-import path = require('path');
-import fs = require('fs');
+import fs = require("fs");
+import path = require("path");
 import { nanoid } from "nanoid";
 import { Readable } from "stream";
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { PrefixConstants } from "nostromo-shared/types/RoomTypes";
+import { readFromFileSync, writeToFile } from "../Utils";
 
 /** Случайный Id. */
 export type FileId = string;
@@ -58,6 +59,7 @@ export interface IFileRepository
 
 export class PlainFileRepository implements IFileRepository
 {
+    private readonly className = "PlainFileRepository";
     private readonly FILES_INFO_FILE_PATH = path.resolve(process.cwd(), "data", "files.json");
     private readonly FILES_PATH = path.join(process.cwd(), "data", FileServiceConstants.FILES_ROUTE);
     private files = new Map<FileId, FileInfo>();
@@ -68,47 +70,33 @@ export class PlainFileRepository implements IFileRepository
     }
 
     /** Полностью обновить содержимое файла с записями о комнатах. */
-    private async rewriteFilesInfoToFile(): Promise<void>
+    private async writeDataToFile(): Promise<void>
     {
-        return new Promise((resolve, reject) =>
+        try
         {
-            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-            const writeStream = fs.createWriteStream(this.FILES_INFO_FILE_PATH, { encoding: "utf8" });
-
-            writeStream.write(JSON.stringify(Array.from(this.files.values()), null, 2));
-
-            writeStream.on("finish", () =>
-            {
-                resolve();
-            });
-
-            writeStream.on("error", (err: Error) =>
-            {
-                reject(err);
-            });
-
-            writeStream.end();
-        });
+            await writeToFile(this.FILES_INFO_FILE_PATH, Array.from(this.files.values()));
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't write data to file.`);
+        }
     }
 
     public init(): void
     {
-        if (fs.existsSync(this.FILES_INFO_FILE_PATH))
+        const fileContent = readFromFileSync(this.FILES_INFO_FILE_PATH);
+        if (fileContent)
         {
-            const fileContent = fs.readFileSync(this.FILES_INFO_FILE_PATH, 'utf-8');
-            if (fileContent)
+            const filesFromJson = JSON.parse(fileContent) as FileInfo[];
+
+            for (const fileInfo of filesFromJson)
             {
-                const filesFromJson = JSON.parse(fileContent) as FileInfo[];
+                this.files.set(fileInfo.id, fileInfo);
+            }
 
-                for (const fileInfo of filesFromJson)
-                {
-                    this.files.set(fileInfo.id, fileInfo);
-                }
-
-                if (this.files.size > 0)
-                {
-                    console.log(`[PlainFileRepository] Info about ${this.files.size} files has been loaded from the 'files.json' file.`);
-                }
+            if (this.files.size > 0)
+            {
+                console.log(`[${this.className}] Info about ${this.files.size} files has been loaded from the 'files.json' file.`);
             }
         }
     }
@@ -134,9 +122,9 @@ export class PlainFileRepository implements IFileRepository
 
         this.files.set(id, info);
 
-        await this.rewriteFilesInfoToFile();
+        await this.writeDataToFile();
 
-        console.log(`[PlainFileRepository] FileInfo [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] by User [${info.ownerId}] was created.`);
+        console.log(`[${this.className}] FileInfo [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] by User [${info.ownerId}] was created.`);
 
         return id;
     }
@@ -145,9 +133,9 @@ export class PlainFileRepository implements IFileRepository
     {
         this.files.set(info.id, info);
 
-        await this.rewriteFilesInfoToFile();
+        await this.writeDataToFile();
 
-        console.log(`[PlainFileRepository] FileInfo [${info.id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] was updated.`);
+        console.log(`[${this.className}] FileInfo [${info.id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] was updated.`);
     }
 
     public async remove(id: string): Promise<void>
@@ -156,7 +144,7 @@ export class PlainFileRepository implements IFileRepository
 
         if (!info)
         {
-            console.error(`[ERROR] [PlainFileRepository] Can't delete File [${id}], because it's not exist.`);
+            console.error(`[ERROR] [${this.className}] Can't delete File [${id}], because it's not exist.`);
             return;
         }
 
@@ -164,9 +152,9 @@ export class PlainFileRepository implements IFileRepository
         await this.removeFile(id);
 
         this.files.delete(id);
-        await this.rewriteFilesInfoToFile();
+        await this.writeDataToFile();
 
-        console.log(`[PlainFileRepository] File [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] of Room [${info.roomId}] was deleted.`);
+        console.log(`[${this.className}] File [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] of Room [${info.roomId}] was deleted.`);
     }
 
     public async removeByRoom(roomId: string): Promise<void>
@@ -182,9 +170,9 @@ export class PlainFileRepository implements IFileRepository
             }
         }
 
-        await this.rewriteFilesInfoToFile();
+        await this.writeDataToFile();
 
-        console.log(`[PlainFileRepository] All files of Room [${roomId}] were deleted.`);
+        console.log(`[${this.className}] All files of Room [${roomId}] were deleted.`);
     }
 
     public async writeFile(

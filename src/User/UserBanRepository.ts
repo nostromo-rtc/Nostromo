@@ -1,6 +1,6 @@
+import path = require("path");
 import { UserBanInfo } from "nostromo-shared/types/AdminTypes";
-import path = require('path');
-import fs = require('fs');
+import { readFromFileSync, writeToFile } from "../Utils";
 
 export interface IUserBanRepository
 {
@@ -17,52 +17,45 @@ export interface IUserBanRepository
     has(ip: string): boolean;
 }
 
-export class UserBanRepository implements IUserBanRepository
+export class PlainUserBanRepository implements IUserBanRepository
 {
+    private readonly className = "PlainUserBanRepository";
     private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "data", "bans.json");
     private bans = new Map<string, UserBanInfo>();
+
     constructor()
     {
-        if (fs.existsSync(this.BANS_FILE_PATH))
+        this.init();
+    }
+
+    private init()
+    {
+        const fileContent = readFromFileSync(this.BANS_FILE_PATH);
+        if (fileContent)
         {
-            const fileContent = fs.readFileSync(this.BANS_FILE_PATH, 'utf-8');
-            if (fileContent)
+            const bansFromJson = JSON.parse(fileContent) as UserBanInfo[];
+            for (const banRecord of bansFromJson)
             {
-                const bansFromJson = JSON.parse(fileContent) as UserBanInfo[];
-                for (const banRecord of bansFromJson)
-                {
-                    this.bans.set(banRecord.ip, banRecord);
-                }
-                if (this.bans.size > 0)
-                {
-                    console.log(`[UserBanRepository] Info about ${this.bans.size} banned users has been loaded from the 'bans.json' file.`);
-                }
+                this.bans.set(banRecord.ip, banRecord);
+            }
+            if (this.bans.size > 0)
+            {
+                console.log(`[${this.className}] Info about ${this.bans.size} banned users has been loaded from the 'bans.json' file.`);
             }
         }
     }
 
     /** Полностью обновить содержимое файла с записями о блокировках пользователя. */
-    private async rewriteBansToFile(): Promise<void>
+    private async writeDataToFile(): Promise<void>
     {
-        return new Promise((resolve, reject) =>
+        try
         {
-            // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-            const bansFileWS = fs.createWriteStream(this.BANS_FILE_PATH, { encoding: "utf8" });
-
-            bansFileWS.write(JSON.stringify(Array.from(this.bans.values()), null, 2));
-
-            bansFileWS.on("finish", () =>
-            {
-                resolve();
-            });
-
-            bansFileWS.on("error", (err: Error) =>
-            {
-                reject(err);
-            });
-
-            bansFileWS.end();
-        });
+            await writeToFile(this.BANS_FILE_PATH, Array.from(this.bans.values()));
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't write data to file.`);
+        }
     }
 
     public async create(info: UserBanInfo): Promise<string>
@@ -70,8 +63,8 @@ export class UserBanRepository implements IUserBanRepository
         const { ip } = info;
 
         this.bans.set(ip, info);
-        await this.rewriteBansToFile();
-        console.log(`[UserBanRepository] User [Ip: ${ip}] has been banned.`);
+        await this.writeDataToFile();
+        console.log(`[${this.className}] User [Ip: ${ip}] has been banned.`);
 
         return ip;
     }
@@ -82,13 +75,13 @@ export class UserBanRepository implements IUserBanRepository
 
         if (!ban)
         {
-            console.error(`[ERROR] [UserBanRepository] Can't unban User [Ip: ${ip}], because that user is not banned.`);
+            console.error(`[ERROR] [${this.className}] Can't unban User [Ip: ${ip}], because that user is not banned.`);
             return;
         }
 
         this.bans.delete(ip);
-        await this.rewriteBansToFile();
-        console.log(`[UserBanRepository] User [Ip: ${ip}] has been unbanned.`);
+        await this.writeDataToFile();
+        console.log(`[${this.className}] User [Ip: ${ip}] has been unbanned.`);
     }
 
     public get(ip: string): UserBanInfo | undefined
