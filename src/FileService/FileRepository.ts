@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { Readable } from "stream";
 import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { PrefixConstants } from "nostromo-shared/types/RoomTypes";
-import { readFromFileSync, writeToFile } from "../Utils";
+import { readFromFileSync, removeFile, writeToFile } from "../Utils";
 
 /** Случайный Id. */
 export type FileId = string;
@@ -210,21 +210,14 @@ export class PlainFileRepository implements IFileRepository
     private async removeFile(fileId: string): Promise<void>
     {
         const filePath = path.join(this.FILES_PATH, fileId);
-
-        return new Promise((resolve, reject) =>
+        try
         {
-            fs.unlink(filePath, (err) =>
-            {
-                if (err)
-                {
-                    reject(err);
-                }
-                else
-                {
-                    resolve();
-                }
-            });
-        });
+            await removeFile(filePath);
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't delete File [${fileId}] on server.`);
+        }
     }
 
     public get(id: string): FileInfo | undefined

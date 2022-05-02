@@ -5,27 +5,30 @@ import https = require('https');
 import dotenv = require('dotenv');
 import os = require('os');
 
-// Express
+// Express и прочие HTTP сервисы
 import { WebService } from './WebService';
 import { FileService } from "./FileService/FileService";
+import { TokenService } from "./TokenService";
 
-// сокеты
+// Сокеты
 import { SocketManager } from './SocketService/SocketManager';
 
-// mediasoup
+// Mediasoup
 import { MediasoupService } from './MediasoupService';
 
-// логи
+// Логи
 import { prepareLogs } from "./Logger";
 
 // для ввода в консоль
 import readline = require('readline');
+
+// Репозитории
 import { PlainRoomRepository } from "./Room/RoomRepository";
 import { PlainUserBanRepository } from "./User/UserBanRepository";
 import { PlainUserAccountRepository } from "./User/UserAccountRepository";
 import { PlainAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { PlainFileRepository } from "./FileService/FileRepository";
-import { TokenService } from "./TokenService";
+import { PlainRoomChatRepository } from "./Room/RoomChatRepository";
 
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
 const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
@@ -96,6 +99,9 @@ async function main()
         // Репозиторий файлов.
         const fileRepository = new PlainFileRepository();
 
+        // Репозиторий для истории чатов комнат.
+        const roomChatRepository = new PlainRoomChatRepository();
+
         // Репозиторий комнат.
         const roomRepository = new PlainRoomRepository(
             mediasoupService,
@@ -154,13 +160,14 @@ async function main()
 
         const socketManager = new SocketManager(
             httpsServer,
+            tokenService.tokenSocketMiddleware,
             fileRepository,
             mediasoupService,
             roomRepository,
             userAccountRepository,
             userBanRepository,
             authRoomUserRepository,
-            tokenService.tokenSocketMiddleware
+            roomChatRepository
         );
     }
     catch (err)

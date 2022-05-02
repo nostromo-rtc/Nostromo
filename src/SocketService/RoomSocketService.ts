@@ -4,7 +4,7 @@ import { IRoom, ActiveUser } from "../Room/Room";
 import { IRoomRepository } from "../Room/RoomRepository";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IGeneralSocketService } from "./GeneralSocketService";
-import { ChatFileInfo, ChatMsgInfo, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { ChatFileInfo, ChatMessage, ConnectWebRtcTransportInfo, UserReadyInfo, NewConsumerInfo, NewProducerInfo, NewWebRtcTransportInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { IMediasoupService, MediasoupTypes, ServerProducerAppData } from "../MediasoupService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
@@ -12,6 +12,7 @@ import { ActionOnUserInfo, ChangeUserNameInfo } from "nostromo-shared/types/Admi
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IFileRepository } from "../FileService/FileRepository";
 import { TokenSocketMiddleware } from "../TokenService";
+import { IRoomChatRepository } from "../Room/RoomChatRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -44,6 +45,7 @@ export class RoomSocketService implements IRoomSocketService
 {
     private roomIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
+    private roomChatRepository: IRoomChatRepository;
     private userAccountRepository: IUserAccountRepository;
     private userBanRepository: IUserBanRepository;
     private authRoomUserRepository: IAuthRoomUserRepository;
@@ -55,18 +57,20 @@ export class RoomSocketService implements IRoomSocketService
     constructor(
         roomIo: SocketIO.Namespace,
         generalSocketService: IGeneralSocketService,
+        tokenMiddleware: TokenSocketMiddleware,
         fileRepository: IFileRepository,
         mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
-        tokenMiddleware: TokenSocketMiddleware
+        roomChatRepository: IRoomChatRepository
     )
     {
         this.roomIo = roomIo;
         this.generalSocketService = generalSocketService;
         this.roomRepository = roomRepository;
+        this.roomChatRepository = roomChatRepository;
         this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
         this.authRoomUserRepository = authRoomUserRepository;
@@ -248,22 +252,24 @@ export class RoomSocketService implements IRoomSocketService
         });
 
         // Новое сообщение в чате.
-        socket.on(SE.ChatMsg, (msg: string) =>
+        socket.on(SE.ChatMsg, async (msg: string) =>
         {
-            this.userSentChatMsg(socket, room.id, userId, msg);
+            await this.userSentChatMsg(socket, room.id, userId, msg);
         });
 
         // Новый файл в чате (ссылка на файл).
-        socket.on(SE.ChatFile, (fileId: string) =>
+        socket.on(SE.ChatFile, async (fileId: string) =>
         {
-            this.userSentChatFile(socket, userId, room.id, fileId);
+            await this.userSentChatFile(socket, userId, room.id, fileId);
         });
 
-        // пользователь отсоединился
+        // Пользователь отсоединился.
         socket.on(SE.Disconnect, (reason: string) =>
         {
             this.userDisconnected(room, socket, userId, reason);
         });
+
+        await this.sendChatHistory(socket, room.id);
     }
 
     /**
@@ -580,27 +586,33 @@ export class RoomSocketService implements IRoomSocketService
     }
 
     /** Пользователь отправил сообщение в чат. */
-    private userSentChatMsg(
+    private async userSentChatMsg(
         socket: Socket,
         roomId: string,
         userId: string,
         msg: string
-    )
+    ): Promise<void>
     {
-        const chatMsgInfo: ChatMsgInfo = {
+        const chatMessage: ChatMessage = {
+            type: "text",
             userId,
-            msg: msg.trim()
+            datetime: Date.now(),
+            content: msg.trim()
         };
-        socket.to(roomId).emit(SE.ChatMsg, chatMsgInfo);
+
+        // Сохраним сообщение на сервере.
+        await this.roomChatRepository.addMessage(roomId, chatMessage);
+
+        this.roomIo.to(roomId).emit(SE.ChatMsg, chatMessage);
     }
 
     /** Пользователь отправил ссылку на файл в чат. */
-    private userSentChatFile(
+    private async userSentChatFile(
         socket: Socket,
         userId: string,
         roomId: string,
         fileId: string
-    )
+    ): Promise<void>
     {
         const fileInfo = this.fileRepository.get(fileId);
         if (!fileInfo)
@@ -608,9 +620,23 @@ export class RoomSocketService implements IRoomSocketService
             return;
         }
 
-        const chatFileInfo: ChatFileInfo = { userId, fileId, filename: fileInfo.name, size: fileInfo.size };
+        const chatFileInfo: ChatFileInfo = {
+            fileId,
+            name: fileInfo.name,
+            size: fileInfo.size
+        };
 
-        socket.to(roomId).emit(SE.ChatFile, chatFileInfo);
+        const chatMessage: ChatMessage = {
+            type: "file",
+            userId,
+            datetime: Date.now(),
+            content: chatFileInfo
+        };
+
+        // Сохраним сообщение на сервере.
+        await this.roomChatRepository.addMessage(roomId, chatMessage);
+
+        this.roomIo.to(roomId).emit(SE.ChatFile, chatMessage);
     }
 
     /** Пользователь отключился. */
@@ -738,6 +764,38 @@ export class RoomSocketService implements IRoomSocketService
 
             // Разрываем соединение веб-сокета с клиентом.
             userSocket.disconnect(true);
+        }
+    }
+
+    /** Отправляем пользователю историю чата. */
+    private async sendChatHistory(
+        socket: Socket,
+        roomId: string
+    ): Promise<void>
+    {
+        if (!this.roomChatRepository.has(roomId))
+        {
+            return;
+        }
+
+        const messageArr = await this.roomChatRepository.getAll(roomId);
+        if (messageArr)
+        {
+            const usersInChatHistory = new Set<string>();
+
+            for (const message of messageArr)
+            {
+                let username = undefined;
+                if (!usersInChatHistory.has(message.userId))
+                {
+                    username = this.userAccountRepository.getUsername(message.userId);
+                    usersInChatHistory.add(message.userId);
+                }
+
+                const socketEvent = message.type == "text" ? SE.ChatMsg : SE.ChatFile;
+
+                socket.emit(socketEvent, message, username);
+            }
         }
     }
 }

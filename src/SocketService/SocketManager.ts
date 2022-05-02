@@ -13,6 +13,7 @@ import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IMediasoupService } from "../MediasoupService";
 import { IFileRepository } from "../FileService/FileRepository";
 import { TokenSocketMiddleware } from "../TokenService";
+import { IRoomChatRepository } from "../Room/RoomChatRepository";
 
 export type SocketNextFunction = (err?: ExtendedError) => void;
 type SocketMiddleware = (req: SocketIO.Socket, next: SocketNextFunction) => void;
@@ -54,13 +55,14 @@ export class SocketManager
 
     constructor(
         server: https.Server,
+        tokenMiddleware: TokenSocketMiddleware,
         fileRepository: IFileRepository,
         mediasoupService: IMediasoupService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
-        tokenMiddleware: TokenSocketMiddleware
+        roomChatRepository: IRoomChatRepository
     )
     {
         this.io = this.createSocketServer(server);
@@ -86,13 +88,14 @@ export class SocketManager
         this.roomSocketService = new RoomSocketService(
             this.namespaces.get("room")!,
             this.generalSocketService,
+            tokenMiddleware,
             fileRepository,
             mediasoupService,
             roomRepository,
             userAccountRepository,
             userBanRepository,
             authRoomUserRepository,
-            tokenMiddleware
+            roomChatRepository
         );
 
         // события администратора
