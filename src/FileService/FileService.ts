@@ -184,7 +184,6 @@ export class FileService implements IFileService
         // и информацию о файле из этого Id
         const fileId: FileId = req.params.fileId;
         const fileInfo = this.fileRepository.get(fileId);
-
         const filePath = path.join(this.FILES_PATH, fileId);
 
         const customRes = new GetResponse(
@@ -201,7 +200,16 @@ export class FileService implements IFileService
         {
             console.log(`[FileService] User [${fileInfo!.id}, ${req.ip.substring(7)}] downloading file: ${fileInfo!.id}.`);
 
-            res.download(filePath, fileInfo!.name);
+            const fileType = fileInfo!.type;
+            res.contentType(fileType);
+
+            const inlineTypes = ["audio", "video", "image"];
+            const isInlineFile = inlineTypes.some((str) => fileType.includes(str));
+
+            const disposition = (isInlineFile) ? "inline" : "attachment";
+            res.header("Content-Disposition", `${disposition}; filename="${fileInfo!.name}"`);
+
+            res.sendFile(filePath);
         }
     }
 
