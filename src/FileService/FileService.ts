@@ -194,11 +194,13 @@ export class FileService implements IFileService
 
         if (!customRes.successful)
         {
+            console.log(`[FileService] User [${req.token.userId ?? "guest"}, ${req.ip.substring(7)}] failed to download file: ${fileId}: ${customRes.statusCode}.`);
+
             this.sendStatus(res, customRes.statusCode, customRes.statusMsg);
         }
         else
         {
-            console.log(`[FileService] User [${fileInfo!.id}, ${req.ip.substring(7)}] downloading file: ${fileInfo!.id}.`);
+            console.log(`[FileService] User [${req.token.userId ?? "guest"}, ${req.ip.substring(7)}] downloading file: ${fileId}.`);
 
             const fileType = fileInfo!.type;
             res.contentType(fileType);
