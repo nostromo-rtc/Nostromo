@@ -251,6 +251,15 @@ export class RoomSocketService implements IRoomSocketService
             await this.userChangedName(room.id, socket, userId, username);
         });
 
+        // Пользователь отсоединился.
+        socket.once(SE.Disconnect, (reason: string) =>
+        {
+            this.userDisconnected(room, socket, userId, reason);
+        });
+
+        // Отправим пользователю историю чата комнаты.
+        await this.sendChatHistory(socket, room.id);
+
         // Новое сообщение в чате.
         socket.on(SE.ChatMsg, async (msg: string) =>
         {
@@ -262,14 +271,6 @@ export class RoomSocketService implements IRoomSocketService
         {
             await this.userSentChatFile(socket, userId, room.id, fileId);
         });
-
-        // Пользователь отсоединился.
-        socket.on(SE.Disconnect, (reason: string) =>
-        {
-            this.userDisconnected(room, socket, userId, reason);
-        });
-
-        await this.sendChatHistory(socket, room.id);
     }
 
     /**
