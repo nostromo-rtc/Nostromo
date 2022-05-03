@@ -557,6 +557,7 @@ export class RoomSocketService implements IRoomSocketService
         catch (error)
         {
             console.error(`[ERROR] [RoomSocketService] getActiveUserSocketId error in Room [${roomId}] for User [${userId}] |`, (error as Error));
+            return undefined;
         }
     }
 

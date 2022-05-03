@@ -51,32 +51,41 @@ export class GeneralSocketService implements IGeneralSocketService
 
             socket.on(SE.SubscribeUserList, async (roomId: string) =>
             {
-                // Если такой комнаты вообще нет.
-                if (!this.roomRepository.has(roomId))
-                {
-                    return;
-                }
-
-                // подписываемся на получение списка юзеров в комнате roomId
-                await socket.join(`${SE.UserList}-${roomId}`);
-
-                // отправляем список пользователей этой комнаты
-                // TODO: не отправлять список, если он в этой комнате не авторизован
-                this.sendUserListToSubscriber(socket.id, roomId);
+                await this.subscribeUserList(socket, roomId);
             });
 
             socket.on(SE.UnsubscribeUserList, async (roomId: string) =>
             {
-                // Если такой комнаты вообще нет.
-                if (!this.roomRepository.has(roomId))
-                {
-                    return;
-                }
-
-                // отписываемся от получения списка юзеров в комнате roomId
-                await socket.leave(`${SE.UserList}-${roomId}`);
+                await this.unsubscribeUserList(socket, roomId);
             });
         });
+    }
+
+    private async subscribeUserList(socket: Socket, roomId: string): Promise<void>
+    {
+        // Если такой комнаты вообще нет.
+        if (!this.roomRepository.has(roomId))
+        {
+            return;
+        }
+
+        // подписываемся на получение списка юзеров в комнате roomId
+        await socket.join(`${SE.UserList}-${roomId}`);
+
+        // отправляем список пользователей этой комнаты
+        // TODO: не отправлять список, если он в этой комнате не авторизован
+        this.sendUserListToSubscriber(socket.id, roomId);
+    }
+    private async unsubscribeUserList(socket: Socket, roomId: string): Promise<void>
+    {
+        // Если такой комнаты вообще нет.
+        if (!this.roomRepository.has(roomId))
+        {
+            return;
+        }
+
+        // отписываемся от получения списка юзеров в комнате roomId
+        await socket.leave(`${SE.UserList}-${roomId}`);
     }
 
     public notifyAboutCreatedRoom(info: PublicRoomInfo): void

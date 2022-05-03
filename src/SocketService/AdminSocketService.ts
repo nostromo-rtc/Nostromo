@@ -89,21 +89,11 @@ export class AdminSocketService
 
             socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
 
-            socket.on(SE.DeleteRoom, async (roomId: string) =>
-            {
-                await this.deleteRoom(roomId);
-            });
-
-            socket.on(SE.CreateRoom, async (info: NewRoomInfo) =>
-            {
-                await this.createRoom(info);
-            });
-
-            socket.on(SE.KickUser, async (info: ActionOnUserInfo) =>
-            {
-                this.roomSocketService.kickUser(info);
-                await this.authRoomUserRepository.remove(info.roomId, info.userId);
-            });
+            socket.on(SE.CreateRoom, this.createRoom);
+            socket.on(SE.DeleteRoom, this.deleteRoom);
+            socket.on(SE.ChangeRoomName, this.changeRoomName);
+            socket.on(SE.ChangeRoomPass, this.changeRoomPass);
+            socket.on(SE.KickUser, this.kickUser);
 
             socket.on(SE.StopUserDisplay, (info: ActionOnUserInfo) =>
             {
@@ -139,21 +129,11 @@ export class AdminSocketService
             {
                 await this.userBanRepository.remove(userIp);
             });
-
-            socket.on(SE.ChangeRoomName, async (info: NewRoomNameInfo) =>
-            {
-                await this.changeRoomName(info);
-            });
-
-            socket.on(SE.ChangeRoomPass, async (info: NewRoomPassInfo) =>
-            {
-                await this.changeRoomPass(info);
-            });
         });
     }
 
     /** Создать комнату. */
-    private async createRoom(info: NewRoomInfo)
+    private createRoom = async (info: NewRoomInfo): Promise<void> =>
     {
         const id = await this.roomRepository.create(info);
 
@@ -164,10 +144,10 @@ export class AdminSocketService
         };
 
         this.generalSocketService.notifyAboutCreatedRoom(newRoomInfo);
-    }
+    };
 
     /** Удалить комнату. */
-    private async deleteRoom(roomId: string)
+    private deleteRoom = async (roomId: string): Promise<void> =>
     {
         this.generalSocketService.notifyAboutDeletedRoom(roomId);
         this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
@@ -184,8 +164,15 @@ export class AdminSocketService
         await this.roomChatRepository.removeAll(roomId);
     };
 
+    /** Кик пользователя. */
+    private kickUser = async (info: ActionOnUserInfo) =>
+    {
+        this.roomSocketService.kickUser(info);
+        await this.authRoomUserRepository.remove(info.roomId, info.userId);
+    };
+
     /** Изменить название комнаты. */
-    private async changeRoomName(info: NewRoomNameInfo)
+    private changeRoomName = async (info: NewRoomNameInfo): Promise<void> =>
     {
         const { id, name } = info;
 
@@ -193,10 +180,10 @@ export class AdminSocketService
         await this.roomRepository.update(updateRoomInfo);
 
         this.generalSocketService.notifyAboutChangedRoomName({ id, name });
-    }
+    };
 
     /** Изменить пароль комнаты. */
-    private async changeRoomPass(info: NewRoomPassInfo)
+    private changeRoomPass = async (info: NewRoomPassInfo): Promise<void> =>
     {
         const { id, password } = info;
 
@@ -205,5 +192,5 @@ export class AdminSocketService
 
         // После смены пароля деавторизуем всех в комнате.
         await this.authRoomUserRepository.removeAll(id);
-    }
+    };
 }
