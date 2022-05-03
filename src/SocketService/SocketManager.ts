@@ -101,13 +101,15 @@ export class SocketManager
         // события администратора
         this.adminSocketService = new AdminSocketService(
             this.namespaces.get("admin")!,
+            tokenMiddleware,
             this.generalSocketService,
             this.roomSocketService,
             roomRepository,
             userBanRepository,
             authRoomUserRepository,
             userAccountRepository,
-            tokenMiddleware
+            roomChatRepository,
+            fileRepository
         );
     }
 }

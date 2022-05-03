@@ -11,6 +11,8 @@ import { IUserBanRepository } from "../User/UserBanRepository";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
 import { TokenSocketMiddleware } from "../TokenService";
+import { IRoomChatRepository } from "../Room/RoomChatRepository";
+import { IFileRepository } from "../FileService/FileRepository";
 
 type Socket = SocketIO.Socket;
 
@@ -23,16 +25,20 @@ export class AdminSocketService
     private authRoomUserRepository: IAuthRoomUserRepository;
     private userBanRepository: IUserBanRepository;
     private userAccountRepository: IUserAccountRepository;
+    private roomChatRepository: IRoomChatRepository;
+    private fileRepository: IFileRepository;
 
     constructor(
         adminIo: SocketIO.Namespace,
+        tokenMiddleware: TokenSocketMiddleware,
         generalSocketService: IGeneralSocketService,
         roomSocketService: IRoomSocketService,
         roomRepository: IRoomRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
         userAccountRepository: IUserAccountRepository,
-        tokenMiddleware: TokenSocketMiddleware
+        roomChatRepository: IRoomChatRepository,
+        fileRepository: IFileRepository
     )
     {
         this.adminIo = adminIo;
@@ -43,6 +49,8 @@ export class AdminSocketService
         this.authRoomUserRepository = authRoomUserRepository;
         this.userBanRepository = userBanRepository;
         this.userAccountRepository = userAccountRepository;
+        this.roomChatRepository = roomChatRepository;
+        this.fileRepository = fileRepository;
 
         this.checkIp();
 
@@ -168,7 +176,13 @@ export class AdminSocketService
 
         // После удаления комнаты, стираем данные об авторизациях в этой комнате.
         await this.authRoomUserRepository.removeAll(roomId);
-    }
+
+        // Удаляем все файлы, связанные с комнатой.
+        await this.fileRepository.removeByRoom(roomId);
+
+        // Удаляем историю чата комнаты.
+        await this.roomChatRepository.removeAll(roomId);
+    };
 
     /** Изменить название комнаты. */
     private async changeRoomName(info: NewRoomNameInfo)

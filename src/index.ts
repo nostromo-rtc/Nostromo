@@ -105,8 +105,7 @@ async function main()
         // Репозиторий комнат.
         const roomRepository = new PlainRoomRepository(
             mediasoupService,
-            userAccountRepository,
-            fileRepository
+            userAccountRepository
         );
         await roomRepository.init();
 

@@ -314,7 +314,6 @@ export class WebService
         {
             res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
         }
-
     };
 
     /** Обрабатываем маршруты, связанные с файлами. */

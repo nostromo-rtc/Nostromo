@@ -2,7 +2,6 @@ import path = require('path');
 import { scrypt } from "crypto";
 import { nanoid } from "nanoid";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
-import { IFileRepository } from "../FileService/FileRepository";
 
 import { NewRoomInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { RoomInfo, PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
@@ -58,17 +57,14 @@ export class PlainRoomRepository implements IRoomRepository
     private rooms = new Map<string, IRoom>();
     private mediasoup: IMediasoupService;
     private userAccountRepository: IUserAccountRepository;
-    private fileRepository: IFileRepository;
 
     constructor(
         mediasoup: IMediasoupService,
-        userAccountRepository: IUserAccountRepository,
-        fileRepository: IFileRepository
+        userAccountRepository: IUserAccountRepository
     )
     {
         this.mediasoup = mediasoup;
         this.userAccountRepository = userAccountRepository;
-        this.fileRepository = fileRepository;
     }
 
     /** Полностью обновить содержимое файла с записями о комнатах. */
@@ -182,14 +178,11 @@ export class PlainRoomRepository implements IRoomRepository
         // Закроем комнату.
         room.close();
 
-        // Удалим все файлы, привязанные к комнате.
-        await this.fileRepository.removeByRoom(id);
-
         // Удалим запись о комнате.
         this.rooms.delete(id);
 
         await this.writeDataToFile();
-        console.log(`[[${this.className}] Room [${id}, '${room.name}', ${room.videoCodec}] was deleted.`);
+        console.log(`[${this.className}] Room [${id}, '${room.name}', ${room.videoCodec}] was deleted.`);
     }
 
     public async update(info: UpdateRoomInfo)
