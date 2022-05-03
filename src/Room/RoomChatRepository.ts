@@ -63,9 +63,16 @@ export class PlainRoomChatRepository implements IRoomChatRepository
     public async removeAll(roomId: string): Promise<void>
     {
         const filepath = this.getPathForRoomChatFile(roomId);
-        await removeFile(filepath);
 
-        console.log(`[${this.className}] Chat history of room [${roomId}] was removed.`);
+        try
+        {
+            await removeFile(filepath);
+            console.log(`[${this.className}] Chat history of room [${roomId}] was removed.`);
+        }
+        catch (error)
+        {
+            console.error(`[ERROR] [${this.className}] Can't delete File with chat history of Room [${roomId}}] on server.`);
+        }
     }
 
     public async getAll(roomId: string): Promise<ChatMessage[] | undefined>
