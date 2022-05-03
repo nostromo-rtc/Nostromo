@@ -73,3 +73,17 @@ export async function removeFile(path: string): Promise<void>
         });
     });
 }
+
+export function encodeRfc8187ValueChars(str: string)
+{
+    const hexEscape = (c: string) =>
+    {
+        return '%' + String(c)
+            .charCodeAt(0)
+            .toString(16)
+            .toUpperCase();
+    };
+
+    return encodeURIComponent(str).
+        replace(/['()*]/g, hexEscape);
+}

@@ -1,12 +1,13 @@
 import express = require("express");
 import path = require("path");
-import fs = require('fs');
+import fs = require("fs");
 import { FileServiceResponse, FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { TusHeadResponse, TusPatchResponse, TusOptionsResponse, TusPostCreationResponse, GetResponse } from "./FileServiceTusProtocol";
 import { WebService } from "../WebService";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
 import { FileId, IFileRepository } from "./FileRepository";
+import { encodeRfc8187ValueChars } from "../Utils";
 
 /** Сервис для работы с файлами. */
 export interface IFileService
@@ -208,8 +209,8 @@ export class FileService implements IFileService
             const inlineTypes = ["audio", "video", "image"];
             const isInlineFile = inlineTypes.some((str) => fileType.includes(str));
 
-            const disposition = (isInlineFile) ? "inline" : "attachment";
-            res.header("Content-Disposition", `${disposition}; filename="${fileInfo!.name}"`);
+            const dispositionType = (isInlineFile) ? "inline" : "attachment";
+            res.header("Content-Disposition", `${dispositionType}; filename*=UTF-8''${encodeRfc8187ValueChars(fileInfo!.name)}`);
 
             res.sendFile(filePath);
         }
