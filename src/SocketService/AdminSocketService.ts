@@ -93,6 +93,17 @@ export class AdminSocketService
             socket.on(SE.DeleteRoom, this.deleteRoom);
             socket.on(SE.ChangeRoomName, this.changeRoomName);
             socket.on(SE.ChangeRoomPass, this.changeRoomPass);
+
+            socket.on(SE.ClearRoomChat, async (roomId: string) =>
+            {
+                await this.roomChatRepository.removeAll(roomId);
+            });
+
+            socket.on(SE.DeleteRoomFiles, async (roomId: string) =>
+            {
+                await this.fileRepository.removeByRoom(roomId);
+            });
+
             socket.on(SE.KickUser, this.kickUser);
 
             socket.on(SE.StopUserDisplay, (info: ActionOnUserInfo) =>
