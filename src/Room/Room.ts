@@ -56,6 +56,12 @@ export interface IRoom
     /** Установить название комнаты. */
     set name(value: string);
 
+    /** Сохранять ли историю чатов? */
+    get saveChatPolicy(): boolean;
+
+    /** Установить параметр сохранения истории чатов. */
+    set saveChatPolicy(value: boolean);
+
     /** Пароль от комнаты. */
     get password(): string;
 
@@ -180,6 +186,17 @@ export class Room implements IRoom
     public get password(): string { return this._password; }
     public set password(value: string) { this._password = value; }
 
+    /** Сохранять историю чатов?. */
+    private _saveChatPolicy: boolean;
+    public get saveChatPolicy(): boolean
+    {
+        return this._saveChatPolicy;
+    }
+    public set saveChatPolicy(value: boolean)
+    {
+        this._saveChatPolicy = value;
+    }
+
     public readonly videoCodec: VideoCodec;
 
     /** Сервис для работы с медиапотоками Mediasoup. */
@@ -226,6 +243,7 @@ export class Room implements IRoom
         this._name = info.name;
         this._password = info.hashPassword;
         this.videoCodec = info.videoCodec;
+        this._saveChatPolicy = info.saveChatPolicy;
 
         this.mediasoup = mediasoup;
         this.mediasoupRouters = mediasoupRouters;

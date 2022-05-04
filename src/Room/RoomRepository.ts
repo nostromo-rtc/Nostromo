@@ -47,6 +47,9 @@ export interface IRoomRepository
 
     /** Проверить, есть ли пароль у комнаты. */
     isEmptyPassword(id: string): boolean;
+
+    /** Проверить, нужно ли сохранять сообщения в историю чата комнаты. */
+    getSaveChatPolicy(id: string): boolean
 }
 
 export class PlainRoomRepository implements IRoomRepository
@@ -77,7 +80,8 @@ export class PlainRoomRepository implements IRoomRepository
                 id: room.id,
                 name: room.name,
                 hashPassword: room.password,
-                videoCodec: room.videoCodec
+                videoCodec: room.videoCodec,
+                saveChatPolicy: room.saveChatPolicy
             });
         }
 
@@ -139,7 +143,7 @@ export class PlainRoomRepository implements IRoomRepository
 
     public async create(info: NewRoomInfo): Promise<string>
     {
-        const { name, password, videoCodec } = info;
+        const { name, password, videoCodec, saveChatPolicy } = info;
 
         let id: string = nanoid(11);
         while (this.rooms.has(id))
@@ -154,7 +158,7 @@ export class PlainRoomRepository implements IRoomRepository
             hashPassword = await this.generateHashPassword(password);
         }
 
-        const fullRoomInfo = { id, name, hashPassword, videoCodec };
+        const fullRoomInfo = { id, name, hashPassword, videoCodec, saveChatPolicy };
 
         this.rooms.set(id, await Room.create(fullRoomInfo, this.mediasoup));
 
@@ -187,7 +191,7 @@ export class PlainRoomRepository implements IRoomRepository
 
     public async update(info: UpdateRoomInfo)
     {
-        const { id, name, password } = info;
+        const { id, name, password, saveChatPolicy } = info;
 
         const room = this.rooms.get(id);
 
@@ -211,6 +215,11 @@ export class PlainRoomRepository implements IRoomRepository
             }
 
             room.password = hashPassword;
+        }
+
+        if (saveChatPolicy != undefined)
+        {
+            room.saveChatPolicy = saveChatPolicy;
         }
 
         await this.writeDataToFile();
@@ -320,5 +329,18 @@ export class PlainRoomRepository implements IRoomRepository
         }
 
         return (room.password.length == 0);
+    }
+
+    public getSaveChatPolicy(id: string): boolean
+    {
+        const room = this.get(id);
+
+        if (!room)
+        {
+            console.error(`[ERROR] [${this.className}] Can't check Room [${id}] chat saving policy, because room is not exist.`);
+            return false;
+        }
+
+        return room.saveChatPolicy;
     }
 }

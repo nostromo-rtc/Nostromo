@@ -4,7 +4,7 @@ import SocketIO = require('socket.io');
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, NewRoomSaveChatPolicyInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../User/UserBanRepository";
@@ -93,6 +93,7 @@ export class AdminSocketService
             socket.on(SE.DeleteRoom, this.deleteRoom);
             socket.on(SE.ChangeRoomName, this.changeRoomName);
             socket.on(SE.ChangeRoomPass, this.changeRoomPass);
+            socket.on(SE.ChangeRoomSaveChatPolicy, this.changeRoomSaveChatPolicy);
 
             socket.on(SE.ClearRoomChat, async (roomId: string) =>
             {
@@ -203,5 +204,14 @@ export class AdminSocketService
 
         // После смены пароля деавторизуем всех в комнате.
         await this.authRoomUserRepository.removeAll(id);
+    };
+
+    /** Изменить политику сохранения истории чатов. */
+    private changeRoomSaveChatPolicy = async (info: NewRoomSaveChatPolicyInfo): Promise<void> =>
+    {
+        const { id, saveChatPolicy } = info;
+
+        const updateRoomInfo: UpdateRoomInfo = { id, saveChatPolicy };
+        await this.roomRepository.update(updateRoomInfo);
     };
 }

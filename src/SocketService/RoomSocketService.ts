@@ -603,7 +603,10 @@ export class RoomSocketService implements IRoomSocketService
         };
 
         // Сохраним сообщение на сервере.
-        await this.roomChatRepository.addMessage(roomId, chatMessage);
+        if (this.roomRepository.getSaveChatPolicy(roomId))
+        {
+            await this.roomChatRepository.addMessage(roomId, chatMessage);
+        }
 
         this.roomIo.to(roomId).emit(SE.ChatMsg, chatMessage);
     }
@@ -636,7 +639,10 @@ export class RoomSocketService implements IRoomSocketService
         };
 
         // Сохраним сообщение на сервере.
-        await this.roomChatRepository.addMessage(roomId, chatMessage);
+        if (this.roomRepository.getSaveChatPolicy(roomId))
+        {
+            await this.roomChatRepository.addMessage(roomId, chatMessage);
+        }
 
         this.roomIo.to(roomId).emit(SE.ChatFile, chatMessage);
     }
