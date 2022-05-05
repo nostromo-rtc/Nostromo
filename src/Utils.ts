@@ -1,10 +1,19 @@
-import fs = require('fs');
-export async function writeToFile(path: string, values: Iterable<unknown> | ArrayLike<unknown>): Promise<void>
+import fs = require("fs");
+import path = require("path");
+export async function writeToFile(filepath: string, values: Iterable<unknown> | ArrayLike<unknown>): Promise<void>
 {
     return new Promise((resolve, reject) =>
     {
+        const folder = path.dirname(filepath);
+
+        // Проверяем, существует ли папка, в которую сохраняется файл.
+        if (!fs.existsSync(folder))
+        {
+            fs.mkdirSync(folder);
+        }
+
         // Создаём новый стрим для того, чтобы полностью перезаписать файл.
-        const writeStream = fs.createWriteStream(path, { encoding: "utf8" });
+        const writeStream = fs.createWriteStream(filepath, { encoding: "utf8" });
 
         writeStream.write(JSON.stringify(values, null, 2));
 
