@@ -27,6 +27,8 @@ You can read the approximate development plans [here, in Milestones](https://git
 
 - 🛡️ **Security** is ensured through the use of technologies that support data encryption: `DTLS-SRTP` for media streams and `HTTPS` for any text and file data.
 
+- 💾 The system has a built-in **mechanism for saving server data** in the form of **files** format `.json`. Accordingly, no **database** is required for this app. However, database support is planned in the future as an additional option.
+
 - 🤨 **The maximum number of participants** depends on the technical capabilites of the server (check [perfomance](#perfomance)).
 
 - 🖥️ **Connect** using your smartphone or computer via a browser that supports `WebRTC` (recommended latest major versions of `Mozilla Firefox` or `Google Chrome`). In the near future - a desktop client for a computer. In the long-term plans - an Android application.
@@ -35,13 +37,19 @@ You can read the approximate development plans [here, in Milestones](https://git
 
 - 🔒 **Rooms** (conferences) can be protected with **password**. You can join the room by entering the password manually, but you can join by using a special link with the hash password included.
 
-- 🎙️ You can capture **the microphone**, **webcam** or **computer/window screen** (if it's Chrome, you can also capture a tab in the browser and, if desired, you can capture the sound of the computer or tab). Please note that you can select **the resolution or frame rate** of the video stream when capturing a webcam or screen (from 240p to 1440p).
+- 🎙️ You can capture **the microphone**, **webcam** and / or **computer (or window) screen** (if it's Chrome, you can also capture a tab in the browser and, if desired, you can capture the sound of the computer or tab).
+
+- 🔥 **Unique** (or just rare) feature to **simultaneously** capture **multiple webcams** (video devices).
+
+- 🎞️ You can select **the resolution or frame rate** of the video stream when capturing a webcam or screen (from 240p to 1440p, for some resolutions you can select 5, 30 or 60 frames per second).
 
 - 📋 During the conference, you can write in **chat**, as well as send **files** (you can send several files at a time).
 
 - 📎 File uploading is implemented based on the `TUS` protocol, so it **resumes** when the upload is interrupted, moreover, you can stop the upload, and then **continue it from the same place** even after a few hours.
 
-- 🔨 **Admin functions** - you can create, edit and delete rooms. Also you can disable video or audio coming from a conference participant, change the user name, kick the user from the room, block the user by IP address.
+- 📜 **Optional chat history** - you can create a room (or change the parameter of already created room) that will not save the chat history (messages) for additional privacy and security.
+
+- 🔨 **Admin functions** - you can create, edit and delete rooms. Clear chat history, remove files of room. Also you can disable video or audio coming from a conference participant, change the user name, kick the user from the room, block the user by IP address.
 
 - ⏸️ The captured microphone can be **paused and unpaused** without recapturing the microphone.
 
