@@ -263,13 +263,13 @@ export class RoomSocketService implements IRoomSocketService
         // Новое сообщение в чате.
         socket.on(SE.ChatMsg, async (msg: string) =>
         {
-            await this.userSentChatMsg(socket, room.id, userId, msg);
+            await this.userSentChatMsg(room.id, userId, msg);
         });
 
         // Новый файл в чате (ссылка на файл).
         socket.on(SE.ChatFile, async (fileId: string) =>
         {
-            await this.userSentChatFile(socket, userId, room.id, fileId);
+            await this.userSentChatFile(userId, room.id, fileId);
         });
     }
 
@@ -589,7 +589,6 @@ export class RoomSocketService implements IRoomSocketService
 
     /** Пользователь отправил сообщение в чат. */
     private async userSentChatMsg(
-        socket: Socket,
         roomId: string,
         userId: string,
         msg: string
@@ -613,7 +612,6 @@ export class RoomSocketService implements IRoomSocketService
 
     /** Пользователь отправил ссылку на файл в чат. */
     private async userSentChatFile(
-        socket: Socket,
         userId: string,
         roomId: string,
         fileId: string

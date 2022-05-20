@@ -208,7 +208,6 @@ export class Room implements IRoom
     /** Индекс последнего задействованного роутера. */
     private latestRouterIdx = 1;
 
-    public readonly users = new Set<string>();
     public readonly activeUsers = new Map<string, ActiveUser>();
 
     public get maxVideoBitrate(): number
