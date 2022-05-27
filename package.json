@@ -34,5 +34,14 @@
     "typescript": "4.6.3"
   },
   "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme",
-  "bundleDependencies": true
+  "bundleDependencies": [
+    "cookie",
+    "dotenv",
+    "express",
+    "jose",
+    "mediasoup",
+    "nanoid",
+    "nostromo-web",
+    "socket.io"
+  ]
 }
