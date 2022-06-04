@@ -107,6 +107,7 @@ export class AdminSocketService
             });
 
             socket.on(SE.KickUser, this.kickUser);
+            socket.on(SE.KickAllUsers, this.kickAllUsers);
 
             socket.on(SE.StopUserDisplay, (info: ActionOnUserInfo) =>
             {
@@ -174,7 +175,7 @@ export class AdminSocketService
     {
         this.generalSocketService.notifyAboutDeletedRoom(roomId);
         this.generalSocketService.unsubscribeAllUserListSubscribers(roomId);
-        this.roomSocketService.kickAllUsers(roomId);
+        await this.roomSocketService.kickAllUsers(roomId);
         await this.roomRepository.remove(roomId);
 
         // После удаления комнаты, стираем данные об авторизациях в этой комнате.
@@ -188,10 +189,15 @@ export class AdminSocketService
     };
 
     /** Кик пользователя. */
-    private kickUser = async (info: ActionOnUserInfo) =>
+    private kickUser = async (info: ActionOnUserInfo): Promise<void> =>
     {
-        this.roomSocketService.kickUser(info);
-        await this.authRoomUserRepository.remove(info.roomId, info.userId);
+        await this.roomSocketService.kickUser(info);
+    };
+
+    /** Кик пользователя. */
+    private kickAllUsers = async (roomId: string): Promise<void> =>
+    {
+        await this.roomSocketService.kickAllUsers(roomId);
     };
 
     /** Изменить название комнаты. */

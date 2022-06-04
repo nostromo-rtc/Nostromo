@@ -19,13 +19,13 @@ type Socket = SocketIO.Socket;
 export interface IRoomSocketService
 {
     /** Выгнать пользователя userId из комнаты roomId. */
-    kickUser(info: ActionOnUserInfo): void;
+    kickUser(info: ActionOnUserInfo): Promise<void>;
 
     /** Заблокировать пользователя userId, находящегося в комнате, на сервере. */
     banUser(info: ActionOnUserInfo): Promise<void>;
 
     /** Выгнать всех пользователей из комнаты. */
-    kickAllUsers(roomId: string): void;
+    kickAllUsers(roomId: string): Promise<void>;
 
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват экрана. */
     stopUserDisplay(info: ActionOnUserInfo): void;
@@ -116,7 +116,7 @@ export class RoomSocketService implements IRoomSocketService
                     socket.emit(SE.UserAlreadyJoined);
                     socket.once(SE.ForceJoinRoom, async () =>
                     {
-                        this.kickUser({ roomId: room.id, userId });
+                        await this.kickUser({ roomId: room.id, userId }, false);
                         await this.clientJoined(room, socket, userId);
                     });
                 }
@@ -700,7 +700,7 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    public kickUser(info: ActionOnUserInfo): void
+    public async kickUser(info: ActionOnUserInfo, deauthorize = true): Promise<void>
     {
         const { roomId, userId } = info;
 
@@ -710,9 +710,14 @@ export class RoomSocketService implements IRoomSocketService
         {
             userSocket.disconnect(true);
         }
+
+        if (deauthorize)
+        {
+            await this.authRoomUserRepository.remove(info.roomId, info.userId);
+        }
     }
 
-    public kickAllUsers(roomId: string): void
+    public async kickAllUsers(roomId: string): Promise<void>
     {
         const room = this.roomRepository.get(roomId);
 
@@ -723,7 +728,7 @@ export class RoomSocketService implements IRoomSocketService
 
         for (const user of room.activeUsers)
         {
-            this.kickUser({ roomId, userId: user[0] });
+            await this.kickUser({ roomId, userId: user[0] });
         }
     }
 
