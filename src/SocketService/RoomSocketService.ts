@@ -38,6 +38,18 @@ export interface IRoomSocketService
 
     /** Изменить имя пользователя. */
     changeUsername(info: ChangeUserNameInfo): void;
+
+    /** Сообщить клиенту пользователя, о том, что он может выступать. */
+    allowUserToSpeak(info: ActionOnUserInfo): void;
+
+    /** Сообщить каждому пользователю, о том, что они могут выступать. */
+    allowAllUsersToSpeak(roomId: string): void;
+
+    /** Сообщить клиенту пользователя, о том, что ему нельзя выступать. */
+    forbidUserToSpeak(info: ActionOnUserInfo): void;
+
+    /** Сообщить каждому пользователю, о том, что им нельзя выступать. */
+    forbidAllUsersToSpeak(roomId: string): void;
 }
 
 /** Обработчик событий комнаты. */
@@ -142,6 +154,16 @@ export class RoomSocketService implements IRoomSocketService
 
         // Сообщаем пользователю название комнаты.
         socket.emit(SE.RoomName, room.name);
+
+        // Сообщаем пользователю, разрешено ли ему выступать (в зависимости от режима конференции).
+        if (room.symmetricMode)
+        {
+            socket.emit(SE.IsAllowedToSpeak, true);
+        }
+        else
+        {
+            socket.emit(SE.IsAllowedToSpeak, room.speakerUsers.has(userId));
+        }
 
         // Сообщаем пользователю максимальный битрейт для аудиопотоков.
         socket.emit(SE.MaxAudioBitrate, this.mediasoupService.maxAudioBitrate);
@@ -738,6 +760,64 @@ export class RoomSocketService implements IRoomSocketService
         if (userSocket)
         {
             userSocket.emit(SE.StopUserAudio);
+        }
+    }
+
+    public allowUserToSpeak(info: ActionOnUserInfo): void
+    {
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
+
+        this.roomRepository.addUserToSpeakerUsersList(roomId, userId);
+
+        if (userSocket)
+        {
+            userSocket.emit(SE.IsAllowedToSpeak, true);
+        }
+    }
+
+    public allowAllUsersToSpeak(roomId: string): void
+    {
+        const room = this.roomRepository.get(roomId);
+
+        if (!room)
+        {
+            return;
+        }
+
+        for (const user of room.activeUsers)
+        {
+            this.allowUserToSpeak({ roomId, userId: user[0] });
+        }
+    }
+
+    public forbidUserToSpeak(info: ActionOnUserInfo): void
+    {
+        const { roomId, userId } = info;
+
+        const userSocket = this.getSocketByUserId(roomId, userId);
+
+        this.roomRepository.removeUserFromSpeakerUsersList(roomId, userId);
+
+        if (userSocket)
+        {
+            userSocket.emit(SE.IsAllowedToSpeak, false);
+        }
+    }
+
+    public forbidAllUsersToSpeak(roomId: string): void
+    {
+        const room = this.roomRepository.get(roomId);
+
+        if (!room)
+        {
+            return;
+        }
+
+        for (const user of room.activeUsers)
+        {
+            this.forbidUserToSpeak({ roomId, userId: user[0] });
         }
     }
 

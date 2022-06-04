@@ -49,7 +49,19 @@ export interface IRoomRepository
     isEmptyPassword(id: string): boolean;
 
     /** Проверить, нужно ли сохранять сообщения в историю чата комнаты. */
-    getSaveChatPolicy(id: string): boolean
+    getSaveChatPolicy(id: string): boolean;
+
+    /** Симметричный ли режим конференции? */
+    isSymmetricMode(id: string): boolean;
+
+    /** Очистить список пользователей-докладчиков. */
+    clearSpeakerUsersList(id: string): void;
+
+    /** Добавить пользователя в список пользователей-докладчиков. */
+    addUserToSpeakerUsersList(roomId: string, userId: string): void;
+
+    /** Удалить пользователя из списка пользователей-докладчиков. */
+    removeUserFromSpeakerUsersList(roomId: string, userId: string): void;
 }
 
 export class PlainRoomRepository implements IRoomRepository
@@ -81,7 +93,8 @@ export class PlainRoomRepository implements IRoomRepository
                 name: room.name,
                 hashPassword: room.password,
                 videoCodec: room.videoCodec,
-                saveChatPolicy: room.saveChatPolicy
+                saveChatPolicy: room.saveChatPolicy,
+                symmetricMode: room.symmetricMode
             });
         }
 
@@ -143,7 +156,7 @@ export class PlainRoomRepository implements IRoomRepository
 
     public async create(info: NewRoomInfo): Promise<string>
     {
-        const { name, password, videoCodec, saveChatPolicy } = info;
+        const { name, password, videoCodec, saveChatPolicy, symmetricMode } = info;
 
         let id: string = nanoid(11);
         while (this.rooms.has(id))
@@ -151,14 +164,13 @@ export class PlainRoomRepository implements IRoomRepository
             id = nanoid(11);
         }
 
-
         let hashPassword = "";
         if (password.length > 0)
         {
             hashPassword = await this.generateHashPassword(password);
         }
 
-        const fullRoomInfo = { id, name, hashPassword, videoCodec, saveChatPolicy };
+        const fullRoomInfo: RoomInfo = { id, name, hashPassword, videoCodec, saveChatPolicy, symmetricMode };
 
         this.rooms.set(id, await Room.create(fullRoomInfo, this.mediasoup));
 
@@ -191,7 +203,7 @@ export class PlainRoomRepository implements IRoomRepository
 
     public async update(info: UpdateRoomInfo)
     {
-        const { id, name, password, saveChatPolicy } = info;
+        const { id, name, password, saveChatPolicy, symmetricMode } = info;
 
         const room = this.rooms.get(id);
 
@@ -220,6 +232,11 @@ export class PlainRoomRepository implements IRoomRepository
         if (saveChatPolicy != undefined)
         {
             room.saveChatPolicy = saveChatPolicy;
+        }
+
+        if (symmetricMode != undefined)
+        {
+            room.symmetricMode = symmetricMode;
         }
 
         await this.writeDataToFile();
@@ -342,5 +359,57 @@ export class PlainRoomRepository implements IRoomRepository
         }
 
         return room.saveChatPolicy;
+    }
+
+    public isSymmetricMode(id: string): boolean
+    {
+        const room = this.get(id);
+
+        if (!room)
+        {
+            console.error(`[ERROR] [${this.className}] Can't check Room [${id}] mode, because room is not exist.`);
+            return false;
+        }
+
+        return room.symmetricMode;
+    }
+
+    public clearSpeakerUsersList(id: string): void
+    {
+        const room = this.get(id);
+
+        if (!room)
+        {
+            console.error(`[ERROR] [${this.className}] Can't clear Room [${id}] speaker users list, because room is not exist.`);
+            return;
+        }
+
+        room.speakerUsers.clear();
+    }
+
+    public addUserToSpeakerUsersList(roomId: string, userId: string): void
+    {
+        const room = this.get(roomId);
+
+        if (!room)
+        {
+            console.error(`[ERROR] [${this.className}] Can't add user to Room [${roomId}] speaker users list, because room is not exist.`);
+            return;
+        }
+
+        room.speakerUsers.add(userId);
+    }
+
+    public removeUserFromSpeakerUsersList(roomId: string, userId: string): void
+    {
+        const room = this.get(roomId);
+
+        if (!room)
+        {
+            console.error(`[ERROR] [${this.className}] Can't delete user from Room [${roomId}] speaker users list, because room is not exist.`);
+            return;
+        }
+
+        room.speakerUsers.delete(userId);
     }
 }

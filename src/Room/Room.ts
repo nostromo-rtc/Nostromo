@@ -68,8 +68,17 @@ export interface IRoom
     /** Установить пароль от комнаты. */
     set password(value: string);
 
+    /** Симметричный режим конференции? */
+    get symmetricMode(): boolean;
+
+    /** Установить симметричный режим конференции. */
+    set symmetricMode(value: boolean);
+
     /** Активные пользователи в комнате. */
     readonly activeUsers: Map<string, ActiveUser>;
+
+    /** Пользователи-докладчики (их идентификаторы) в комнате. */
+    readonly speakerUsers: Set<string>;
 
     /** Видеокодек для видеопотоков в комнате. */
     readonly videoCodec: VideoCodec;
@@ -186,7 +195,7 @@ export class Room implements IRoom
     public get password(): string { return this._password; }
     public set password(value: string) { this._password = value; }
 
-    /** Сохранять историю чатов?. */
+    /** Сохранять историю чатов? */
     private _saveChatPolicy: boolean;
     public get saveChatPolicy(): boolean
     {
@@ -195,6 +204,17 @@ export class Room implements IRoom
     public set saveChatPolicy(value: boolean)
     {
         this._saveChatPolicy = value;
+    }
+
+    /** Симметричный режим конференции? */
+    private _symmetricMode: boolean;
+    public get symmetricMode(): boolean
+    {
+        return this._symmetricMode;
+    }
+    public set symmetricMode(value: boolean)
+    {
+        this._symmetricMode = value;
     }
 
     public readonly videoCodec: VideoCodec;
@@ -209,6 +229,8 @@ export class Room implements IRoom
     private latestRouterIdx = 1;
 
     public readonly activeUsers = new Map<string, ActiveUser>();
+
+    public readonly speakerUsers = new Set<string>();
 
     public get maxVideoBitrate(): number
     {
@@ -243,6 +265,7 @@ export class Room implements IRoom
         this._password = info.hashPassword;
         this.videoCodec = info.videoCodec;
         this._saveChatPolicy = info.saveChatPolicy;
+        this._symmetricMode = info.symmetricMode;
 
         this.mediasoup = mediasoup;
         this.mediasoupRouters = mediasoupRouters;

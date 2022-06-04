@@ -4,7 +4,7 @@ import SocketIO = require('socket.io');
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomNameInfo, NewRoomPassInfo, NewRoomSaveChatPolicyInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomModeInfo, NewRoomNameInfo, NewRoomPassInfo, NewRoomSaveChatPolicyInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../User/UserBanRepository";
@@ -94,6 +94,7 @@ export class AdminSocketService
             socket.on(SE.ChangeRoomName, this.changeRoomName);
             socket.on(SE.ChangeRoomPass, this.changeRoomPass);
             socket.on(SE.ChangeRoomSaveChatPolicy, this.changeRoomSaveChatPolicy);
+            socket.on(SE.ChangeRoomMode, this.changeRoomMode);
 
             socket.on(SE.ClearRoomChat, async (roomId: string) =>
             {
@@ -140,6 +141,16 @@ export class AdminSocketService
             socket.on(SE.UnbanUserByIp, async (userIp: string) =>
             {
                 await this.userBanRepository.remove(userIp);
+            });
+
+            socket.on(SE.AllowUserToSpeak, (info: ActionOnUserInfo) =>
+            {
+                this.roomSocketService.allowUserToSpeak(info);
+            });
+
+            socket.on(SE.ForbidUserToSpeak, (info: ActionOnUserInfo) =>
+            {
+                this.roomSocketService.forbidUserToSpeak(info);
             });
         });
     }
@@ -213,5 +224,33 @@ export class AdminSocketService
 
         const updateRoomInfo: UpdateRoomInfo = { id, saveChatPolicy };
         await this.roomRepository.update(updateRoomInfo);
+    };
+
+    /** Изменить режим конференции. */
+    private changeRoomMode = async (info: NewRoomModeInfo): Promise<void> =>
+    {
+        const { id, symmetricMode } = info;
+
+        const prevMode = this.roomRepository.isSymmetricMode(id);
+
+        // Если режим не поменялся.
+        if (prevMode == symmetricMode)
+        {
+            return;
+        }
+
+        const updateRoomInfo: UpdateRoomInfo = { id, symmetricMode };
+        await this.roomRepository.update(updateRoomInfo);
+
+        if (symmetricMode)
+        {
+            this.roomSocketService.allowAllUsersToSpeak(id);
+        }
+        else
+        {
+            this.roomSocketService.forbidAllUsersToSpeak(id);
+        }
+
+        this.roomRepository.clearSpeakerUsersList(id);
     };
 }
