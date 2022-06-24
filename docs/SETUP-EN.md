@@ -81,7 +81,11 @@ openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -ou
 ## Requirements for launching program
 This requirement is mandatory, since it is necessary for launching program:
 >`Node.js LTS` (tested on v12.22.11).
+
 >`npm 8` (testen on 8.5.5).
+
+### Windows (tested on Win10-v21H2)
+> `Microsoft Visual C++ 2015-2022 Redist`.
 
 ## Requirements for building project
 If you decided to build project from sources, you have to install program (package):
