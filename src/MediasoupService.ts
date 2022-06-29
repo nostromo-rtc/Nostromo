@@ -105,7 +105,7 @@ export class MediasoupService implements IMediasoupService
     public readonly preferUdp: boolean = (process.env.MEDIASOUP_RTC_PREFER_UDP == "false") ? false : true;
     public readonly preferTcp: boolean = (process.env.MEDIASOUP_RTC_PREFER_TCP == "true") ? true : false;
 
-    public maxAudioBitrate = 64 * PrefixConstants.KILO;
+    public maxAudioBitrate = ((process.env.MAX_AUDIO_BITRATE != undefined) ? Number(process.env.MAX_AUDIO_BITRATE) : 64) * PrefixConstants.KILO;
 
     public maxVideoBitrate = -1;
 
@@ -189,6 +189,7 @@ export class MediasoupService implements IMediasoupService
 
         const service = new MediasoupService(workers);
         console.log(`[MediasoupService] Info about TCP and UDP support:\n> enableUdp: ${String(service.enableUdp)} | enableTcp: ${String(service.enableTcp)} | preferUdp: ${String(service.preferUdp)} | preferTcp: ${String(service.preferTcp)}.`);
+        console.log(`[MediasoupService] Max audio bitrate: ${service.maxAudioBitrate} bit/s.`);
 
         return service;
     }
