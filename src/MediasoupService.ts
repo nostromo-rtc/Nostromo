@@ -100,7 +100,11 @@ export class MediasoupService implements IMediasoupService
     public readonly networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
     public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
 
-    /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
+    public readonly enableUdp: boolean = (process.env.MEDIASOUP_RTC_ENABLE_UDP == "false") ? false : true;
+    public readonly enableTcp: boolean = (process.env.MEDIASOUP_RTC_ENABLE_TCP == "false") ? false : true;
+    public readonly preferUdp: boolean = (process.env.MEDIASOUP_RTC_PREFER_UDP == "false") ? false : true;
+    public readonly preferTcp: boolean = (process.env.MEDIASOUP_RTC_PREFER_TCP == "true") ? true : false;
+
     public maxAudioBitrate = 64 * PrefixConstants.KILO;
 
     public maxVideoBitrate = -1;
@@ -158,7 +162,7 @@ export class MediasoupService implements IMediasoupService
         }
     };
 
-    // создаем экземпляр класса (внутри которого создаются Workers)
+    // Создаем экземпляр класса (внутри которого создаются Workers).
     public static async create(numWorkers: number): Promise<MediasoupService>
     {
         console.log(`[MediasoupService] Running ${numWorkers} mediasoup Workers.`);
@@ -183,7 +187,10 @@ export class MediasoupService implements IMediasoupService
             workers.push(worker);
         }
 
-        return new MediasoupService(workers);
+        const service = new MediasoupService(workers);
+        console.log(`[MediasoupService] Info about TCP and UDP support:\n> enableUdp: ${String(service.enableUdp)} | enableTcp: ${String(service.enableTcp)} | preferUdp: ${String(service.preferUdp)} | preferTcp: ${String(service.preferTcp)}.`);
+
+        return service;
     }
 
     private constructor(workers: MediasoupTypes.Worker[])
@@ -198,9 +205,18 @@ export class MediasoupService implements IMediasoupService
         const mediaCodecs = new Array<MediasoupTypes.RtpCodecCapability>(this.audioCodecConf);
 
         // теперь определяемся с кодеками для видео
-        if (codecChoice == VideoCodec.VP9) mediaCodecs.push(this.videoCodecVp9Conf);
-        else if (codecChoice == VideoCodec.VP8) mediaCodecs.push(this.videoCodecVp8Conf);
-        else if (codecChoice == VideoCodec.H264) mediaCodecs.push(this.videoCodecH264Conf);
+        if (codecChoice == VideoCodec.VP9)
+        {
+            mediaCodecs.push(this.videoCodecVp9Conf);
+        }
+        else if (codecChoice == VideoCodec.VP8)
+        {
+            mediaCodecs.push(this.videoCodecVp8Conf);
+        }
+        else if (codecChoice == VideoCodec.H264)
+        {
+            mediaCodecs.push(this.videoCodecH264Conf);
+        }
 
         const routerOptions: MediasoupTypes.RouterOptions = { mediaCodecs };
 
@@ -228,10 +244,10 @@ export class MediasoupService implements IMediasoupService
                 }
             ],
             initialAvailableOutgoingBitrate: 600000,
-            enableUdp: true,
-            enableTcp: true,
-            preferUdp: true,
-            preferTcp: false
+            enableUdp: this.enableUdp,
+            enableTcp: this.enableTcp,
+            preferUdp: this.preferUdp,
+            preferTcp: this.preferTcp
         });
 
         transport.on('icestatechange', (state: MediasoupTypes.IceState) =>
@@ -243,7 +259,7 @@ export class MediasoupService implements IMediasoupService
                 return;
             }
 
-            const logMsg = `[MediasoupService] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > icestatechange event: ${state}`;
+            const logMsg = `[MediasoupService] User [${user.userId}] in Room [${user.roomId}] | ${consuming ? "consumer" : "producer"} WebRtcTransport | icestatechange event:\n> ${state}`;
             const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
             console.log(`${logMsg} | ${ipInfo}.`);
         });
@@ -259,7 +275,7 @@ export class MediasoupService implements IMediasoupService
 
             if (dtlsstate === 'failed' || dtlsstate === 'closed')
             {
-                const logMsg = `[MediasoupService] User [${user.userId}] in Room [${user.roomId}] > ${consuming ? "consumer" : "producer"} WebRtcTransport > dtlsstatechange event: ${dtlsstate}`;
+                const logMsg = `[MediasoupService] User [${user.userId}] in Room [${user.roomId}] | ${consuming ? "consumer" : "producer"} WebRtcTransport | dtlsstatechange event:\n> ${dtlsstate}`;
                 const ipInfo = `[${iceTuple.protocol}] Local: ${iceTuple.localIp}:${iceTuple.localPort}, Remote: ${iceTuple.remoteIp ?? "?"}:${iceTuple.remotePort ?? "?"}`;
                 console.error(`[ERROR] ${logMsg} | ${ipInfo}.`);
             }
