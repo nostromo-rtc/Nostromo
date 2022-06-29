@@ -193,7 +193,8 @@ export class WebService
         role: string
     ): Promise<string>
     {
-        const expTime = new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)); // 2 недели.
+        const expTimeInSec = (process.env.TOKEN_EXP_TIME != undefined) ? Number(process.env.TOKEN_EXP_TIME) : (14 * 24 * 60 * 60); // по умолчанию 2 недели.
+        const expTime = new Date(Date.now() + (expTimeInSec * 1000));
 
         const userId = await this.userAccountRepository.create({ role });
 
