@@ -345,9 +345,9 @@ export class WebService
         });
 
         // скачать файл
-        this.app.get(`${FileServiceConstants.FILES_ROUTE}/:fileId`, (req: express.Request, res: express.Response) =>
+        this.app.get(`${FileServiceConstants.FILES_ROUTE}/:fileId`, async (req: express.Request, res: express.Response) =>
         {
-            this.fileService.downloadFile(req, res);
+            await this.fileService.downloadFile(req, res);
         });
     }
 

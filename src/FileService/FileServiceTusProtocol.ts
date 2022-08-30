@@ -205,42 +205,59 @@ export class GetResponse implements FileServiceResponse
     public statusMsg?: string;
     public successful = false;
 
-    constructor(
+    public static async create(
         req: express.Request,
         fileInfo: FileInfo | undefined,
         filePath: string,
         authRoomUserRepository: IAuthRoomUserRepository,
         roomRepository: IRoomRepository
-    )
+    ): Promise<GetResponse>
     {
         // Если файла не существует.
         if (!fileInfo || !fs.existsSync(filePath))
         {
-            this.statusCode = 404;
-            return;
+            return new GetResponse(404);
         }
 
         const userId = req.token.userId;
 
+        // Пропустим проверку на авторизацию в комнате, если верный пароль указан в query.
+        let skipAuthRoomUserCheck = false;
+        // Пароль из query, если он есть.
+        const passFromQuery = req.query.p as string | undefined;
+        if (passFromQuery)
+        {
+            skipAuthRoomUserCheck = await roomRepository.checkPassword(fileInfo.roomId, passFromQuery);
+        }
+
         // Если комната защищена паролем,
         // и пользователь не авторизован в комнате,
         // то он не имеет права качать этот файл.
-        if (!roomRepository.isEmptyPassword(fileInfo.roomId)
+        if (!skipAuthRoomUserCheck
+            && !roomRepository.isEmptyPassword(fileInfo.roomId)
             && (!userId || !authRoomUserRepository.has(fileInfo.roomId, userId)))
         {
-            this.statusCode = 403;
-            return;
+            return new GetResponse(403);
         }
 
         // Если файл ещё не закачался на сервер.
         if (fileInfo.bytesWritten != fileInfo.size)
         {
-            this.statusCode = 202;
-            this.statusMsg = "File is not ready";
-            return;
+            const statusMsg = "File is not ready";
+            return new GetResponse(202, false, statusMsg);
         }
 
-        this.statusCode = 200;
-        this.successful = true;
+        return new GetResponse(200, true);
+    }
+
+    private constructor(
+        statusCode: number,
+        successful = false,
+        statusMsg?: string
+    )
+    {
+        this.statusCode = statusCode;
+        this.successful = successful;
+        this.statusMsg = statusMsg;
     }
 }

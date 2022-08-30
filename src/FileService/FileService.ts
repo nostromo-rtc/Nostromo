@@ -40,7 +40,7 @@ export interface IFileService
     downloadFile(
         req: express.Request,
         res: express.Response
-    ): void;
+    ): Promise<void>;
 }
 
 export class FileService implements IFileService
@@ -176,10 +176,10 @@ export class FileService implements IFileService
         this.sendStatus(res, tusRes.statusCode);
     }
 
-    public downloadFile(
+    public async downloadFile(
         req: express.Request,
         res: express.Response
-    ): void
+    ): Promise<void>
     {
         // получаем из запроса Id файла
         // и информацию о файле из этого Id
@@ -187,7 +187,7 @@ export class FileService implements IFileService
         const fileInfo = this.fileRepository.get(fileId);
         const filePath = path.join(this.FILES_PATH, fileId);
 
-        const customRes = new GetResponse(
+        const customRes = await GetResponse.create(
             req, fileInfo, filePath,
             this.authRoomUserRepository,
             this.roomRepository
