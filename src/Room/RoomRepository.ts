@@ -68,7 +68,7 @@ export class PlainRoomRepository implements IRoomRepository
 {
     private readonly className = "PlainRoomRepository";
     private readonly ROOMS_FILE_PATH = path.resolve(process.cwd(), "data", "rooms.json");
-    private readonly hashSalt = Buffer.from(process.env.ROOM_PASS_HASH_SALT!, "hex");
+    private readonly hashSalt = Buffer.from(process.env.ROOM_PASS_HASH_SALT!);
     private rooms = new Map<string, IRoom>();
     private mediasoup: IMediasoupService;
     private userAccountRepository: IUserAccountRepository;
