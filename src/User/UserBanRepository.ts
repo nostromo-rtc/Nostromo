@@ -15,6 +15,12 @@ export interface IUserBanRepository
 
     /** Есть ли запись о блокировке пользователя с указанным ip-адресом? */
     has(ip: string): boolean;
+
+    /** Запомнить неудачную попытку авторизации. */
+    saveFailedAuthAttempts(ip: string, objectId: string): Promise<number>;
+
+    /** Удалить неудачные попытки авторизации. */
+    clearFailedAuthAttempts(ip: string, objectId: string): void;
 }
 
 export class PlainUserBanRepository implements IUserBanRepository
@@ -22,6 +28,12 @@ export class PlainUserBanRepository implements IUserBanRepository
     private readonly className = "PlainUserBanRepository";
     private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "data", "bans.json");
     private bans = new Map<string, UserBanInfo>();
+
+    /** Подозреваемые в подборе пароля (брутфорс). */
+    private bruteForceSuspects = new Map<string, number>();
+
+    /** Количество неудачных попыток авторизации, после которых наступает блокировка.  */
+    private failedAuthAttemptsForBan = Number(process.env.FAILED_AUTH_ATTEMPTS_FOR_BAN) ?? 0;
 
     constructor()
     {
@@ -92,5 +104,41 @@ export class PlainUserBanRepository implements IUserBanRepository
     public has(ip: string): boolean
     {
         return this.bans.has(ip);
+    }
+
+    public async saveFailedAuthAttempts(ip: string, objectId: string): Promise<number>
+    {
+        // Если данная опция выключена в конфиге путем установки значения на '0',
+        // то ничего не делаем и возвращаем '0' неудачных попыток.
+        if (this.failedAuthAttemptsForBan == 0)
+        {
+            return 0;
+        }
+
+        const key = `${ip},${objectId}`;
+        const oldAttemptsCount = this.bruteForceSuspects.get(key);
+        let attemptsCount = 1;
+
+        if (oldAttemptsCount)
+        {
+            attemptsCount = oldAttemptsCount + 1;
+        }
+
+        this.bruteForceSuspects.set(key, attemptsCount);
+
+        // Если количество попыток достигло критического значения, то блокируем пользователя.
+        if (attemptsCount >= this.failedAuthAttemptsForBan)
+        {
+            await this.create({ ip });
+            this.clearFailedAuthAttempts(ip, objectId);
+        }
+
+        return attemptsCount;
+    }
+
+    public clearFailedAuthAttempts(ip: string, objectId: string): void
+    {
+        const key = `${ip},${objectId}`;
+        this.bruteForceSuspects.delete(key);
     }
 }

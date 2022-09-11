@@ -254,9 +254,15 @@ export class WebService
         // Проверяем пароль.
         const isPassCorrect = await this.roomRepository.checkPassword(room.id, pass);
 
-        // Корректный пароль в query.
+        // IP-адрес пользователя.
+        const userIp = req.ip.substring(7);
+
+        // Корректный пароль?
         if (isPassCorrect)
         {
+            // Забудем все неудачные попытки авторизации в этой комнате.
+            this.userBanRepository.clearFailedAuthAttempts(userIp, roomId);
+
             let userId = req.token.userId;
 
             // Если у пользователя не было токена.
@@ -269,8 +275,18 @@ export class WebService
             await this.authRoomUserRepository.create(roomId, userId);
             res.sendFile(ROOM_PAGE_PATH);
         }
-        else // Если не авторизован.
+        else
         {
+            // Запомним неудачную попытку авторизации.
+            if (pass != "")
+            {
+                const attemptsCount = await this.userBanRepository.saveFailedAuthAttempts(userIp, roomId);
+                if (attemptsCount > 0)
+                {
+                    console.log(`[WebService] User [${req.token.userId ?? "guest"}, ${userIp}] failed authorization in the Room [${roomId}]: ${attemptsCount} times.`);
+                }
+            }
+
             res.status(401).sendFile(ROOM_AUTH_PAGE_PATH);
         }
     };
@@ -285,7 +301,7 @@ export class WebService
         }
 
         // Пароль из HTTP-заголовка.
-        let passFromHeader = req.header("Authorization");
+        let passFromHeader = req.header("Authorization") ?? "";
         if (passFromHeader)
         {
             passFromHeader = Buffer.from(passFromHeader, "base64").toString("utf-8");
@@ -307,12 +323,27 @@ export class WebService
             }
         }
 
+        const userIp = req.ip.substring(7);
+
         if (!userId || !this.userAccountRepository.isAdmin(userId))
         {
+            if (passFromHeader != "")
+            {
+                // Запомним неудачную попытку авторизации в панели администратора.
+                const attemptsCount = await this.userBanRepository.saveFailedAuthAttempts(userIp, "admin");
+                if (attemptsCount > 0)
+                {
+                    console.log(`[WebService] User [${req.token.userId ?? "guest"}, ${userIp}] failed authorization in the admin panel: ${attemptsCount} times.`);
+                }
+            }
+
             res.status(401).sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
         }
         else
         {
+            // Забудем все неудачные попытки авторизации в панели администратора.
+            this.userBanRepository.clearFailedAuthAttempts(userIp, "admin");
+
             res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
         }
     };
