@@ -188,6 +188,8 @@ export class RoomSocketService implements IRoomSocketService
         {
             await room.connectWebRtcTransport(user, info);
 
+            console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] is trying to connect to transport.`);
+
             // Сообщим клиенту, что параметры info были приняты сервером.
             socket.emit(SE.ConnectWebRtcTransport);
         });
