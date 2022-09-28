@@ -1,3 +1,14 @@
+- [Setup](#setup)
+    - [If you want to launch release (from binaries)](#if-you-want-to-launch-release-from-binaries)
+    - [If you want to launch dev version (from sources)](#if-you-want-to-launch-dev-version-from-sources)
+- [Settings](#settings)
+    - [Guide for quick setup](#guide-for-quick-setup)
+- [Requirements](#requirements)
+    - [Requirements for launching program](#requirements-for-launching-program)
+    - [Requirements for building project](#requirements-for-building-project)
+    - [Requirements for building C/C++ components](#requirements-for-building-cc-components)
+- [Tricks](#tricks)
+
 # Setup
 
 ## If you want to launch release (from binaries)
@@ -69,12 +80,32 @@ Application will search settings in a `"server.conf"` file, but in case that fil
 
 Application will inform about error, if `"server.conf"` or `"server.default.conf"` files are not exist.
 
->Don't forget place `SSL` files in `"config/ssl"` folder.
+## Guide for quick setup
+1. Make a copy of `"server.default.conf"` and rename it into `"server.conf"`. Open this config file.
 
->To generate `self-signed` SSL cert use command (you need to have `OpenSSL` for that):
-```
-openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
-```
+2. Change webserver ports if it necessary (params `HTTP_PORT` and `HTTPS_PORT`).
+    > Don't forget to open this ports.
+
+3. Set local and announced IP addresses in params `MEDIASOUP_LOCAL_IP` and `MEDIASOUP_ANNOUNCED_IP` for media server.
+    > If you plan to work in a closed local network, then you can set nothing in `MEDIASOUP_ANNOUNCED_IP`.
+
+4. Set the range of ports for the media server from `MEDIASOUP_RTC_MIN_PORT` to `MEDIASOUP_RTC_MAX_PORT`.
+    > Don't forget to open this ports (preferably open both **TCP** and **UDP** protocols, because server supports this protocols by default for connecting with user for sending mediastreams).
+
+5. Set incoming and outcoming network speed (in megabites) for a balanced calculation of the bitrate of media streams for your network: `NETWORK_INCOMING_CAPABILITY` - incoming speed, `NETWORK_OUTCOMING_CAPABILITY` - outcoming speed.
+
+6. Change admin password. You can reach admin panel at (`https://*site*/admin`).
+
+7. Change secret key, salt and other (params `ROOM_PASS_HASH_SALT`, `TOKEN_SECRET_KEY`).
+
+8. Put yours SSL certificate and key in `"config/ssl"` folder.
+
+    >To generate `self-signed` SSL cert use command (you need to have `OpenSSL` for that):
+    ```
+    openssl req -newkey rsa:2048 -nodes -keyout private.key -new -x509 -days 365 -out public.crt
+    ```
+
+9. Launch the server, open the admin panel and create a room.
 
 # Requirements
 

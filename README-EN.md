@@ -1,5 +1,16 @@
 # Nostromo (English)
 
+- [Description](#description)
+    - [Short description](#short-description)
+    - [Future development plans](#future-development-plans)
+    - [Features](#features)
+    - [Perfomance](#perfomance)
+- [Setup, settings, requirements](#setup-settings-requirements)
+- [FAQ](#faq)
+- [Demo screenshot](#demo-screenshot-not-final-result)
+- [Author](#author)
+- [License](#license)
+
 # Description
 
 ## Short description
@@ -66,11 +77,14 @@ We have tested on **40** users for several hours and in general everything went 
 
 All this was on an 10-year-old server and with a network bandwith (Internet) of about 15 **Mbit/s**.
 
-Try it yourself and share your results in any way you like (via [Issues](https://gitlab.com/SgAkErRu/nostromo/-/issues) or [e-mail](https://gitlab.com/SgAkErRu)).
+Try it yourself and share your results in any way you like (via [Issues](https://gitlab.com/SgAkErRu/nostromo/-/issues) or [e-mail](mailto:sulmpx60@yandex.ru)).
 
 # Setup, settings, requirements
 
 [**Setup**, **settings** and **requirements** can be found here](/docs/SETUP-EN.md).
+
+# FAQ
+[You can find FAQ here](/docs/FAQ-EN.md).
 
 # Demo screenshot (not final result)
 ![Nostromo demo screenshot](nostromo-demo-screenshot.png)
