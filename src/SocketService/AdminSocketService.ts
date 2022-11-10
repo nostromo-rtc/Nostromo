@@ -27,6 +27,7 @@ export class AdminSocketService
     private userAccountRepository: IUserAccountRepository;
     private roomChatRepository: IRoomChatRepository;
     private fileRepository: IFileRepository;
+    private adminAllowlist: Set<string>
 
     constructor(
         adminIo: SocketIO.Namespace,
@@ -38,7 +39,8 @@ export class AdminSocketService
         authRoomUserRepository: IAuthRoomUserRepository,
         userAccountRepository: IUserAccountRepository,
         roomChatRepository: IRoomChatRepository,
-        fileRepository: IFileRepository
+        fileRepository: IFileRepository,
+        adminAllowlist: Set<string>
     )
     {
         this.adminIo = adminIo;
@@ -52,9 +54,13 @@ export class AdminSocketService
         this.roomChatRepository = roomChatRepository;
         this.fileRepository = fileRepository;
 
+        this.adminAllowlist = adminAllowlist;
+
         this.checkIp();
 
         this.adminIo.use(tokenMiddleware);
+
+        this.checkAuth();
 
         this.clientConnected();
     }
@@ -64,15 +70,27 @@ export class AdminSocketService
     {
         this.adminIo.use((socket: Socket, next) =>
         {
-            // TODO: сделать поддержку списка доверенных IP
-
-            // если с недоверенного ip, то не открываем вебсокет-соединение
-            if ((socket.handshake.address == process.env.ALLOW_ADMIN_IP)
-                || (process.env.ALLOW_ADMIN_EVERYWHERE === 'true'))
+            // Если с доверенного ip, то открываем вебсокет-соединение.
+            if ((process.env.ADMIN_ALLOW_EVERYWHERE === "true") ||
+                this.adminAllowlist.has(socket.handshake.address.substring(7)))
             {
                 return next();
             }
-            return next(new Error("unauthorized"));
+            return next(new Error("403"));
+        });
+    }
+
+    /** Проверяем авторизацию. */
+    private checkAuth()
+    {
+        this.adminIo.use((socket: Socket, next) =>
+        {
+            const userId = socket.handshake.token.userId;
+            if (!userId || !this.userAccountRepository.isAdmin(userId))
+            {
+                return next(new Error("403"));
+            }
+            return next();
         });
     }
 
@@ -81,12 +99,6 @@ export class AdminSocketService
     {
         this.adminIo.on('connection', (socket: Socket) =>
         {
-            const userId = socket.handshake.token.userId;
-            if (!userId || !this.userAccountRepository.isAdmin(userId))
-            {
-                return;
-            }
-
             socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
 
             socket.on(SE.CreateRoom, this.createRoom);

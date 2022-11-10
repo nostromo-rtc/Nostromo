@@ -62,7 +62,8 @@ export class SocketManager
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
-        roomChatRepository: IRoomChatRepository
+        roomChatRepository: IRoomChatRepository,
+        adminAllowlist: Set<string>
     )
     {
         this.io = this.createSocketServer(server);
@@ -109,7 +110,8 @@ export class SocketManager
             authRoomUserRepository,
             userAccountRepository,
             roomChatRepository,
-            fileRepository
+            fileRepository,
+            adminAllowlist
         );
     }
 }

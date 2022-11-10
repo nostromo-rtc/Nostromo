@@ -79,6 +79,23 @@ function initApplication()
     }
 }
 
+function createAdminAllowlist(): Set<string>
+{
+    let allowlist = new Set<string>();
+
+    const allowlistStr = process.env.ADMIN_ALLOWLIST;
+
+    if (allowlistStr)
+    {
+        // Ищем точку с запятой, не обращая внимание на пробелы ДО и ПОСЛЕ точки с запятой.
+        const re = /\s*;\s*/;
+
+        allowlist = new Set(allowlistStr.split(re));
+    }
+
+    return allowlist;
+}
+
 // главная функция
 async function main()
 {
@@ -125,6 +142,9 @@ async function main()
         // Сервис для работы с токенами.
         const tokenService = new TokenService(userAccountRepository);
 
+        // Список IP-адресов, которым разрешено заходить в админку / в форму авторизации в админку.
+        const adminAllowlist = createAdminAllowlist();
+
         // Express веб-сервис.
         const express = new WebService(
             fileService,
@@ -132,7 +152,8 @@ async function main()
             roomRepository,
             userAccountRepository,
             userBanRepository,
-            authRoomUserRepository
+            authRoomUserRepository,
+            adminAllowlist
         );
 
         const httpServer: http.Server = http.createServer(express.app);
@@ -166,7 +187,8 @@ async function main()
             userAccountRepository,
             userBanRepository,
             authRoomUserRepository,
-            roomChatRepository
+            roomChatRepository,
+            adminAllowlist
         );
     }
     catch (err)

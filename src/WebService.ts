@@ -35,13 +35,17 @@ export class WebService
     /** Авторизованные пользователи в комнатах. */
     private authRoomUserRepository: IAuthRoomUserRepository;
 
+    /** Список IP-адресов, которым разрешено заходить в админку / в форму авторизации в админку. */
+    private adminAllowlist: Set<string>
+
     constructor(
         fileService: IFileService,
         tokenService: ITokenService,
         roomRepository: IRoomRepository,
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
-        authRoomUserRepository: IAuthRoomUserRepository
+        authRoomUserRepository: IAuthRoomUserRepository,
+        adminAllowlist: Set<string>
     )
     {
         this.fileService = fileService;
@@ -51,6 +55,8 @@ export class WebService
         this.userAccountRepository = userAccountRepository;
         this.userBanRepository = userBanRepository;
         this.authRoomUserRepository = authRoomUserRepository;
+
+        this.adminAllowlist = adminAllowlist;
 
         this.app.use(this.checkBanMiddleware);
 
@@ -294,8 +300,8 @@ export class WebService
     /** Маршруты для администратора. */
     private adminRoute: express.RequestHandler = async (req, res) =>
     {
-        if ((req.ip != process.env.ALLOW_ADMIN_IP) &&
-            (process.env.ALLOW_ADMIN_EVERYWHERE != "true"))
+        if ((process.env.ADMIN_ALLOW_EVERYWHERE !== "true") &&
+            !this.adminAllowlist.has(req.ip.substring(7)))
         {
             return res.sendStatus(403);
         }
