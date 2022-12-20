@@ -15,25 +15,28 @@
   "author": "SgAkErRu",
   "license": "BSD-3-Clause",
   "dependencies": {
-    "cookie": "^0.5.0",
+    "cookie": "0.5.0",
     "dotenv": "10.0.0",
-    "express": "4.17.2",
-    "jose": "^4.8.0",
+    "express": "4.18.2",
+    "jose": "4.11.1",
     "mediasoup": "3.9.6",
-    "nanoid": "3.2.0",
-    "nostromo-web": "git+https://git@gitlab.com/sgakerru/nostromo-web.git#dev",
-    "socket.io": "4.4.1"
+    "nanoid": "3.3.4",
+    "nostromo-web": "gitlab:SgAkErRu/nostromo-web#dev",
+    "socket.io": "4.5.4"
   },
   "devDependencies": {
-    "@types/express": "4.17.13",
-    "@types/node": "12.20.47",
-    "@typescript-eslint/eslint-plugin": "5.17.0",
-    "@typescript-eslint/parser": "5.17.0",
-    "eslint": "8.12.0",
-    "nostromo-shared": "git+https://git@gitlab.com/sgakerru/nostromo-shared.git#dev",
-    "typescript": "4.6.3"
+    "@types/express": "4.17.15",
+    "@types/node": "12.20.55",
+    "@typescript-eslint/eslint-plugin": "5.47.0",
+    "@typescript-eslint/parser": "5.47.0",
+    "eslint": "8.30.0",
+    "nostromo-shared": "gitlab:SgAkErRu/nostromo-shared#dev",
+    "typescript": "4.9.4"
   },
   "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme",
+  "engines": {
+    "node": ">=12"
+  },
   "bundleDependencies": [
     "cookie",
     "dotenv",
