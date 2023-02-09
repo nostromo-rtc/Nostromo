@@ -143,7 +143,7 @@ export class FileService implements IFileService
             // Если корректный запрос, то записываем в файл.
             if (tusRes.successful)
             {
-                console.log(`[FileService] User [${fileInfo!.ownerId}, ${req.ip.substring(7)}] uploading file: ${fileInfo!.id}.`);
+                console.log(`[FileService] User [${fileInfo!.ownerId}, ${req.clientIp}] uploading file: ${fileInfo!.id}.`);
 
                 // Запишем поток в файл и получим новое значение offset.
                 fileInfo!.bytesWritten = await this.fileRepository.writeFile(req, fileInfo!.id, fileInfo!.bytesWritten);
@@ -195,13 +195,13 @@ export class FileService implements IFileService
 
         if (!customRes.successful)
         {
-            console.log(`[FileService] User [${req.token.userId ?? "guest"}, ${req.ip.substring(7)}] failed to download file: ${fileId}: ${customRes.statusCode}.`);
+            console.log(`[FileService] User [${req.token.userId ?? "guest"}, ${req.clientIp}] failed to download file: ${fileId}: ${customRes.statusCode}.`);
 
             this.sendStatus(res, customRes.statusCode, customRes.statusMsg);
         }
         else
         {
-            console.log(`[FileService] User [${req.token.userId ?? "guest"}, ${req.ip.substring(7)}] downloading file: ${fileId}.`);
+            console.log(`[FileService] User [${req.token.userId ?? "guest"}, ${req.clientIp}] downloading file: ${fileId}.`);
 
             const fileType = fileInfo!.type;
             res.contentType(fileType);

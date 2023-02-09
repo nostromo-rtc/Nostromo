@@ -1,5 +1,6 @@
 import express = require('express');
 import path = require('path');
+import proxyAddr = require("proxy-addr");
 
 import { ITokenService } from "./TokenService";
 import { IFileService } from "./FileService/FileService";
@@ -8,8 +9,21 @@ import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
 import { IUserBanRepository } from "./User/UserBanRepository";
 import { IUserAccountRepository } from "./User/UserAccountRepository";
 import { IAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
+import { ProxyAddrTrust } from ".";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
+
+// Расширяю класс Request у Express, добавляя в него клиентский ip-адрес.
+declare global
+{
+    namespace Express
+    {
+        interface Request
+        {
+            clientIp: string;
+        }
+    }
+}
 
 /** HTTP веб-сервис. */
 export class WebService
@@ -36,7 +50,10 @@ export class WebService
     private authRoomUserRepository: IAuthRoomUserRepository;
 
     /** Список IP-адресов, которым разрешено заходить в админку / в форму авторизации в админку. */
-    private adminAllowlist: Set<string>
+    private adminAllowlist: Set<string>;
+
+    /** Скомпилированная функция проверки списка доверенных прокси адресов. */
+    private trustProxyAddrFunc?: ProxyAddrTrust;
 
     constructor(
         fileService: IFileService,
@@ -45,7 +62,8 @@ export class WebService
         userAccountRepository: IUserAccountRepository,
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
-        adminAllowlist: Set<string>
+        adminAllowlist: Set<string>,
+        trustProxyAddrFunc: ProxyAddrTrust | undefined
     )
     {
         this.fileService = fileService;
@@ -57,6 +75,10 @@ export class WebService
         this.authRoomUserRepository = authRoomUserRepository;
 
         this.adminAllowlist = adminAllowlist;
+
+        this.trustProxyAddrFunc = trustProxyAddrFunc;
+
+        this.app.use(this.getClientIpMiddleware);
 
         this.app.use(this.checkBanMiddleware);
 
@@ -77,10 +99,28 @@ export class WebService
         this.endPoint();
     }
 
+    private getClientIpMiddleware: express.RequestHandler = (req: express.Request, res: express.Response, next: express.NextFunction) =>
+    {
+        let clientIp = "";
+
+        if (this.trustProxyAddrFunc !== undefined)
+        {
+            clientIp = proxyAddr(req, this.trustProxyAddrFunc);
+        }
+        else
+        {
+            clientIp = req.ip.substring(7);
+        }
+
+        req.clientIp = clientIp;
+
+        next();
+    };
+
     /** Проверяем на наличие блокировки по ip-адресу пользователя. */
     private checkBanMiddleware: express.RequestHandler = (req: express.Request, res: express.Response, next: express.NextFunction) =>
     {
-        if (!this.userBanRepository.has(req.ip.substring(7)))
+        if (!this.userBanRepository.has(req.clientIp))
         {
             next();
         }
@@ -261,7 +301,7 @@ export class WebService
         const isPassCorrect = await this.roomRepository.checkPassword(room.id, pass);
 
         // IP-адрес пользователя.
-        const userIp = req.ip.substring(7);
+        const userIp = req.clientIp;
 
         // Корректный пароль?
         if (isPassCorrect)
@@ -301,7 +341,7 @@ export class WebService
     private adminRoute: express.RequestHandler = async (req, res) =>
     {
         if ((process.env.ADMIN_ALLOW_EVERYWHERE !== "true") &&
-            !this.adminAllowlist.has(req.ip.substring(7)))
+            !this.adminAllowlist.has(req.clientIp))
         {
             return res.sendStatus(403);
         }
@@ -329,7 +369,7 @@ export class WebService
             }
         }
 
-        const userIp = req.ip.substring(7);
+        const userIp = req.clientIp;
 
         if (!userId || !this.userAccountRepository.isAdmin(userId))
         {

@@ -72,7 +72,7 @@ export class AdminSocketService
         {
             // Если с доверенного ip, то открываем вебсокет-соединение.
             if ((process.env.ADMIN_ALLOW_EVERYWHERE === "true") ||
-                this.adminAllowlist.has(socket.handshake.address.substring(7)))
+                this.adminAllowlist.has(socket.handshake.clientIp))
             {
                 return next();
             }

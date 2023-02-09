@@ -135,7 +135,7 @@ export class RoomSocketService implements IRoomSocketService
         userId: string
     ): Promise<void>
     {
-        const userIp = socket.handshake.address.substring(7);
+        const userIp = socket.handshake.clientIp;
         const username = this.userAccountRepository.getUsername(userId) ?? "Гость";
 
         console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] has joined.`);
@@ -346,7 +346,7 @@ export class RoomSocketService implements IRoomSocketService
     {
         const { rtpCapabilities } = info;
 
-        const userIp = socket.handshake.address.substring(7);
+        const userIp = socket.handshake.clientIp;
         const userId = user.userId;
         const username = this.userAccountRepository.getUsername(userId) ?? "Гость";
 
@@ -679,7 +679,7 @@ export class RoomSocketService implements IRoomSocketService
     {
         room.userDisconnected(userId);
 
-        const userIp = socket.handshake.address.substring(7);
+        const userIp = socket.handshake.clientIp;
         const username = this.userAccountRepository.getUsername(userId) ?? "Гость";
 
         console.log(`[Room] [${room.id}, '${room.name}']: User [${userId}, ${userIp}, '${username}'] has disconnected: ${reason}.`);
@@ -850,7 +850,7 @@ export class RoomSocketService implements IRoomSocketService
         if (userSocket)
         {
             // Выясняем IP-адрес клиента.
-            const ip = userSocket.handshake.address.substring(7);
+            const ip = userSocket.handshake.clientIp;
 
             // Создаём запись о блокировке пользователя.
             await this.userBanRepository.create({ ip });

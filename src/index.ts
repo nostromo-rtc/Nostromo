@@ -4,6 +4,9 @@ import http = require('http');
 import https = require('https');
 import dotenv = require('dotenv');
 import os = require('os');
+import proxyAddr = require("proxy-addr");
+
+export type ProxyAddrTrust = (addr: string, i: number) => boolean;
 
 // Express и прочие HTTP сервисы
 import { WebService } from './WebService';
@@ -96,6 +99,24 @@ function createAdminAllowlist(): Set<string>
     return allowlist;
 }
 
+function getProxyAddrTrustFunc(): ProxyAddrTrust | undefined
+{
+    const addr = process.env.TRUST_PROXY_ADDR ?? false;
+
+    if (!addr || addr === "false")
+    {
+        return undefined;
+    }
+
+    console.log(`[Config] Trust proxy addresses: ${addr}.`);
+
+    // Ищем точку с запятой, не обращая внимание на пробелы ДО и ПОСЛЕ точки с запятой.
+    const re = /\s*;\s*/;
+    const addresses = addr.split(re);
+
+    return proxyAddr.compile(addresses);
+}
+
 // главная функция
 async function main()
 {
@@ -145,6 +166,9 @@ async function main()
         // Список IP-адресов, которым разрешено заходить в админку / в форму авторизации в админку.
         const adminAllowlist = createAdminAllowlist();
 
+        // Получить скомпилированную функцию проверки списка доверенных адресов (от прокси).
+        const trustProxyAddrFunc = getProxyAddrTrustFunc();
+
         // Express веб-сервис.
         const express = new WebService(
             fileService,
@@ -153,7 +177,8 @@ async function main()
             userAccountRepository,
             userBanRepository,
             authRoomUserRepository,
-            adminAllowlist
+            adminAllowlist,
+            trustProxyAddrFunc
         );
 
         const httpServer: http.Server = http.createServer(express.app);
@@ -188,7 +213,8 @@ async function main()
             userBanRepository,
             authRoomUserRepository,
             roomChatRepository,
-            adminAllowlist
+            adminAllowlist,
+            trustProxyAddrFunc
         );
     }
     catch (err)

@@ -1,22 +1,33 @@
 import https = require('https');
+import proxyAddr = require("proxy-addr");
 
 import SocketIO = require('socket.io');
 import { ExtendedError } from 'socket.io/dist/namespace';
+import { ProxyAddrTrust } from "..";
 
+import { IFileRepository } from "../FileService/FileRepository";
+import { IMediasoupService } from "../MediasoupService";
+import { IRoomChatRepository } from "../Room/RoomChatRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
+import { TokenSocketMiddleware } from "../TokenService";
+import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
+import { IUserBanRepository } from "../User/UserBanRepository";
 import { AdminSocketService } from "./AdminSocketService";
 import { GeneralSocketService, IGeneralSocketService } from "./GeneralSocketService";
 import { IRoomSocketService, RoomSocketService } from "./RoomSocketService";
-import { IUserBanRepository } from "../User/UserBanRepository";
-import { IUserAccountRepository } from "../User/UserAccountRepository";
-import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
-import { IMediasoupService } from "../MediasoupService";
-import { IFileRepository } from "../FileService/FileRepository";
-import { TokenSocketMiddleware } from "../TokenService";
-import { IRoomChatRepository } from "../Room/RoomChatRepository";
+
 
 export type SocketNextFunction = (err?: ExtendedError) => void;
 type SocketMiddleware = (req: SocketIO.Socket, next: SocketNextFunction) => void;
+
+// Расширяю класс Handshake у Socket.IO, добавляя в него клиентский ip-адрес.
+declare module "socket.io/dist/socket" {
+    interface Handshake
+    {
+        clientIp: string;
+    }
+}
 
 /** Обработчик веб-сокетов. */
 export class SocketManager
@@ -29,6 +40,8 @@ export class SocketManager
     private roomSocketService: IRoomSocketService;
     private userBanRepository: IUserBanRepository;
 
+    private trustProxyAddrFunc?: ProxyAddrTrust;
+
     /** Создать SocketIO сервер. */
     private createSocketServer(server: https.Server): SocketIO.Server
     {
@@ -36,14 +49,33 @@ export class SocketManager
             transports: ['websocket'],
             pingInterval: 5000,
             pingTimeout: 15000,
-            serveClient: false
+            serveClient: false,
         });
     }
 
-    private applyCheckBanMiddleware: SocketMiddleware = (socket, next) =>
+    private getClientIpMiddleware: SocketMiddleware = (socket, next) => 
     {
-        const address = socket.handshake.address;
-        if (!this.userBanRepository.has(address.substring(7)))
+        let clientIp = "";
+
+        if (this.trustProxyAddrFunc !== undefined)
+        {
+            clientIp = proxyAddr(socket.request, this.trustProxyAddrFunc);
+        }
+        else
+        {
+            clientIp = socket.handshake.address.substring(7);
+        }
+
+        socket.handshake.clientIp = clientIp;
+
+        next();
+    }
+
+    private checkBanMiddleware: SocketMiddleware = (socket, next) =>
+    {
+        const ip = socket.handshake.clientIp;
+
+        if (!this.userBanRepository.has(ip))
         {
             next();
         }
@@ -51,7 +83,7 @@ export class SocketManager
         {
             next(new Error("banned"));
         }
-    }
+    };
 
     constructor(
         server: https.Server,
@@ -63,11 +95,13 @@ export class SocketManager
         userBanRepository: IUserBanRepository,
         authRoomUserRepository: IAuthRoomUserRepository,
         roomChatRepository: IRoomChatRepository,
-        adminAllowlist: Set<string>
+        adminAllowlist: Set<string>,
+        trustProxyAddrFunc: ProxyAddrTrust | undefined
     )
     {
         this.io = this.createSocketServer(server);
         this.userBanRepository = userBanRepository;
+        this.trustProxyAddrFunc = trustProxyAddrFunc;
 
         this.namespaces.set("general", this.io.of("/"));
         this.namespaces.set("room", this.io.of("/room"));
@@ -76,7 +110,8 @@ export class SocketManager
         for (const mapValue of this.namespaces)
         {
             const ns = mapValue[1];
-            ns.use(this.applyCheckBanMiddleware);
+            ns.use(this.getClientIpMiddleware);
+            ns.use(this.checkBanMiddleware);
         }
 
         // главная страница (общие события)
