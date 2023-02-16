@@ -65,6 +65,11 @@ export class FileService implements IFileService
         {
             process.env.FILE_MAX_SIZE = String(2 * 1024 * 1024 * 1024);
         }
+
+        if (!process.env.FILE_STORAGE_SIZE)
+        {
+            process.env.FILE_STORAGE_SIZE = String(10 * 1024 * 1024 * 1024);
+        }
     }
 
     /** Присвоить HTTP-заголовки ответу Response. */
@@ -236,7 +241,7 @@ export class FileService implements IFileService
         // запоминаем владельца файла
         const ownerId = userId;
 
-        const tusRes = new TusPostCreationResponse(req, ownerId, roomId);
+        const tusRes = new TusPostCreationResponse(req, ownerId, roomId, this.fileRepository);
         this.assignHeaders(tusRes, res);
 
         // если проблем не возникло

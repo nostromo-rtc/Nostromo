@@ -4,7 +4,7 @@ import fs = require("fs");
 import { FileServiceConstants, FileServiceResponse, OutgoingHttpHeaders } from "nostromo-shared/types/FileServiceTypes";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { NewFileInfo, FileInfo } from "./FileRepository";
+import { NewFileInfo, FileInfo, IFileRepository } from "./FileRepository";
 export class TusHeadResponse implements FileServiceResponse
 {
     public headers: OutgoingHttpHeaders = {
@@ -151,7 +151,12 @@ export class TusPostCreationResponse implements FileServiceResponse
         return metadataMap;
     }
 
-    constructor(req: express.Request, ownerId: string, roomId: string)
+    constructor(
+        req: express.Request,
+        ownerId: string,
+        roomId: string,
+        fileRepository: IFileRepository
+    )
     {
         // проверяем версию Tus
         if (req.header("Tus-Resumable") != FileServiceConstants.TUS_VERSION)
@@ -174,6 +179,13 @@ export class TusPostCreationResponse implements FileServiceResponse
             this.statusCode = 413;
             return;
         }
+
+         // проверяем, вместится ли файл в файловое хранилище
+         if (Number(fileSize) + fileRepository.getCurrentFileStorageSize() > Number(process.env.FILE_STORAGE_SIZE))
+         {
+             this.statusCode = 413;
+             return;
+         }
 
         // считываем метаданные из заголовка
         const originalMetadata = req.header("Upload-Metadata")?.toString();

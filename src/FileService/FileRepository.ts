@@ -55,6 +55,9 @@ export interface IFileRepository
 
     /** Есть ли запись о таком файле? */
     has(id: string): boolean;
+
+    /** Получить текущий размер файлового хранилища. */
+    getCurrentFileStorageSize(): number;
 }
 
 export class PlainFileRepository implements IFileRepository
@@ -63,10 +66,12 @@ export class PlainFileRepository implements IFileRepository
     private readonly FILES_INFO_FILE_PATH = path.resolve(process.cwd(), "data", "files.json");
     private readonly FILES_PATH = path.join(process.cwd(), "data", FileServiceConstants.FILES_ROUTE);
     private files = new Map<FileId, FileInfo>();
+    private currentFileStorageSize = 0;
 
     constructor()
     {
         this.init();
+        this.calcFileStorageSize();
     }
 
     /** Полностью обновить содержимое файла с записями о комнатах. */
@@ -82,7 +87,7 @@ export class PlainFileRepository implements IFileRepository
         }
     }
 
-    public init(): void
+    private init(): void
     {
         const fileContent = readFromFileSync(this.FILES_INFO_FILE_PATH);
         if (fileContent)
@@ -99,6 +104,16 @@ export class PlainFileRepository implements IFileRepository
                 console.log(`[${this.className}] Info about ${this.files.size} files has been loaded from the 'files.json' file.`);
             }
         }
+    }
+
+    private calcFileStorageSize(): void
+    {
+        for (const fileInfo of this.files.values())
+        {
+            this.currentFileStorageSize += fileInfo.size;
+        }
+
+        console.log(`[${this.className}] Current file storage size: ${(this.currentFileStorageSize)} (${(this.currentFileStorageSize / PrefixConstants.GIGA).toFixed(3)} Gb).`);
     }
 
     public async create(newFileInfo: NewFileInfo): Promise<string>
@@ -125,6 +140,9 @@ export class PlainFileRepository implements IFileRepository
         await this.writeDataToFile();
 
         console.log(`[${this.className}] FileInfo [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] in Room [${info.roomId}] by User [${info.ownerId}] was created.`);
+
+        this.currentFileStorageSize += info.size;
+        console.log(`[${this.className}] Current file storage size: ${(this.currentFileStorageSize)} (${(this.currentFileStorageSize / PrefixConstants.GIGA).toFixed(3)} Gb).`);
 
         return id;
     }
@@ -155,6 +173,9 @@ export class PlainFileRepository implements IFileRepository
         await this.writeDataToFile();
 
         console.log(`[${this.className}] File [${id}, '${info.name}', ${(info.size / PrefixConstants.MEGA).toFixed(3)} Mb] of Room [${info.roomId}] was deleted.`);
+
+        this.currentFileStorageSize -= info.size;
+        console.log(`[${this.className}] Current file storage size: ${(this.currentFileStorageSize)} (${(this.currentFileStorageSize / PrefixConstants.GIGA).toFixed(3)} Gb).`);
     }
 
     public async removeByRoom(roomId: string): Promise<void>
@@ -167,12 +188,15 @@ export class PlainFileRepository implements IFileRepository
                 await this.removeFile(file.id);
 
                 this.files.delete(file.id);
+
+                this.currentFileStorageSize -= file.size;
             }
         }
 
         await this.writeDataToFile();
 
         console.log(`[${this.className}] All files of Room [${roomId}] were deleted.`);
+        console.log(`[${this.className}] Current file storage size: ${(this.currentFileStorageSize)} (${(this.currentFileStorageSize / PrefixConstants.GIGA).toFixed(3)} Gb).`);
     }
 
     public async writeFile(
@@ -199,8 +223,13 @@ export class PlainFileRepository implements IFileRepository
             });
 
             // если ошибки
-            outStream.on("error", (err) => reject(err));
-            inStream.on("error", (err) => reject(err));
+            inStream.on("error", (err) =>
+            {
+                if (outStream.bytesWritten == 0)
+                {
+                    reject(err);
+                }
+            });
 
             // перенаправляем стрим из реквеста в файловый стрим
             inStream.pipe(outStream);
@@ -228,5 +257,10 @@ export class PlainFileRepository implements IFileRepository
     public has(id: string): boolean
     {
         return this.files.has(id);
+    }
+
+    public getCurrentFileStorageSize(): number
+    {
+        return this.currentFileStorageSize;
     }
 }

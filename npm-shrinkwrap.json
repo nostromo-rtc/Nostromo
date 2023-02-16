@@ -2154,12 +2154,12 @@
       }
     },
     "node_modules/nostromo-shared": {
-      "version": "0.3.2",
-      "resolved": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-shared.git#c2a65ed47fe7e56ff14108211473e5a9d24539c0",
+      "version": "0.4.0-dev",
+      "resolved": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-shared.git#c63a395f275341031361dde2b552e05efb436f79",
       "dev": true,
       "license": "BSD-3-Clause",
       "dependencies": {
-        "mediasoup-client": "^3.6.51"
+        "mediasoup-client": "3.6.51"
       }
     },
     "node_modules/nostromo-web": {
@@ -4507,11 +4507,11 @@
       "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg=="
     },
     "nostromo-shared": {
-      "version": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-shared.git#c2a65ed47fe7e56ff14108211473e5a9d24539c0",
+      "version": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-shared.git#c63a395f275341031361dde2b552e05efb436f79",
       "dev": true,
       "from": "nostromo-shared@gitlab:SgAkErRu/nostromo-shared#dev",
       "requires": {
-        "mediasoup-client": "^3.6.51"
+        "mediasoup-client": "3.6.51"
       }
     },
     "nostromo-web": {
