@@ -100,13 +100,13 @@ export class MediasoupService implements IMediasoupService
     public readonly networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
     public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
 
-    public readonly enableUdp: boolean = (process.env.MEDIASOUP_RTC_ENABLE_UDP == "false") ? false : true;
-    public readonly enableTcp: boolean = (process.env.MEDIASOUP_RTC_ENABLE_TCP == "false") ? false : true;
-    public readonly preferUdp: boolean = (process.env.MEDIASOUP_RTC_PREFER_UDP == "false") ? false : true;
-    public readonly preferTcp: boolean = (process.env.MEDIASOUP_RTC_PREFER_TCP == "true") ? true : false;
+    public readonly enableUdp: boolean = (process.env.MEDIASERVER_RTC_ENABLE_UDP == "false") ? false : true;
+    public readonly enableTcp: boolean = (process.env.MEDIASERVER_RTC_ENABLE_TCP == "false") ? false : true;
+    public readonly preferUdp: boolean = (process.env.MEDIASERVER_RTC_PREFER_UDP == "false") ? false : true;
+    public readonly preferTcp: boolean = (process.env.MEDIASERVER_RTC_PREFER_TCP == "true") ? true : false;
 
-    public readonly localIp: string = (process.env.MEDIASOUP_LOCAL_IP) ?? "none";
-    public readonly announcedIp: string = (process.env.MEDIASOUP_ANNOUNCED_IP) ?? "none";
+    public readonly localIp: string = (process.env.MEDIASERVER_LOCAL_IP) ?? "none";
+    public readonly announcedIp: string = (process.env.MEDIASERVER_ANNOUNCED_IP) ?? "none";
 
     public maxAudioBitrate = ((process.env.MAX_AUDIO_BITRATE != undefined) ? Number(process.env.MAX_AUDIO_BITRATE) : 64) * PrefixConstants.KILO;
 
@@ -176,8 +176,8 @@ export class MediasoupService implements IMediasoupService
         {
             const worker: MediasoupTypes.Worker = await mediasoup.createWorker(
                 {
-                    rtcMinPort: Number(process.env.MEDIASOUP_RTC_MIN_PORT ?? 40000),
-                    rtcMaxPort: Number(process.env.MEDIASOUP_RTC_MAX_PORT ?? 50000)
+                    rtcMinPort: Number(process.env.MEDIASERVER_RTC_MIN_PORT ?? 40000),
+                    rtcMaxPort: Number(process.env.MEDIASERVER_RTC_MAX_PORT ?? 50000)
                 });
 
             worker.on('died', (error) =>

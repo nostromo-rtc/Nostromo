@@ -63,7 +63,7 @@ export class FileService implements IFileService
 
         if (!process.env.FILE_MAX_SIZE)
         {
-            process.env.FILE_MAX_SIZE = String(20 * 1024 * 1024 * 1024);
+            process.env.FILE_MAX_SIZE = String(2 * 1024 * 1024 * 1024);
         }
     }
 

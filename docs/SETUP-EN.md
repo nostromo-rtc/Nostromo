@@ -86,10 +86,10 @@ Application will inform about error, if `"server.conf"` or `"server.default.conf
 2. Change webserver ports if it necessary (params `HTTP_PORT` and `HTTPS_PORT`).
     > Don't forget to open this ports.
 
-3. Set local and announced IP addresses in params `MEDIASOUP_LOCAL_IP` and `MEDIASOUP_ANNOUNCED_IP` for media server.
-    > If you plan to work in a closed local network, then you can set nothing in `MEDIASOUP_ANNOUNCED_IP`.
+3. Set local and announced IP addresses in params `MEDIASERVER_LOCAL_IP` and `MEDIASERVER_ANNOUNCED_IP` for media server.
+    > If you plan to work in a closed local network, then you can set nothing in `MEDIASERVER_ANNOUNCED_IP`.
 
-4. Set the range of ports for the media server from `MEDIASOUP_RTC_MIN_PORT` to `MEDIASOUP_RTC_MAX_PORT`.
+4. Set the range of ports for the media server from `MEDIASERVER_RTC_MIN_PORT` to `MEDIASERVER_RTC_MAX_PORT`.
     > Don't forget to open this ports (preferably open both **TCP** and **UDP** protocols, because server supports this protocols by default for connecting with user for sending mediastreams).
 
 5. Set incoming and outcoming network speed (in megabites) for a balanced calculation of the bitrate of media streams for your network: `NETWORK_INCOMING_CAPABILITY` - incoming speed, `NETWORK_OUTCOMING_CAPABILITY` - outcoming speed.
