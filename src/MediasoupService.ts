@@ -5,19 +5,17 @@ import MediasoupTypes = mediasoup.types;
 
 export { MediasoupTypes };
 
-export interface ServerProducerAppData
-{
+export type ServerProducerAppData = {
     streamId: string;
-}
+};
 
-export interface ServerConsumerAppData
-{
+export type ServerConsumerAppData = {
     /**
      * Consumer был поставлен на паузу со стороны клиента
      * (клиент поставил плеер на паузу)
      */
     clientPaused: boolean;
-}
+};
 
 export interface IMediasoupService
 {
@@ -183,7 +181,7 @@ export class MediasoupService implements IMediasoupService
             worker.on('died', (error) =>
             {
                 console.error(
-                    `[ERROR] [MediasoupService] Mediasoup Worker died [pid: ${worker.pid}]`, (error as Error).message
+                    `[ERROR] [MediasoupService] Mediasoup Worker died [pid: ${worker.pid}]`, error.message
                 );
             });
 
