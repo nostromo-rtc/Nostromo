@@ -125,8 +125,17 @@ async function main()
         // Инициализируем приложение.
         initApplication();
 
-        // Количество логических ядер (потоков) процессора.
-        const numWorkers = os.cpus().length;
+        const mediaserverMaxProcesses = process.env.MEDIASERVER_MAX_PROCESSES;
+
+        // Количество процессов для медиасервера.
+        let numWorkers = os.cpus().length;
+
+        if (mediaserverMaxProcesses !== undefined && mediaserverMaxProcesses !== "auto"
+            && (Number(mediaserverMaxProcesses) > 0 && Number(mediaserverMaxProcesses) <= os.cpus().length)
+        )
+        {
+            numWorkers = Number(mediaserverMaxProcesses);
+        }
 
         // Сервис для работы с медиапотоками.
         const mediasoupService = await MediasoupService.create(numWorkers);
