@@ -346,6 +346,9 @@ export class WebService
             return res.sendStatus(403);
         }
 
+        // Запрещаем кешировать страницу с админкой.
+        res.setHeader('Cache-Control', 'no-store');
+
         // Пароль из HTTP-заголовка.
         let passFromHeader = req.header("Authorization") ?? "";
         if (passFromHeader)

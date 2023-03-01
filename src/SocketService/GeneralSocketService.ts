@@ -2,7 +2,7 @@ import SocketIO = require('socket.io');
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { NewRoomNameInfo } from "nostromo-shared/types/AdminTypes";
+import { RoomNameInfo } from "nostromo-shared/types/AdminTypes";
 type Socket = SocketIO.Socket;
 
 export interface IGeneralSocketService
@@ -14,7 +14,7 @@ export interface IGeneralSocketService
     notifyAboutCreatedRoom(info: PublicRoomInfo): void;
 
     /** Оповестить на главной странице о новом названии комнаты. */
-    notifyAboutChangedRoomName(info: NewRoomNameInfo): void;
+    notifyAboutChangedRoomName(info: RoomNameInfo): void;
 
     /** Отправить новый список пользователей комнаты roomId всем подписчикам. */
     sendUserListToAllSubscribers(roomId: string): void;
@@ -93,7 +93,7 @@ export class GeneralSocketService implements IGeneralSocketService
         this.generalIo.emit(SE.RoomCreated, info);
     }
 
-    public notifyAboutChangedRoomName(info: NewRoomNameInfo): void
+    public notifyAboutChangedRoomName(info: RoomNameInfo): void
     {
         this.generalIo.emit(SE.RoomNameChanged, info);
     }

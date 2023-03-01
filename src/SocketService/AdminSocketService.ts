@@ -4,7 +4,7 @@ import SocketIO = require('socket.io');
 import { IGeneralSocketService } from "./GeneralSocketService";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomModeInfo, NewRoomNameInfo, NewRoomPassInfo, NewRoomSaveChatPolicyInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomModeInfo, RoomNameInfo, RoomPassInfo, NewRoomSaveChatPolicyInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
 import { IRoomSocketService } from "./RoomSocketService";
 import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
 import { IUserBanRepository } from "../User/UserBanRepository";
@@ -27,7 +27,7 @@ export class AdminSocketService
     private userAccountRepository: IUserAccountRepository;
     private roomChatRepository: IRoomChatRepository;
     private fileRepository: IFileRepository;
-    private adminAllowlist: Set<string>
+    private adminAllowlist: Set<string>;
 
     constructor(
         adminIo: SocketIO.Namespace,
@@ -107,6 +107,11 @@ export class AdminSocketService
             socket.on(SE.ChangeRoomPass, this.changeRoomPass);
             socket.on(SE.ChangeRoomSaveChatPolicy, this.changeRoomSaveChatPolicy);
             socket.on(SE.ChangeRoomMode, this.changeRoomMode);
+
+            socket.on(SE.GetRoomHashPass, (id: string) =>
+            {
+                this.getRoomHashPass(socket, id);
+            });
 
             socket.on(SE.ClearRoomChat, async (roomId: string) =>
             {
@@ -213,7 +218,7 @@ export class AdminSocketService
     };
 
     /** Изменить название комнаты. */
-    private changeRoomName = async (info: NewRoomNameInfo): Promise<void> =>
+    private changeRoomName = async (info: RoomNameInfo): Promise<void> =>
     {
         const { id, name } = info;
 
@@ -224,7 +229,7 @@ export class AdminSocketService
     };
 
     /** Изменить пароль комнаты. */
-    private changeRoomPass = async (info: NewRoomPassInfo): Promise<void> =>
+    private changeRoomPass = async (info: RoomPassInfo): Promise<void> =>
     {
         const { id, password } = info;
 
@@ -233,6 +238,19 @@ export class AdminSocketService
 
         // После смены пароля деавторизуем всех в комнате.
         await this.authRoomUserRepository.removeAll(id);
+    };
+
+    /** Получить хэш пароля комнаты. */
+    private getRoomHashPass = (socket: Socket, id: string): void =>
+    {
+        const hashPass = this.roomRepository.get(id)?.password;
+
+        const info: RoomPassInfo = {
+            id,
+            password: hashPass ?? ""
+        };
+
+        socket.emit(SE.GetRoomHashPass, info);
     };
 
     /** Изменить политику сохранения истории чатов. */
