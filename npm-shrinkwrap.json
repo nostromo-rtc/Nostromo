@@ -2187,7 +2187,7 @@
     },
     "node_modules/nostromo-web": {
       "version": "0.4.0-dev",
-      "resolved": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-web.git#d664edc2cf51cf4ad3d9e33d1229ad0194cddb86",
+      "resolved": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-web.git#63645b92cb6b279dea63478d932196c2a150fc00",
       "inBundle": true,
       "license": "BSD-3-Clause"
     },
@@ -4548,7 +4548,7 @@
       }
     },
     "nostromo-web": {
-      "version": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-web.git#d664edc2cf51cf4ad3d9e33d1229ad0194cddb86",
+      "version": "git+ssh://git@gitlab.com/SgAkErRu/nostromo-web.git#63645b92cb6b279dea63478d932196c2a150fc00",
       "from": "nostromo-web@gitlab:SgAkErRu/nostromo-web#dev"
     },
     "object-assign": {
