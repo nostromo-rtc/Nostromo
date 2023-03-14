@@ -25,11 +25,17 @@ export interface IMediasoupService
     /** Исходящая скорость сервера (в мегабитах Mbit). */
     readonly networkOutcomingCapability: number;
 
-    /** Максимальный битрейт (Кбит) для видеопотоков на сервере. */
-    maxVideoBitrate: number;
+    /** Максимальный битрейт (Кбит) для видеопотока с демонстрацией экрана на сервере. */
+    readonly maxDisplayVideoBitrate: number;
+
+    /** Максимальный битрейт (Кбит) для видеопотока с изображением веб-камеры на сервере. */
+    readonly maxCamVideoBitrate: number;
 
     /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
-    maxAudioBitrate: number;
+    readonly maxAudioBitrate: number;
+
+    /** Максимальный доступный битрейт (Кбит) для видеопотоков на сервере. */
+    maxAvailableVideoBitrate: number;
 
     /** Количество видеопотоков-потребителей. */
     get videoConsumersCount(): number;
@@ -87,28 +93,52 @@ export interface IMediasoupService
         routers: MediasoupTypes.Router[]
     ): Promise<MediasoupTypes.Producer>;
 
-    /** Рассчитываем новый максимальный битрейт для видеопотоков. */
-    calculateNewMaxVideoBitrate(): void;
+    /** Рассчитываем новый максимальный доступный битрейт для видеопотоков. */
+    calculateNewAvailableMaxVideoBitrate(): void;
 }
 
 export class MediasoupService implements IMediasoupService
 {
     private mediasoupWorkers = new Array<MediasoupTypes.Worker>();
 
-    public readonly networkIncomingCapability: number = Number(process.env.NETWORK_INCOMING_CAPABILITY) ?? 100;
-    public readonly networkOutcomingCapability: number = Number(process.env.NETWORK_OUTCOMING_CAPABILITY) ?? 100;
+    public readonly networkIncomingCapability: number =
+        (process.env.NETWORK_INCOMING_CAPABILITY !== undefined)
+            ? Number(process.env.NETWORK_INCOMING_CAPABILITY) : 100;
+    public readonly networkOutcomingCapability: number =
+        (process.env.NETWORK_OUTCOMING_CAPABILITY !== undefined)
+            ? Number(process.env.NETWORK_OUTCOMING_CAPABILITY) : 100;
 
-    public readonly enableUdp: boolean = (process.env.MEDIASERVER_RTC_ENABLE_UDP == "false") ? false : true;
-    public readonly enableTcp: boolean = (process.env.MEDIASERVER_RTC_ENABLE_TCP == "false") ? false : true;
-    public readonly preferUdp: boolean = (process.env.MEDIASERVER_RTC_PREFER_UDP == "false") ? false : true;
-    public readonly preferTcp: boolean = (process.env.MEDIASERVER_RTC_PREFER_TCP == "true") ? true : false;
+    public readonly enableUdp: boolean = (process.env.MEDIASERVER_RTC_ENABLE_UDP === "false") ? false : true;
+    public readonly enableTcp: boolean = (process.env.MEDIASERVER_RTC_ENABLE_TCP === "false") ? false : true;
+    public readonly preferUdp: boolean = (process.env.MEDIASERVER_RTC_PREFER_UDP === "false") ? false : true;
+    public readonly preferTcp: boolean = (process.env.MEDIASERVER_RTC_PREFER_TCP === "true") ? true : false;
 
-    public readonly localIp: string = (process.env.MEDIASERVER_LOCAL_IP) ?? "none";
-    public readonly announcedIp: string = (process.env.MEDIASERVER_ANNOUNCED_IP) ?? "none";
+    public readonly localIp: string = (
+        process.env.MEDIASERVER_LOCAL_IP !== undefined
+        && process.env.MEDIASERVER_LOCAL_IP !== ""
+    ) ? process.env.MEDIASERVER_LOCAL_IP : "0.0.0.0";
 
-    public maxAudioBitrate = ((process.env.MAX_AUDIO_BITRATE != undefined) ? Number(process.env.MAX_AUDIO_BITRATE) : 64) * PrefixConstants.KILO;
+    public readonly announcedIp: string = (
+        process.env.MEDIASERVER_ANNOUNCED_IP !== undefined
+        && process.env.MEDIASERVER_ANNOUNCED_IP !== ""
+    ) ? process.env.MEDIASERVER_ANNOUNCED_IP : "none";
 
-    public maxVideoBitrate = -1;
+    public maxAudioBitrate = (
+        (process.env.MAX_AUDIO_BITRATE !== undefined)
+            ? Number(process.env.MAX_AUDIO_BITRATE) : 64
+    ) * PrefixConstants.KILO;
+
+    public maxDisplayVideoBitrate = (
+        (process.env.MAX_DISPLAY_VIDEO_BITRATE !== undefined)
+            ? Number(process.env.MAX_DISPLAY_VIDEO_BITRATE) : 10
+    ) * PrefixConstants.MEGA;
+
+    public maxCamVideoBitrate = (
+        (process.env.MAX_CAM_VIDEO_BITRATE !== undefined)
+            ? Number(process.env.MAX_CAM_VIDEO_BITRATE) : 5
+    ) * PrefixConstants.MEGA;
+
+    public maxAvailableVideoBitrate = -1;
 
     private _videoConsumersCount = 0;
     public get videoConsumersCount(): number { return this._videoConsumersCount; }
@@ -191,6 +221,8 @@ export class MediasoupService implements IMediasoupService
         const service = new MediasoupService(workers);
         console.log(`[MediasoupService] Info about TCP and UDP support:\n> enableUdp: ${String(service.enableUdp)} | enableTcp: ${String(service.enableTcp)} | preferUdp: ${String(service.preferUdp)} | preferTcp: ${String(service.preferTcp)}.`);
         console.log(`[MediasoupService] Info about server IPs:\n> localIp: ${String(service.localIp)} | announcedIp: ${String(service.announcedIp)}.`);
+        console.log(`[MediasoupService] Max display video bitrate: ${service.maxDisplayVideoBitrate / PrefixConstants.MEGA} Mbit/s.`);
+        console.log(`[MediasoupService] Max cam video bitrate: ${service.maxCamVideoBitrate / PrefixConstants.MEGA} Mbit/s.`);
         console.log(`[MediasoupService] Max audio bitrate: ${service.maxAudioBitrate} bit/s.`);
 
         return service;
@@ -199,7 +231,7 @@ export class MediasoupService implements IMediasoupService
     private constructor(workers: MediasoupTypes.Worker[])
     {
         this.mediasoupWorkers = workers;
-        this.calculateNewMaxVideoBitrate();
+        this.calculateNewAvailableMaxVideoBitrate();
     }
 
     public async createRouters(codecChoice: VideoCodec): Promise<MediasoupTypes.Router[]>
@@ -238,14 +270,18 @@ export class MediasoupService implements IMediasoupService
         consuming: boolean
     ): Promise<MediasoupTypes.WebRtcTransport>
     {
+        const listenIps: (MediasoupTypes.TransportListenIp)[] = [{ ip: this.localIp }];
+
+        if (this.announcedIp != "none")
+        {
+            listenIps.push({
+                ip: this.localIp,
+                announcedIp: this.announcedIp
+            });
+        }
+
         const transport = await router.createWebRtcTransport({
-            listenIps: [
-                { ip: this.localIp },
-                {
-                    ip: this.localIp,
-                    announcedIp: this.announcedIp
-                }
-            ],
+            listenIps,
             initialAvailableOutgoingBitrate: 600000,
             enableUdp: this.enableUdp,
             enableTcp: this.enableTcp,
@@ -418,7 +454,7 @@ export class MediasoupService implements IMediasoupService
         }
     }
 
-    public calculateNewMaxVideoBitrate(): void
+    public calculateNewAvailableMaxVideoBitrate(): void
     {
         // Максимальный битрейт для аудио в мегабитах.
         const maxAudioBitrateMbs = this.maxAudioBitrate / PrefixConstants.MEGA;
@@ -433,18 +469,18 @@ export class MediasoupService implements IMediasoupService
         const availableIncomingCapability = this.networkIncomingCapability - (maxAudioBitrateMbs * this.audioProducersCount);
         const availableOutcomingCapability = this.networkOutcomingCapability - (maxAudioBitrateMbs * this.audioConsumersCount);
 
-        const maxVideoBitrate: number = Math.min(
+        const availableVideoBitrate: number = Math.min(
             availableIncomingCapability / producersCount,
             availableOutcomingCapability / consumersCount
         ) * PrefixConstants.MEGA;
 
-        if (maxVideoBitrate > 0)
+        if (availableVideoBitrate > 0)
         {
-            this.maxVideoBitrate = maxVideoBitrate;
+            this.maxAvailableVideoBitrate = availableVideoBitrate;
         }
         else
         {
-            this.maxVideoBitrate = -1;
+            this.maxAvailableVideoBitrate = -1;
         }
     }
 }

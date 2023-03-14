@@ -232,16 +232,6 @@ export class Room implements IRoom
 
     public readonly speakerUsers = new Set<string>();
 
-    public get maxVideoBitrate(): number
-    {
-        return this.mediasoup.maxVideoBitrate;
-    }
-
-    public get maxAudioBitrate(): number
-    {
-        return this.mediasoup.maxAudioBitrate;
-    }
-
     /** Создать комнату. */
     public static async create(
         info: RoomInfo,
@@ -377,7 +367,7 @@ export class Room implements IRoom
         if (!consumer.paused)
         {
             this.mediasoup.decreaseConsumersCount(consumer.kind);
-            this.mediasoup.calculateNewMaxVideoBitrate();
+            this.mediasoup.calculateNewAvailableMaxVideoBitrate();
         }
     }
 
@@ -410,7 +400,7 @@ export class Room implements IRoom
             // Поскольку consumer поставлен на паузу,
             // то уменьшаем счетчик и перерасчитываем битрейт.
             this.mediasoup.decreaseConsumersCount(consumer.kind);
-            this.mediasoup.calculateNewMaxVideoBitrate();
+            this.mediasoup.calculateNewAvailableMaxVideoBitrate();
 
             return true;
         }
@@ -452,7 +442,7 @@ export class Room implements IRoom
             // Поскольку consumer снят с паузы,
             // то увеличиваем счетчик и перерасчитываем битрейт.
             this.mediasoup.increaseConsumersCount(consumer.kind);
-            this.mediasoup.calculateNewMaxVideoBitrate();
+            this.mediasoup.calculateNewAvailableMaxVideoBitrate();
 
             return true;
         }
@@ -474,7 +464,7 @@ export class Room implements IRoom
         user.producers.set(producer.id, producer);
 
         this.mediasoup.increaseProducersCount(producer.kind);
-        this.mediasoup.calculateNewMaxVideoBitrate();
+        this.mediasoup.calculateNewAvailableMaxVideoBitrate();
 
         return producer;
     }
@@ -490,7 +480,7 @@ export class Room implements IRoom
         if (!producer.paused)
         {
             this.mediasoup.decreaseProducersCount(producer.kind);
-            this.mediasoup.calculateNewMaxVideoBitrate();
+            this.mediasoup.calculateNewAvailableMaxVideoBitrate();
         }
     }
 
@@ -538,7 +528,7 @@ export class Room implements IRoom
             await producer.pause();
 
             this.mediasoup.decreaseProducersCount(producer.kind);
-            this.mediasoup.calculateNewMaxVideoBitrate();
+            this.mediasoup.calculateNewAvailableMaxVideoBitrate();
 
             return true;
         }
@@ -570,7 +560,7 @@ export class Room implements IRoom
             await producer.resume();
 
             this.mediasoup.increaseProducersCount(producer.kind);
-            this.mediasoup.calculateNewMaxVideoBitrate();
+            this.mediasoup.calculateNewAvailableMaxVideoBitrate();
 
             return true;
         }
