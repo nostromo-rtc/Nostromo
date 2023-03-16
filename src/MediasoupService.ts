@@ -25,10 +25,10 @@ export interface IMediasoupService
     /** Исходящая скорость сервера (в мегабитах Mbit). */
     readonly networkOutcomingCapability: number;
 
-    /** Максимальный битрейт (Кбит) для видеопотока с демонстрацией экрана на сервере. */
+    /** Максимальный битрейт (бит) для видеопотока с демонстрацией экрана на сервере. */
     readonly maxDisplayVideoBitrate: number;
 
-    /** Максимальный битрейт (Кбит) для видеопотока с изображением веб-камеры на сервере. */
+    /** Максимальный битрейт (бит) для видеопотока с изображением веб-камеры на сервере. */
     readonly maxCamVideoBitrate: number;
 
     /** Максимальный битрейт (Кбит) для аудиопотоков на сервере. */
@@ -128,14 +128,21 @@ export class MediasoupService implements IMediasoupService
             ? Number(process.env.MAX_AUDIO_BITRATE) : 64
     ) * PrefixConstants.KILO;
 
-    public maxDisplayVideoBitrate = (
+    /** Максимальное суммарное значение битрейта (Кбит) видеопотоков от клиента.
+        Применимо только для клиентов с браузерами на основе libwebrtc (Chromium и т.д). */
+    private readonly maxTotalGoogleVideoBitrate: number = (
+        (process.env.MAX_TOTAL_GOOGLE_VIDEO_BITRATE !== undefined)
+            ? Number(process.env.MAX_TOTAL_GOOGLE_VIDEO_BITRATE) : 20
+    ) * PrefixConstants.KILO;
+
+    public readonly maxDisplayVideoBitrate = (
         (process.env.MAX_DISPLAY_VIDEO_BITRATE !== undefined)
             ? Number(process.env.MAX_DISPLAY_VIDEO_BITRATE) : 10
     ) * PrefixConstants.MEGA;
 
-    public maxCamVideoBitrate = (
+    public readonly maxCamVideoBitrate = (
         (process.env.MAX_CAM_VIDEO_BITRATE !== undefined)
-            ? Number(process.env.MAX_CAM_VIDEO_BITRATE) : 5
+            ? Number(process.env.MAX_CAM_VIDEO_BITRATE) : 2.5
     ) * PrefixConstants.MEGA;
 
     public maxAvailableVideoBitrate = -1;
@@ -153,34 +160,37 @@ export class MediasoupService implements IMediasoupService
     public get audioProducersCount(): number { return this._audioProducersCount; }
 
     // аудио кодек
-    private audioCodecConf: MediasoupTypes.RtpCodecCapability = {
+    private readonly audioCodecConf: MediasoupTypes.RtpCodecCapability = {
         kind: 'audio',
         mimeType: 'audio/opus',
         clockRate: 48000,
         channels: 2
     };
+
     // VP9
-    private videoCodecVp9Conf: MediasoupTypes.RtpCodecCapability = {
+    private readonly videoCodecVp9Conf: MediasoupTypes.RtpCodecCapability = {
         kind: 'video',
         mimeType: 'video/VP9',
         clockRate: 90000,
         parameters:
         {
-            'x-google-start-bitrate': 1000
+            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate
         }
     };
+
     // VP8
-    private videoCodecVp8Conf: MediasoupTypes.RtpCodecCapability = {
+    private readonly videoCodecVp8Conf: MediasoupTypes.RtpCodecCapability = {
         kind: 'video',
         mimeType: 'video/VP8',
         clockRate: 90000,
         parameters:
         {
-            'x-google-start-bitrate': 1000
+            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate
         }
     };
+
     // H264
-    private videoCodecH264Conf: MediasoupTypes.RtpCodecCapability = {
+    private readonly videoCodecH264Conf: MediasoupTypes.RtpCodecCapability = {
         kind: 'video',
         mimeType: 'video/h264',
         clockRate: 90000,
@@ -189,7 +199,7 @@ export class MediasoupService implements IMediasoupService
             'packetization-mode': 1,
             'profile-level-id': '42e01f',
             'level-asymmetry-allowed': 1,
-            'x-google-start-bitrate': 1000
+            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate
         }
     };
 
@@ -221,6 +231,7 @@ export class MediasoupService implements IMediasoupService
         const service = new MediasoupService(workers);
         console.log(`[MediasoupService] Info about TCP and UDP support:\n> enableUdp: ${String(service.enableUdp)} | enableTcp: ${String(service.enableTcp)} | preferUdp: ${String(service.preferUdp)} | preferTcp: ${String(service.preferTcp)}.`);
         console.log(`[MediasoupService] Info about server IPs:\n> localIp: ${String(service.localIp)} | announcedIp: ${String(service.announcedIp)}.`);
+        console.log(`[MediasoupService] Max total google video bitrate ('x-google-min-bitrate'): ${service.maxTotalGoogleVideoBitrate / PrefixConstants.KILO} Mbit/s.`);
         console.log(`[MediasoupService] Max display video bitrate: ${service.maxDisplayVideoBitrate / PrefixConstants.MEGA} Mbit/s.`);
         console.log(`[MediasoupService] Max cam video bitrate: ${service.maxCamVideoBitrate / PrefixConstants.MEGA} Mbit/s.`);
         console.log(`[MediasoupService] Max audio bitrate: ${service.maxAudioBitrate} bit/s.`);
