@@ -145,6 +145,9 @@ export class MediasoupService implements IMediasoupService
             ? Number(process.env.MAX_CAM_VIDEO_BITRATE) : 2.5
     ) * PrefixConstants.MEGA;
 
+    /** Enable WebRTC extension: Transport-Wide Congestion Control? */
+    public readonly enableGoogleTWCC: boolean = (process.env.ENABLE_GOOGLE_TWCC === "true") ? true : false;
+
     public maxAvailableVideoBitrate = -1;
 
     private _videoConsumersCount = 0;
@@ -270,7 +273,18 @@ export class MediasoupService implements IMediasoupService
 
         for (const worker of this.mediasoupWorkers)
         {
-            routers.push(await worker.createRouter(routerOptions));
+            const router = await worker.createRouter(routerOptions);
+
+            if (!this.enableGoogleTWCC)
+            {
+                router.rtpCapabilities.headerExtensions = router.rtpCapabilities.headerExtensions?.
+                filter((ext) =>
+                    ext.uri !== "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" &&
+                    ext.uri !== "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time"
+                );
+            }
+
+            routers.push(router);
         }
 
         return routers;
