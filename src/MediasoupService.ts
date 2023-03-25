@@ -177,7 +177,8 @@ export class MediasoupService implements IMediasoupService
         clockRate: 90000,
         parameters:
         {
-            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate
+            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate,
+            'x-google-max-bitrate': this.maxTotalGoogleVideoBitrate
         }
     };
 
@@ -188,7 +189,8 @@ export class MediasoupService implements IMediasoupService
         clockRate: 90000,
         parameters:
         {
-            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate
+            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate,
+            'x-google-max-bitrate': this.maxTotalGoogleVideoBitrate
         }
     };
 
@@ -202,7 +204,8 @@ export class MediasoupService implements IMediasoupService
             'packetization-mode': 1,
             'profile-level-id': '42e01f',
             'level-asymmetry-allowed': 1,
-            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate
+            'x-google-min-bitrate': this.maxTotalGoogleVideoBitrate,
+            'x-google-max-bitrate': this.maxTotalGoogleVideoBitrate
         }
     };
 
