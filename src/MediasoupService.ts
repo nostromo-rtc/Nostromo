@@ -146,7 +146,10 @@ export class MediasoupService implements IMediasoupService
     ) * PrefixConstants.MEGA;
 
     /** Enable WebRTC extension: Transport-Wide Congestion Control? */
-    public readonly enableGoogleTWCC: boolean = (process.env.ENABLE_GOOGLE_TWCC === "true") ? true : false;
+    public readonly enableGoogleVideoTWCC: boolean = (process.env.ENABLE_GOOGLE_VIDEO_TWCC === "true") ? true : false;
+
+    /** Enable WebRTC extension: Transport-Wide Congestion Control? */
+    public readonly enableGoogleAudioTWCC: boolean = (process.env.ENABLE_GOOGLE_AUDIO_TWCC === "true") ? true : false;
 
     public maxAvailableVideoBitrate = -1;
 
@@ -278,13 +281,22 @@ export class MediasoupService implements IMediasoupService
         {
             const router = await worker.createRouter(routerOptions);
 
-            if (!this.enableGoogleTWCC)
+            if (!this.enableGoogleVideoTWCC)
             {
                 router.rtpCapabilities.headerExtensions = router.rtpCapabilities.headerExtensions?.
-                filter((ext) =>
-                    ext.uri !== "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" &&
-                    ext.uri !== "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time"
-                );
+                    filter((ext) =>
+                        !(ext.uri === "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" && ext.kind === "video") &&
+                        !(ext.uri === "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time" && ext.kind === "video")
+                    );
+            }
+
+            if (!this.enableGoogleAudioTWCC)
+            {
+                router.rtpCapabilities.headerExtensions = router.rtpCapabilities.headerExtensions?.
+                    filter((ext) =>
+                        !(ext.uri === "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" && ext.kind === "audio") &&
+                        !(ext.uri === "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time" && ext.kind === "audio")
+                    );
             }
 
             routers.push(router);
