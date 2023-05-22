@@ -26,7 +26,7 @@ export interface IUserBanRepository
 export class PlainUserBanRepository implements IUserBanRepository
 {
     private readonly className = "PlainUserBanRepository";
-    private readonly BANS_FILE_PATH = path.resolve(process.cwd(), "data", "bans.json");
+    private readonly BANS_FILE_PATH = path.resolve("data", "bans.json");
     private bans = new Map<string, UserBanInfo>();
 
     /** Подозреваемые в подборе пароля (брутфорс). */

@@ -50,7 +50,7 @@ export class PlainUserAccountRepository implements IUserAccountRepository
 {
     private readonly className = "PlainUserAccountRepository";
 
-    private readonly USERS_FILE_PATH = path.resolve(process.cwd(), "data", "users.json");
+    private readonly USERS_FILE_PATH = path.resolve("data", "users.json");
 
     private users = new Map<string, UserAccount>();
 

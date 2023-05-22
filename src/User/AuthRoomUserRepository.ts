@@ -29,7 +29,7 @@ export class PlainAuthRoomUserRepository implements IAuthRoomUserRepository
 {
     private readonly className = "PlainAuthRoomUserRepository";
 
-    private readonly AUTH_ROOM_USERS_FILE_PATH = path.resolve(process.cwd(), "data", "auth-room-users.json");
+    private readonly AUTH_ROOM_USERS_FILE_PATH = path.resolve("data", "auth-room-users.json");
 
     /** Идентификаторы авторизованных пользователей в комнате. */
     private authRoomUsers = new Map<string, AuthorizationRecords>();

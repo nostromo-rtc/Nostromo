@@ -63,8 +63,8 @@ export interface IFileRepository
 export class PlainFileRepository implements IFileRepository
 {
     private readonly className = "PlainFileRepository";
-    private readonly FILES_INFO_FILE_PATH = path.resolve(process.cwd(), "data", "files.json");
-    private readonly FILES_PATH = path.join(process.cwd(), "data", FileServiceConstants.FILES_ROUTE);
+    private readonly FILES_INFO_FILE_PATH = path.resolve("data", "files.json");
+    private readonly FILES_PATH = path.join("data", FileServiceConstants.FILES_ROUTE);
     private files = new Map<FileId, FileInfo>();
     private currentFileStorageSize = 0;
 

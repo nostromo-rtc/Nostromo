@@ -24,7 +24,7 @@ export class PlainRoomChatRepository implements IRoomChatRepository
 {
     private readonly className = "PlainRoomChatRepository";
 
-    private readonly CHATS_FOLDER_PATH = path.resolve(process.cwd(), "data", "chats");
+    private readonly CHATS_FOLDER_PATH = path.resolve("data", "chats");
 
     private getPathForRoomChatFile(roomId: string)
     {

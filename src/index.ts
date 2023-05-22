@@ -33,8 +33,8 @@ import { PlainAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { PlainFileRepository } from "./FileService/FileRepository";
 import { PlainRoomChatRepository } from "./Room/RoomChatRepository";
 
-const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.default.conf');
-const CUSTOM_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'server.conf');
+const DEFAULT_CONFIG_PATH = path.resolve("config", "server.default.conf");
+const CUSTOM_CONFIG_PATH = path.resolve("config", "server.conf");
 
 // загрузка значений из конфигурационного файла
 function prepareConfig(): boolean
@@ -59,6 +59,10 @@ function prepareConfig(): boolean
  */
 function initApplication()
 {
+    // Вместо дефолтного поведения, когда за cwd берется папка, откуда запущен процесс node
+    // Берем за cwd родительскую папку для index.js (т.е папку выше по иерархии над dist, где находится package.json)
+    process.chdir(path.dirname(__dirname));
+
     // загрузка значений из конфигурационного файла
     // выполняем первым делом, так как в конфиге написано название файла для лога
     const configLoadSuccess = prepareConfig();
@@ -68,7 +72,7 @@ function initApplication()
 
     // считываем название и версию программы
     // именно таким способом, чтобы не были нужны переменные окружения npm
-    const packageJson: unknown = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8"));
+    const packageJson: unknown = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf8"));
     const { name, version } = packageJson as { name: string; version: string; };
 
     // выводим шапку
@@ -200,8 +204,8 @@ async function main()
 
         // настройки https-сервера (сертификаты)
         const httpsOptions: https.ServerOptions = {
-            key: fs.readFileSync(path.resolve(process.cwd(), 'config', 'ssl', process.env.SSL_PRIVATE_KEY!), 'utf8'),
-            cert: fs.readFileSync(path.resolve(process.cwd(), 'config', 'ssl', process.env.SSL_PUBLIC_CERT!), 'utf8')
+            key: fs.readFileSync(path.resolve("config", "ssl", process.env.SSL_PRIVATE_KEY!), 'utf8'),
+            cert: fs.readFileSync(path.resolve("config", "ssl", process.env.SSL_PUBLIC_CERT!), 'utf8')
         };
 
         const httpsServer: https.Server = https.createServer(httpsOptions, express.app);
