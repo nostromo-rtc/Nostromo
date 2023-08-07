@@ -11,7 +11,7 @@ import { IUserAccountRepository } from "./User/UserAccountRepository";
 import { IAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
 import { ProxyAddrTrust } from ".";
 
-const frontend_dirname = process.cwd() + "/node_modules/nostromo-web";
+const frontend_dirname = process.cwd() + "/node_modules/nostromo-web/build";
 
 // Расширяю класс Request у Express, добавляя в него клиентский ip-адрес.
 declare global
@@ -91,8 +91,8 @@ export class WebService
 
         this.app.use(WebService.rejectRequestWithBodyMiddleware);
 
-        this.handleRoutes();
         this.handleStatic();
+        this.handleRoutes();
 
         this.app.use(WebService.preventFloodMiddleware);
 
@@ -213,21 +213,17 @@ export class WebService
     /** Обрабатываем маршруты. */
     private handleRoutes(): void
     {
-        // Маршруты для главной страницы
-        this.app.get('/', (req: express.Request, res: express.Response) =>
-        {
-            res.sendFile(path.join(frontend_dirname, '/pages', 'index.html'));
-        });
-
-        // Маршруты для комнаты
-        this.app.get('/rooms/:roomId', this.roomRoute);
-        this.app.get('/r/:roomId', this.roomRoute);
-
         // Маршруты для админки
         this.app.get('/admin', this.adminRoute);
 
         // Маршруты для файлов
         this.handleFilesRoutes();
+
+        // Маршруты для главной страницы
+        this.app.get('/*', (req: express.Request, res: express.Response) =>
+        {
+            res.sendFile(path.join(frontend_dirname, '/', 'index.html'));
+        });
     }
 
     /**
@@ -434,22 +430,7 @@ export class WebService
     /** Открываем доступ к статике. */
     private handleStatic(): void
     {
-        this.app.use('/admin', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            express.static(frontend_dirname + "/static/admin/")(req, res, next);
-        });
-
-        this.app.use('/rooms', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            express.static(frontend_dirname + "/static/rooms/")(req, res, next);
-        });
-
-        this.app.use('/r', (req: express.Request, res: express.Response, next: express.NextFunction) =>
-        {
-            express.static(frontend_dirname + "/static/rooms/")(req, res, next);
-        });
-
-        this.app.use('/', express.static(frontend_dirname + "/static/public/"));
+        this.app.use('/', express.static(frontend_dirname));
     }
 
     /** Самый последний обработчик запросов. */

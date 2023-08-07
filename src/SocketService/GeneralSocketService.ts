@@ -46,8 +46,10 @@ export class GeneralSocketService implements IGeneralSocketService
     {
         this.generalIo.on('connection', (socket: Socket) =>
         {
-            // Как только клиент подключился, отправляем ему список комнат.
-            socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
+            socket.on(SE.RoomList, () =>
+            {
+                socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
+            });
 
             socket.on(SE.SubscribeUserList, async (roomId: string) =>
             {
