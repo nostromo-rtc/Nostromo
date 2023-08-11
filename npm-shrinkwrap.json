@@ -1337,26 +1337,6 @@
             "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==",
             "dev": true
         },
-        "node_modules/base64-js": {
-            "version": "1.5.1",
-            "resolved": "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz",
-            "integrity": "sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==",
-            "funding": [
-                {
-                    "type": "github",
-                    "url": "https://github.com/sponsors/feross"
-                },
-                {
-                    "type": "patreon",
-                    "url": "https://www.patreon.com/feross"
-                },
-                {
-                    "type": "consulting",
-                    "url": "https://feross.org/support"
-                }
-            ],
-            "inBundle": true
-        },
         "node_modules/base64id": {
             "version": "2.0.0",
             "resolved": "https://registry.npmjs.org/base64id/-/base64id-2.0.0.tgz",
@@ -1416,30 +1396,6 @@
             },
             "engines": {
                 "node": ">=8"
-            }
-        },
-        "node_modules/buffer": {
-            "version": "6.0.3",
-            "resolved": "https://registry.npmjs.org/buffer/-/buffer-6.0.3.tgz",
-            "integrity": "sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==",
-            "funding": [
-                {
-                    "type": "github",
-                    "url": "https://github.com/sponsors/feross"
-                },
-                {
-                    "type": "patreon",
-                    "url": "https://www.patreon.com/feross"
-                },
-                {
-                    "type": "consulting",
-                    "url": "https://feross.org/support"
-                }
-            ],
-            "inBundle": true,
-            "dependencies": {
-                "base64-js": "^1.3.1",
-                "ieee754": "^1.2.1"
             }
         },
         "node_modules/bytes": {
@@ -2546,26 +2502,6 @@
                 "node": ">=0.10.0"
             }
         },
-        "node_modules/ieee754": {
-            "version": "1.2.1",
-            "resolved": "https://registry.npmjs.org/ieee754/-/ieee754-1.2.1.tgz",
-            "integrity": "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==",
-            "funding": [
-                {
-                    "type": "github",
-                    "url": "https://github.com/sponsors/feross"
-                },
-                {
-                    "type": "patreon",
-                    "url": "https://www.patreon.com/feross"
-                },
-                {
-                    "type": "consulting",
-                    "url": "https://feross.org/support"
-                }
-            ],
-            "inBundle": true
-        },
         "node_modules/ignore": {
             "version": "5.2.0",
             "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.2.0.tgz",
@@ -2696,6 +2632,12 @@
             "funding": {
                 "url": "https://github.com/sponsors/panva"
             }
+        },
+        "node_modules/js-base64": {
+            "version": "3.7.5",
+            "resolved": "https://registry.npmjs.org/js-base64/-/js-base64-3.7.5.tgz",
+            "integrity": "sha512-3MEt5DTINKqfScXKfJFrRbxkrnk2AxPWGBL/ycjz4dK8iqiSJ06UxD8jh8xuh6p10TX4t2+7FsBYVxxQbMg+qA==",
+            "inBundle": true
         },
         "node_modules/js-sdsl": {
             "version": "4.2.0",
@@ -3051,7 +2993,7 @@
         },
         "node_modules/nostromo-shared": {
             "version": "0.4.0-dev",
-            "resolved": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-shared.git#ddc97d153717adcddee7e494b70636b7f34d4dc0",
+            "resolved": "git+https://git@gitlab.com/nostromo-rtc/nostromo-shared.git#ddc97d153717adcddee7e494b70636b7f34d4dc0",
             "inBundle": true,
             "license": "BSD-3-Clause",
             "dependencies": {
@@ -3060,15 +3002,15 @@
         },
         "node_modules/nostromo-web": {
             "version": "0.5.0-dev",
-            "resolved": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#a1697d636eb34157bc79a1c3c75ae54edcd0fba2",
+            "resolved": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#3fbb6a796e2baa7f79516c6082d495f26a5bba38",
             "inBundle": true,
             "license": "BSD-3-Clause",
             "dependencies": {
                 "@emotion/react": "^11.11.1",
                 "@emotion/styled": "^11.11.0",
                 "@mui/material": "^5.13.7",
-                "buffer": "^6.0.3",
                 "howler": "^2.2.3",
+                "js-base64": "^3.7.5",
                 "mediasoup-client": "^3.6.57",
                 "nostromo-shared": "git+https://git@gitlab.com/nostromo-rtc/nostromo-shared.git#new-ui",
                 "plyr": "^3.7.2",
@@ -5042,11 +4984,6 @@
             "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==",
             "dev": true
         },
-        "base64-js": {
-            "version": "1.5.1",
-            "resolved": "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz",
-            "integrity": "sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA=="
-        },
         "base64id": {
             "version": "2.0.0",
             "resolved": "https://registry.npmjs.org/base64id/-/base64id-2.0.0.tgz",
@@ -5093,15 +5030,6 @@
             "dev": true,
             "requires": {
                 "fill-range": "^7.0.1"
-            }
-        },
-        "buffer": {
-            "version": "6.0.3",
-            "resolved": "https://registry.npmjs.org/buffer/-/buffer-6.0.3.tgz",
-            "integrity": "sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==",
-            "requires": {
-                "base64-js": "^1.3.1",
-                "ieee754": "^1.2.1"
             }
         },
         "bytes": {
@@ -5914,11 +5842,6 @@
                 "safer-buffer": ">= 2.1.2 < 3"
             }
         },
-        "ieee754": {
-            "version": "1.2.1",
-            "resolved": "https://registry.npmjs.org/ieee754/-/ieee754-1.2.1.tgz",
-            "integrity": "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="
-        },
         "ignore": {
             "version": "5.2.0",
             "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.2.0.tgz",
@@ -6010,6 +5933,11 @@
             "version": "4.12.0",
             "resolved": "https://registry.npmjs.org/jose/-/jose-4.12.0.tgz",
             "integrity": "sha512-wW1u3cK81b+SFcHjGC8zw87yuyUweEFe0UJirrXEw1NasW00eF7sZjeG3SLBGz001ozxQ46Y9sofDvhBmWFtXQ=="
+        },
+        "js-base64": {
+            "version": "3.7.5",
+            "resolved": "https://registry.npmjs.org/js-base64/-/js-base64-3.7.5.tgz",
+            "integrity": "sha512-3MEt5DTINKqfScXKfJFrRbxkrnk2AxPWGBL/ycjz4dK8iqiSJ06UxD8jh8xuh6p10TX4t2+7FsBYVxxQbMg+qA=="
         },
         "js-sdsl": {
             "version": "4.2.0",
@@ -6254,21 +6182,21 @@
             "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg=="
         },
         "nostromo-shared": {
-            "version": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-shared.git#ddc97d153717adcddee7e494b70636b7f34d4dc0",
+            "version": "git+https://git@gitlab.com/nostromo-rtc/nostromo-shared.git#ddc97d153717adcddee7e494b70636b7f34d4dc0",
             "from": "nostromo-shared@gitlab:nostromo-rtc/nostromo-shared#new-ui-link-backend",
             "requires": {
                 "mediasoup-client": "3.6.82"
             }
         },
         "nostromo-web": {
-            "version": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#a1697d636eb34157bc79a1c3c75ae54edcd0fba2",
+            "version": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#3fbb6a796e2baa7f79516c6082d495f26a5bba38",
             "from": "nostromo-web@gitlab:nostromo-rtc/nostromo-web#new-ui-link-backend",
             "requires": {
                 "@emotion/react": "^11.11.1",
                 "@emotion/styled": "^11.11.0",
                 "@mui/material": "^5.13.7",
-                "buffer": "^6.0.3",
                 "howler": "^2.2.3",
+                "js-base64": "^3.7.5",
                 "mediasoup-client": "^3.6.57",
                 "nostromo-shared": "git+https://git@gitlab.com/nostromo-rtc/nostromo-shared.git#new-ui",
                 "plyr": "^3.7.2",

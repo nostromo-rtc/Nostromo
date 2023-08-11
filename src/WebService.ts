@@ -1,6 +1,7 @@
 import express = require('express');
 import path = require('path');
 import proxyAddr = require("proxy-addr");
+import cors = require('cors');
 
 import { ITokenService } from "./TokenService";
 import { IFileService } from "./FileService/FileService";
@@ -77,6 +78,11 @@ export class WebService
         this.adminAllowlist = adminAllowlist;
 
         this.trustProxyAddrFunc = trustProxyAddrFunc;
+
+        if (process.env.ENABLE_CORS === "true")
+        {
+            this.app.use(cors());
+        }
 
         this.app.use(this.getClientIpMiddleware);
 
@@ -213,6 +219,9 @@ export class WebService
     /** Обрабатываем маршруты. */
     private handleRoutes(): void
     {
+        // Маршруты для авторизации в комнате
+        this.app.get('/api/r/:roomId', this.roomRoute);
+
         // Маршруты для админки
         this.app.get('/admin', this.adminRoute);
 
@@ -253,21 +262,15 @@ export class WebService
     }
 
     /** Маршруты для комнаты. */
-    private roomRoute: express.RequestHandler = async (req, res, next) =>
+    private roomRoute: express.RequestHandler = async (req, res) =>
     {
-        // Запрещаем кешировать страницу с комнатой.
-        res.setHeader('Cache-Control', 'no-store');
-
-        const ROOM_AUTH_PAGE_PATH = path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html');
-        const ROOM_PAGE_PATH = path.join(frontend_dirname, '/pages/rooms', 'room.html');
-
         // проверяем наличие запрашиваемой комнаты
         const roomId: string = req.params.roomId;
         const room = this.roomRepository.get(roomId);
 
         if (!room)
         {
-            return next();
+            return res.sendStatus(404);
         }
 
         const userId = req.token.userId;
@@ -275,7 +278,7 @@ export class WebService
         // Если пользователь авторизован в этой комнате.
         if (userId && this.authRoomUserRepository.has(roomId, userId))
         {
-            return res.sendFile(ROOM_PAGE_PATH);
+            return res.sendStatus(200);
         }
 
         // Пароль из query.
@@ -315,7 +318,7 @@ export class WebService
 
             // Запоминаем для этого пользователя авторизованную комнату.
             await this.authRoomUserRepository.create(roomId, userId);
-            res.sendFile(ROOM_PAGE_PATH);
+            res.sendStatus(200);
         }
         else
         {
@@ -329,7 +332,7 @@ export class WebService
                 }
             }
 
-            res.status(401).sendFile(ROOM_AUTH_PAGE_PATH);
+            res.sendStatus(401);
         }
     };
 
