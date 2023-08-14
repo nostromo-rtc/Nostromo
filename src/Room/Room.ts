@@ -4,6 +4,7 @@ import
 {
     ConnectWebRtcTransportInfo,
     NewProducerInfo,
+    PublicRoomInfo,
     RoomInfo,
     VideoCodec,
 } from "nostromo-shared/types/RoomTypes";
@@ -85,6 +86,9 @@ export interface IRoom
 
     /** Получить RTP возможности (кодеки) роутера. */
     get routerRtpCapabilities(): MediasoupTypes.RtpCapabilities;
+
+    /** Получить публичную информацию о комнате. */
+    get publicInfo(): PublicRoomInfo;
 
     /**
      * Создать транспортный канал по запросу клиента.
@@ -266,6 +270,16 @@ export class Room implements IRoom
         // Поскольку кодеки всех роутеров этой комнаты одинаковые,
         // то вернем кодеки первого роутера.
         return this.mediasoupRouters[0].rtpCapabilities;
+    }
+
+    public get publicInfo(): PublicRoomInfo
+    {
+        const info: PublicRoomInfo = {
+            id: this.id,
+            name: this.name,
+            videoCodec: this.videoCodec
+        };
+        return info;
     }
 
     /** Получить очередной роутер для создания транспортного канала. */

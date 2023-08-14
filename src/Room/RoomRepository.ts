@@ -261,11 +261,7 @@ export class PlainRoomRepository implements IRoomRepository
         for (const roomRec of this.rooms)
         {
             const room = roomRec[1];
-            roomList.push({
-                id: room.id,
-                name: room.name,
-                videoCodec: room.videoCodec
-            });
+            roomList.push(room.publicInfo);
         }
 
         return roomList;

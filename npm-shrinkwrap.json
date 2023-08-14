@@ -3002,7 +3002,7 @@
         },
         "node_modules/nostromo-web": {
             "version": "0.5.0-dev",
-            "resolved": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#3fbb6a796e2baa7f79516c6082d495f26a5bba38",
+            "resolved": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#9aabdc4e2466a07dbcd40a87dd1a99fc90cd0acb",
             "inBundle": true,
             "license": "BSD-3-Clause",
             "dependencies": {
@@ -6189,7 +6189,7 @@
             }
         },
         "nostromo-web": {
-            "version": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#3fbb6a796e2baa7f79516c6082d495f26a5bba38",
+            "version": "git+ssh://git@gitlab.com/nostromo-rtc/nostromo-web.git#9aabdc4e2466a07dbcd40a87dd1a99fc90cd0acb",
             "from": "nostromo-web@gitlab:nostromo-rtc/nostromo-web#new-ui-link-backend",
             "requires": {
                 "@emotion/react": "^11.11.1",

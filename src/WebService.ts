@@ -278,7 +278,7 @@ export class WebService
         // Если пользователь авторизован в этой комнате.
         if (userId && this.authRoomUserRepository.has(roomId, userId))
         {
-            return res.sendStatus(200);
+            return res.status(200).send(room.publicInfo);
         }
 
         // Пароль из query.
@@ -318,7 +318,7 @@ export class WebService
 
             // Запоминаем для этого пользователя авторизованную комнату.
             await this.authRoomUserRepository.create(roomId, userId);
-            res.sendStatus(200);
+            res.status(200).send(room.publicInfo);
         }
         else
         {
@@ -332,7 +332,7 @@ export class WebService
                 }
             }
 
-            res.sendStatus(401);
+            res.status(401).send(room.publicInfo);
         }
     };
 
