@@ -24,13 +24,13 @@ For [english version click here](/README-EN.md).
 Платформа **Nostromo** состоит из нескольких компонентов:
 Репозиторий                                                     | Описание
 -------------                                                   | -------------
-[Nostromo Server](https://gitlab.com/SgAkErRu/nostromo)         | Сервер Nostromo (backend), построенный на платформе `Node.js`
-[Nostromo Web](https://gitlab.com/SgAkErRu/nostromo-web)        | Веб-клиент Nostromo (frontend), написанный на чистом `HTML` и `TypeScript`
-[Nostromo Shared](https://gitlab.com/SgAkErRu/nostromo-shared)  | Компонент с общими типами и структурами для сервера и клиентской части
+[Nostromo Server](https://gitlab.com/nostromo-rtc/nostromo)         | Сервер Nostromo (backend), построенный на платформе `Node.js`
+[Nostromo Web](https://gitlab.com/nostromo-rtc/nostromo-web)        | Веб-клиент Nostromo (frontend), написанный на чистом `HTML` и `TypeScript`
+[Nostromo Shared](https://gitlab.com/nostromo-rtc/nostromo-shared)  | Компонент с общими типами и структурами для сервера и клиентской части
 
 ## Дальнейшие планы на разработку
 
-Ознакомиться с примерными планами на разработку можно [здесь, в Milestones](https://gitlab.com/SgAkErRu/nostromo/-/milestones).
+Ознакомиться с примерными планами на разработку можно [здесь, в Milestones](https://gitlab.com/groups/nostromo-rtc/-/milestones).
 
 ## Особенности
 
@@ -79,7 +79,7 @@ For [english version click here](/README-EN.md).
 
 Всё это было на стареньком 10-летнем сервере и с пропускной способностью сети (Интернет) около **15 Мбит/с**.
 
-Попробуйте и вы, и делитесь вашими результатами любым удобным вам способом (через [Issues](https://gitlab.com/SgAkErRu/nostromo/-/issues) или [электронной почтой](mailto:sulmpx60@yandex.ru)).
+Попробуйте и вы, и делитесь вашими результатами любым удобным вам способом (через [Issues](https://gitlab.com/groups/nostromo-rtc/-/issues) или [электронной почтой](mailto:sulmpx60@yandex.ru)).
 
 # Установка, настройка, требования
 
@@ -88,7 +88,10 @@ For [english version click here](/README-EN.md).
 # Часто задаваемые вопросы (FAQ)
 [Часто задаваемые вопросы и ответы можно найти тут](/docs/FAQ.md).
 
-# Демонстрационный скриншот (это не финальный вариант)
+# Демонстрационный скриншот нового интерфейса (в активной разработке)
+![Nostromo demo new-ui screenshot](nostromo-demo-new-ui-screenshot.png)
+
+# Демонстрационный скриншот (для версий < 0.5.0)
 ![Nostromo demo screenshot](nostromo-demo-screenshot.png)
 
 # Автор
@@ -97,4 +100,4 @@ For [english version click here](/README-EN.md).
 
 # Лицензия
 
-[BSD 3-Clause License](/LICENSE)
+[BSD 2-Clause License](/LICENSE)

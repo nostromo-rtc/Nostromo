@@ -22,13 +22,13 @@ Absolutely free, standalone, open-source, without any artificial limits or restr
 **Nostromo** consists of several components:
 Repository                                                     | Description
 -------------                                                  | -------------
-[Nostromo Server](https://gitlab.com/SgAkErRu/nostromo)        | Nostromo Server (backend), built on `Node.js`
-[Nostromo Web](https://gitlab.com/SgAkErRu/nostromo-web)       | Nostromo Web-Client (frontend), written on pure `HTML` and `TypeScript`
-[Nostromo Shared](https://gitlab.com/SgAkErRu/nostromo-shared) | Component with shared types and structures for backend and frontend
+[Nostromo Server](https://gitlab.com/nostromo-rtc/nostromo)        | Nostromo Server (backend), built on `Node.js`
+[Nostromo Web](https://gitlab.com/nostromo-rtc/nostromo-web)       | Nostromo Web-Client (frontend), written on pure `HTML` and `TypeScript`
+[Nostromo Shared](https://gitlab.com/nostromo-rtc/nostromo-shared) | Component with shared types and structures for backend and frontend
 
 ## Future development plans
 
-You can read the approximate development plans [here, in Milestones](https://gitlab.com/SgAkErRu/nostromo/-/milestones).
+You can read the approximate development plans [here, in Milestones](https://gitlab.com/groups/nostromo-rtc/-/milestones).
 
 ## Features
 
@@ -77,7 +77,7 @@ We have tested on **40** users for several hours and in general everything went 
 
 All this was on an 10-year-old server and with a network bandwith (Internet) of about 15 **Mbit/s**.
 
-Try it yourself and share your results in any way you like (via [Issues](https://gitlab.com/SgAkErRu/nostromo/-/issues) or [e-mail](mailto:sulmpx60@yandex.ru)).
+Try it yourself and share your results in any way you like (via [Issues](https://gitlab.com/groups/nostromo-rtc/-/issues) or [e-mail](mailto:sulmpx60@yandex.ru)).
 
 # Setup, settings, requirements
 
@@ -86,7 +86,10 @@ Try it yourself and share your results in any way you like (via [Issues](https:/
 # FAQ
 [You can find FAQ here](/docs/FAQ-EN.md).
 
-# Demo screenshot (not final result)
+# Demo screenshot of new-ui (in active development)
+![Nostromo demo new-ui screenshot](nostromo-demo-new-ui-screenshot.png)
+
+# Demo screenshot (for version < 0.5.0)
 ![Nostromo demo screenshot](nostromo-demo-screenshot.png)
 
 # Author
@@ -95,4 +98,4 @@ Try it yourself and share your results in any way you like (via [Issues](https:/
 
 # License
 
-[BSD 3-Clause License](/LICENSE)
+[BSD 2-Clause License](/LICENSE)
