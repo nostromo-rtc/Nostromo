@@ -1,53 +1,53 @@
 {
-  "name": "nostromo",
-  "version": "0.4.0-dev",
-  "description": "WebRTC SFU Server for Video conferencing on Node.js",
-  "main": "dist/index.js",
-  "scripts": {
-    "start": "node dist/index.js",
-    "build": "tsc -p src/tsconfig.json",
-    "prepare": "npm run build"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://gitlab.com/SgAkErRu/nostromo.git"
-  },
-  "author": "SgAkErRu",
-  "license": "BSD-3-Clause",
-  "dependencies": {
-    "cookie": "0.5.0",
-    "dotenv": "10.0.0",
-    "express": "~4.19.2",
-    "jose": "~4.15.5",
-    "mediasoup": "3.11.11",
-    "nanoid": "3.3.4",
-    "nostromo-web": "gitlab:SgAkErRu/nostromo-web#dev",
-    "proxy-addr": "2.0.7",
-    "socket.io": "~4.7.5"
-  },
-  "devDependencies": {
-    "@types/express": "4.17.17",
-    "@types/node": "16.18.12",
-    "@types/proxy-addr": "2.0.0",
-    "@typescript-eslint/eslint-plugin": "5.53.0",
-    "@typescript-eslint/parser": "5.53.0",
-    "eslint": "8.34.0",
-    "nostromo-shared": "gitlab:SgAkErRu/nostromo-shared#dev",
-    "typescript": "4.9.5"
-  },
-  "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme",
-  "engines": {
-    "node": ">=16",
-    "npm": ">=8"
-  },
-  "bundleDependencies": [
-    "cookie",
-    "dotenv",
-    "express",
-    "jose",
-    "mediasoup",
-    "nanoid",
-    "nostromo-web",
-    "socket.io"
-  ]
+    "name": "nostromo",
+    "version": "0.4.0-dev",
+    "description": "WebRTC SFU Server for Video conferencing on Node.js",
+    "main": "dist/index.js",
+    "scripts": {
+        "start": "node dist/index.js",
+        "build": "tsc -p src/tsconfig.json",
+        "prepare": "npm run build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://gitlab.com/SgAkErRu/nostromo.git"
+    },
+    "author": "SgAkErRu",
+    "license": "BSD-2-Clause",
+    "dependencies": {
+        "cookie": "~0.7.2",
+        "dotenv": "~10.0.0",
+        "express": "~4.21.1",
+        "jose": "~4.15.9",
+        "mediasoup": "3.11.11",
+        "nanoid": "~3.3.7",
+        "nostromo-web": "gitlab:SgAkErRu/nostromo-web#dev",
+        "proxy-addr": "2.0.7",
+        "socket.io": "~4.8.0"
+    },
+    "devDependencies": {
+        "@types/express": "~4.17.17",
+        "@types/node": "16.18.12",
+        "@types/proxy-addr": "~2.0.3",
+        "@typescript-eslint/eslint-plugin": "5.53.0",
+        "@typescript-eslint/parser": "5.53.0",
+        "eslint": "8.34.0",
+        "nostromo-shared": "gitlab:SgAkErRu/nostromo-shared#dev",
+        "typescript": "4.9.5"
+    },
+    "homepage": "https://gitlab.com/SgAkErRu/nostromo#readme",
+    "engines": {
+        "node": ">=16",
+        "npm": ">=8"
+    },
+    "bundleDependencies": [
+        "cookie",
+        "dotenv",
+        "express",
+        "jose",
+        "mediasoup",
+        "nanoid",
+        "nostromo-web",
+        "socket.io"
+    ]
 }

@@ -25,7 +25,7 @@ declare global
 }
 
 // Расширяю класс Handshake у Socket.IO, добавляя в него данные из токена.
-declare module "socket.io/dist/socket" {
+declare module "socket.io/dist/socket-types" {
     interface Handshake
     {
         token: TokenData;

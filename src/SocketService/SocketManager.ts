@@ -22,7 +22,7 @@ export type SocketNextFunction = (err?: ExtendedError) => void;
 type SocketMiddleware = (req: SocketIO.Socket, next: SocketNextFunction) => void;
 
 // Расширяю класс Handshake у Socket.IO, добавляя в него клиентский ip-адрес.
-declare module "socket.io/dist/socket" {
+declare module "socket.io/dist/socket-types" {
     interface Handshake
     {
         clientIp: string;
@@ -69,7 +69,7 @@ export class SocketManager
         socket.handshake.clientIp = clientIp;
 
         next();
-    }
+    };
 
     private checkBanMiddleware: SocketMiddleware = (socket, next) =>
     {
