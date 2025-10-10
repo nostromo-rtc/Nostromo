@@ -333,6 +333,7 @@ export class RoomSocketService implements IRoomSocketService
                 id: transport.id,
                 iceParameters: transport.iceParameters,
                 iceCandidates: transport.iceCandidates as NewWebRtcTransportInfo['iceCandidates'],
+                // @ts-expect-error: internal type problem between mediasoup and mediasoup-client
                 dtlsParameters: transport.dtlsParameters
             };
 
@@ -430,6 +431,7 @@ export class RoomSocketService implements IRoomSocketService
                 id: consumer.id,
                 producerId: producer.id,
                 kind: consumer.kind,
+                // @ts-expect-error: internal type problem between mediasoup and mediasoup-client
                 rtpParameters: consumer.rtpParameters,
                 producerUserId,
                 streamId

@@ -1,7 +1,7 @@
 import mediasoup = require('mediasoup');
 import { NewProducerInfo, PrefixConstants, VideoCodec } from "nostromo-shared/types/RoomTypes";
 import { ActiveUser } from './Room/Room';
-import MediasoupTypes = mediasoup.types;
+import { types as MediasoupTypes } from "mediasoup";
 
 export { MediasoupTypes };
 
