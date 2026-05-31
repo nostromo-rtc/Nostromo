@@ -219,6 +219,9 @@ export class WebService
     /** Обрабатываем маршруты. */
     private handleRoutes(): void
     {
+        // Authorization API
+        this.app.get('/api/r/:roomId', this.roomRoute);
+
         // Маршруты для админки
         this.app.get('/admin', this.adminRoute);
 
@@ -259,21 +262,15 @@ export class WebService
     }
 
     /** Маршруты для комнаты. */
-    private roomRoute: express.RequestHandler = async (req, res, next) =>
+    private roomRoute: express.RequestHandler = async (req, res) =>
     {
-        // Запрещаем кешировать страницу с комнатой.
-        res.setHeader('Cache-Control', 'no-store');
-
-        const ROOM_AUTH_PAGE_PATH = path.join(frontend_dirname, '/pages/rooms', 'roomAuth.html');
-        const ROOM_PAGE_PATH = path.join(frontend_dirname, '/pages/rooms', 'room.html');
-
         // проверяем наличие запрашиваемой комнаты
         const roomId: string = req.params.roomId;
         const room = this.roomRepository.get(roomId);
 
         if (!room)
         {
-            return next();
+            return res.sendStatus(404);
         }
 
         const userId = req.token.userId;
@@ -281,11 +278,8 @@ export class WebService
         // Если пользователь авторизован в этой комнате.
         if (userId && this.authRoomUserRepository.has(roomId, userId))
         {
-            return res.sendFile(ROOM_PAGE_PATH);
+            return res.sendStatus(200);
         }
-
-        // Пароль из query.
-        const passFromQuery = req.query.p as string | undefined;
 
         // Пароль из HTTP-заголовка.
         let passFromHeader = req.header("Authorization");
@@ -295,9 +289,8 @@ export class WebService
         }
 
         // Берем пароль HTTP-заголовка,
-        // а если его нет, то из query,
         // а если и его нет, то берем как пустой пароль.
-        const pass = passFromHeader ?? passFromQuery ?? "";
+        const pass = passFromHeader ?? "";
 
         // Проверяем пароль.
         const isPassCorrect = await this.roomRepository.checkPassword(room.id, pass);
@@ -321,7 +314,7 @@ export class WebService
 
             // Запоминаем для этого пользователя авторизованную комнату.
             await this.authRoomUserRepository.create(roomId, userId);
-            res.sendFile(ROOM_PAGE_PATH);
+            res.sendStatus(200);
         }
         else
         {
@@ -335,7 +328,7 @@ export class WebService
                 }
             }
 
-            res.status(401).sendFile(ROOM_AUTH_PAGE_PATH);
+            res.sendStatus(401);
         }
     };
 
