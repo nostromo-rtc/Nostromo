@@ -1,6 +1,7 @@
 import express = require('express');
 import path = require('path');
 import proxyAddr = require("proxy-addr");
+import cors = require('cors');
 
 import { ITokenService } from "./TokenService";
 import { IFileService } from "./FileService/FileService";
@@ -77,6 +78,11 @@ export class WebService
         this.adminAllowlist = adminAllowlist;
 
         this.trustProxyAddrFunc = trustProxyAddrFunc;
+
+        if (process.env.ENABLE_CORS === "true")
+        {
+            this.app.use(cors());
+        }
 
         this.app.use(this.getClientIpMiddleware);
 
