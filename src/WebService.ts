@@ -220,6 +220,9 @@ export class WebService
     /** Обрабатываем маршруты. */
     private handleRoutes(): void
     {
+        // Get user info with role
+        this.app.get('/api/userinfo', this.getUserInfoWithRole);
+
         // Authorization API
         this.app.get('/api/r/:roomId', this.roomRoute);
 
@@ -261,6 +264,22 @@ export class WebService
 
         return userId;
     }
+
+    private getUserInfoWithRole: express.RequestHandler = async (req, res) =>
+    {
+        const userId = req.token.userId;
+
+        if (userId)
+        {
+            const userAccount = this.userAccountRepository.get(userId);
+            if (userAccount)
+            {
+                return res.json(userAccount);
+            }
+        }
+
+        return res.sendStatus(404);
+    };
 
     /** Маршруты для комнаты. */
     private roomRoute: express.RequestHandler = async (req, res) =>
