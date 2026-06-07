@@ -222,8 +222,8 @@ export class WebService
         // Authorization API
         this.app.get('/api/r/:roomId', this.roomRoute);
 
-        // Маршруты для админки
-        this.app.get('/admin', this.adminRoute);
+        // Admin authorization API
+        this.app.get('/api/admin', this.adminRoute);
 
         // Маршруты для файлов
         this.handleFilesRoutes();
@@ -341,9 +341,6 @@ export class WebService
             return res.sendStatus(403);
         }
 
-        // Запрещаем кешировать страницу с админкой.
-        res.setHeader('Cache-Control', 'no-store');
-
         // Пароль из HTTP-заголовка.
         let passFromHeader = req.header("Authorization") ?? "";
         if (passFromHeader)
@@ -381,14 +378,14 @@ export class WebService
                 }
             }
 
-            res.status(401).sendFile(path.join(frontend_dirname, '/pages/admin', 'adminAuth.html'));
+            return res.sendStatus(401);
         }
         else
         {
             // Забудем все неудачные попытки авторизации в панели администратора.
             this.userBanRepository.clearFailedAuthAttempts(userIp, "admin");
 
-            res.sendFile(path.join(frontend_dirname, '/pages/admin', 'admin.html'));
+            return res.sendStatus(200);
         }
     };
 
