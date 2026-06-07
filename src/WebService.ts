@@ -305,16 +305,18 @@ export class WebService
             this.userBanRepository.clearFailedAuthAttempts(userIp, roomId);
 
             let userId = req.token.userId;
+            let status = 200;
 
             // Если у пользователя не было токена.
             if (!userId)
             {
                 userId = await this.createAuthToken(res, "user");
+                status = 201;
             }
 
             // Запоминаем для этого пользователя авторизованную комнату.
             await this.authRoomUserRepository.create(roomId, userId);
-            res.sendStatus(200);
+            res.sendStatus(status);
         }
         else
         {
@@ -341,14 +343,20 @@ export class WebService
             return res.sendStatus(403);
         }
 
+        let userId = req.token.userId;
+
+        // Already authorized.
+        if (userId && this.userAccountRepository.isAdmin(userId))
+        {
+            return res.sendStatus(200);
+        }
+
         // Пароль из HTTP-заголовка.
         let passFromHeader = req.header("Authorization") ?? "";
         if (passFromHeader)
         {
             passFromHeader = Buffer.from(passFromHeader, "base64").toString("utf-8");
         }
-
-        let userId = req.token.userId;
 
         // Если пароль верный.
         if (passFromHeader == process.env.ADMIN_PASS)
@@ -385,7 +393,7 @@ export class WebService
             // Забудем все неудачные попытки авторизации в панели администратора.
             this.userBanRepository.clearFailedAuthAttempts(userIp, "admin");
 
-            return res.sendStatus(200);
+            return res.sendStatus(201);
         }
     };
 
