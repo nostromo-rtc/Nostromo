@@ -1,22 +1,12 @@
 import path = require("path");
 import { nanoid } from "nanoid";
+import { UserInfoWithRole as UserAccount, UserRole } from "nostromo-shared/types/RoomTypes";
+
 import { readFromFileSync, writeToFile } from "../Utils";
-
-export interface UserAccount
-{
-    /** Идентификатор аккаунта пользователя. */
-    readonly id: string;
-
-    /** Имя пользователя. */
-    name: string;
-
-    /** Роль пользователя. */
-    role: string;
-}
 
 interface NewUserAccountInfo
 {
-    role: string;
+    role: UserRole;
 }
 
 export interface IUserAccountRepository
@@ -37,7 +27,7 @@ export interface IUserAccountRepository
     setUsername(id: string, name: string): Promise<void>;
 
     /** Установить новую роль для пользователя. */
-    setRole(id: string, role: string): Promise<void>;
+    setRole(id: string, role: UserRole): Promise<void>;
 
     /** Получить имя пользователя. */
     getUsername(id: string): string | undefined;
@@ -156,7 +146,7 @@ export class PlainUserAccountRepository implements IUserAccountRepository
         console.log(`[${this.className}] User [Id: ${id}, '${oldName}'] has a new name: '${name}'.`);
     }
 
-    public async setRole(id: string, role: string): Promise<void>
+    public async setRole(id: string, role: UserRole): Promise<void>
     {
         const user = this.users.get(id);
 
