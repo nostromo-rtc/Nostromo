@@ -3,14 +3,15 @@ import path = require('path');
 import proxyAddr = require("proxy-addr");
 import cors = require('cors');
 
-import { ITokenService } from "./TokenService";
+import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
+import { UserRole } from "nostromo-shared/types/RoomTypes";
+import { ProxyAddrTrust } from ".";
 import { IFileService } from "./FileService/FileService";
 import { IRoomRepository } from "./Room/RoomRepository";
-import { FileServiceConstants } from "nostromo-shared/types/FileServiceTypes";
-import { IUserBanRepository } from "./User/UserBanRepository";
-import { IUserAccountRepository } from "./User/UserAccountRepository";
+import { ITokenService } from "./TokenService";
 import { IAuthRoomUserRepository } from "./User/AuthRoomUserRepository";
-import { ProxyAddrTrust } from ".";
+import { IUserAccountRepository } from "./User/UserAccountRepository";
+import { IUserBanRepository } from "./User/UserBanRepository";
 
 const frontend_dirname = process.cwd() + "/node_modules/nostromo-web/build";
 
@@ -241,7 +242,7 @@ export class WebService
      */
     private async createAuthToken(
         res: express.Response,
-        role: string
+        role: UserRole
     ): Promise<string>
     {
         const expTimeInSec = (process.env.TOKEN_EXP_TIME != undefined) ? Number(process.env.TOKEN_EXP_TIME) : (14 * 24 * 60 * 60); // по умолчанию 2 недели.
