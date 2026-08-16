@@ -117,7 +117,9 @@ export class SocketManager
         // главная страница (общие события)
         this.generalSocketService = new GeneralSocketService(
             this.namespaces.get("general")!,
-            roomRepository
+            tokenMiddleware,
+            roomRepository,
+            userAccountRepository
         );
 
         // события комнаты

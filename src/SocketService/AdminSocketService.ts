@@ -1,18 +1,18 @@
 
 import SocketIO = require('socket.io');
-
-import { IGeneralSocketService } from "./GeneralSocketService";
+import { ActionOnUserInfo, NewRoomInfo, NewRoomModeInfo, NewRoomSaveChatPolicyInfo, RoomNameInfo, RoomPassInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
+import { PublicRoomInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
 import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
+
+import { IFileRepository } from "../FileService/FileRepository";
+import { IRoomChatRepository } from "../Room/RoomChatRepository";
 import { IRoomRepository } from "../Room/RoomRepository";
-import { ActionOnUserInfo, ChangeUserNameInfo, NewRoomInfo, NewRoomModeInfo, RoomNameInfo, RoomPassInfo, NewRoomSaveChatPolicyInfo, UpdateRoomInfo } from "nostromo-shared/types/AdminTypes";
-import { IRoomSocketService } from "./RoomSocketService";
-import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
-import { IUserBanRepository } from "../User/UserBanRepository";
+import { TokenSocketMiddleware } from "../TokenService";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
-import { TokenSocketMiddleware } from "../TokenService";
-import { IRoomChatRepository } from "../Room/RoomChatRepository";
-import { IFileRepository } from "../FileService/FileRepository";
+import { IUserBanRepository } from "../User/UserBanRepository";
+import { IGeneralSocketService } from "./GeneralSocketService";
+import { IRoomSocketService } from "./RoomSocketService";
 
 type Socket = SocketIO.Socket;
 
@@ -141,9 +141,9 @@ export class AdminSocketService
                 this.roomSocketService.stopUserAudio(info);
             });
 
-            socket.on(SE.ChangeUsername, (info: ChangeUserNameInfo) =>
+            socket.on(SE.ChangeUsername, async (info: UserInfo) =>
             {
-                this.roomSocketService.changeUsername(info);
+                await this.generalSocketService.changeUsername(info);
             });
 
             socket.on(SE.BanUser, async (info: ActionOnUserInfo) =>

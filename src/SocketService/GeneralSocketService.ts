@@ -1,12 +1,18 @@
 import SocketIO = require('socket.io');
-import { PublicRoomInfo } from "nostromo-shared/types/RoomTypes";
-import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
-import { IRoomRepository } from "../Room/RoomRepository";
 import { RoomNameInfo } from "nostromo-shared/types/AdminTypes";
+import { PublicRoomInfo, UserInfo } from "nostromo-shared/types/RoomTypes";
+import { SocketEvents as SE } from "nostromo-shared/types/SocketEvents";
+
+import { IRoomRepository } from "../Room/RoomRepository";
+import { TokenSocketMiddleware } from "../TokenService";
+import { IUserAccountRepository } from "../User/UserAccountRepository";
 type Socket = SocketIO.Socket;
 
 export interface IGeneralSocketService
 {
+    /** Change name by admin action. */
+    changeUsername(info: UserInfo): Promise<void>;
+
     /** Оповестить на главной странице об удаленной комнате. */
     notifyAboutDeletedRoom(id: string): void;
 
@@ -30,14 +36,20 @@ export class GeneralSocketService implements IGeneralSocketService
 {
     private generalIo: SocketIO.Namespace;
     private roomRepository: IRoomRepository;
+    private userAccountRepository: IUserAccountRepository;
 
     constructor(
         generalIo: SocketIO.Namespace,
-        roomRepository: IRoomRepository
+        tokenMiddleware: TokenSocketMiddleware,
+        roomRepository: IRoomRepository,
+        userAccountRepository: IUserAccountRepository
     )
     {
         this.generalIo = generalIo;
         this.roomRepository = roomRepository;
+        this.userAccountRepository = userAccountRepository;
+
+        this.generalIo.use(tokenMiddleware);
 
         this.clientConnected();
     }
@@ -46,6 +58,8 @@ export class GeneralSocketService implements IGeneralSocketService
     {
         this.generalIo.on('connection', (socket: Socket) =>
         {
+            const userId = socket.handshake.token.userId;
+
             socket.on(SE.RoomList, () =>
             {
                 socket.emit(SE.RoomList, this.roomRepository.getRoomLinkList());
@@ -59,6 +73,17 @@ export class GeneralSocketService implements IGeneralSocketService
             socket.on(SE.UnsubscribeUserList, async (roomId: string) =>
             {
                 await this.unsubscribeUserList(socket, roomId);
+            });
+
+            socket.on(SE.NewUsername, async (username: string) =>
+            {
+                if (!userId)
+                {
+                    return;
+                }
+
+                const userInfo: UserInfo = { id: userId, name: username };
+                await this.changeUsername(userInfo);
             });
         });
     }
@@ -88,6 +113,36 @@ export class GeneralSocketService implements IGeneralSocketService
 
         // отписываемся от получения списка юзеров в комнате roomId
         await socket.leave(`${SE.UserList}-${roomId}`);
+    }
+
+    public async changeUsername(
+        userInfo: UserInfo
+    ): Promise<void>
+    {
+        const userId = userInfo.id;
+        let username = userInfo.name;
+
+        if (username.length > 32)
+        {
+            username = username.slice(0, 32);
+        }
+
+        const oldName = this.userAccountRepository.getUsername(userId);
+        if (username === oldName)
+        {
+            return;
+        }
+
+        await this.userAccountRepository.setUsername(userId, username);
+
+        const newInfo: UserInfo = {
+            id: userId,
+            name: username
+        };
+
+        // TODO: send new name only to rooms,
+        // where this user was before (or is active right now)?
+        this.generalIo.emit(SE.NewUsername, newInfo);
     }
 
     public notifyAboutCreatedRoom(info: PublicRoomInfo): void

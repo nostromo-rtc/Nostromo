@@ -8,7 +8,7 @@ import { ChatFileInfo, ChatMessage, ConnectWebRtcTransportInfo, UserReadyInfo, N
 import { IMediasoupService, MediasoupTypes, ServerProducerAppData } from "../MediasoupService";
 import { IUserBanRepository } from "../User/UserBanRepository";
 import { IUserAccountRepository } from "../User/UserAccountRepository";
-import { ActionOnUserInfo, ChangeUserNameInfo } from "nostromo-shared/types/AdminTypes";
+import { ActionOnUserInfo } from "nostromo-shared/types/AdminTypes";
 import { IAuthRoomUserRepository } from "../User/AuthRoomUserRepository";
 import { IFileRepository } from "../FileService/FileRepository";
 import { TokenSocketMiddleware } from "../TokenService";
@@ -35,9 +35,6 @@ export interface IRoomSocketService
 
     /** Сообщить клиенту пользователя, о том, что необходимо прекратить захват аудиодорожки. */
     stopUserAudio(info: ActionOnUserInfo): void;
-
-    /** Изменить имя пользователя. */
-    changeUsername(info: ChangeUserNameInfo): void;
 
     /** Сообщить клиенту пользователя, о том, что он может выступать. */
     allowUserToSpeak(info: ActionOnUserInfo): void;
@@ -145,15 +142,6 @@ export class RoomSocketService implements IRoomSocketService
 
         // Вступаем в socket.io комнату.
         await socket.join(room.id);
-
-        // Сообщаем пользователю его идентификатор.
-        socket.emit(SE.UserId, userId);
-
-        // Сообщаем пользователю его имя.
-        socket.emit(SE.Username, username);
-
-        // Сообщаем пользователю название комнаты.
-        socket.emit(SE.RoomName, room.name);
 
         // Сообщаем пользователю, разрешено ли ему выступать (в зависимости от режима конференции).
         if (room.symmetricMode)
@@ -278,12 +266,6 @@ export class RoomSocketService implements IRoomSocketService
                 // максимального битрейта для видеопотоков.
                 this.emitMaxAvailableVideoBitrate(this.mediasoupService.maxAvailableVideoBitrate);
             }
-        });
-
-        // Новый ник пользователя.
-        socket.on(SE.NewUsername, async (username: string) =>
-        {
-            await this.userChangedName(room.id, socket, userId, username);
         });
 
         // Пользователь отсоединился.
@@ -598,32 +580,6 @@ export class RoomSocketService implements IRoomSocketService
         }
     }
 
-    /** Пользователь изменил ник. */
-    private async userChangedName(
-        roomId: string,
-        socket: Socket,
-        userId: string,
-        username: string
-    ): Promise<void>
-    {
-        if (username.length > 32)
-        {
-            username = username.slice(0, 32);
-        }
-
-        await this.userAccountRepository.setUsername(userId, username);
-
-        const info: UserInfo = {
-            id: userId,
-            name: username
-        };
-
-        socket.to(roomId).emit(SE.NewUsername, info);
-
-        // Сообщаем заинтересованным новый список пользователей в комнате.
-        this.generalSocketService.sendUserListToAllSubscribers(roomId);
-    }
-
     /** Пользователь отправил сообщение в чат. */
     private async userSentChatMsg(
         roomId: string,
@@ -848,19 +804,6 @@ export class RoomSocketService implements IRoomSocketService
         for (const user of room.activeUsers)
         {
             this.forbidUserToSpeak({ roomId, userId: user[0] });
-        }
-    }
-
-    //TODO: когда изменение ника перенесется в настройки, параметр roomId будет не нужен.
-    public changeUsername(info: ChangeUserNameInfo): void
-    {
-        const { roomId, userId, username } = info;
-
-        const userSocket = this.getSocketByUserId(roomId, userId);
-
-        if (userSocket)
-        {
-            userSocket.emit(SE.ChangeUsername, username);
         }
     }
 
